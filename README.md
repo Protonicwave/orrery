@@ -10,12 +10,15 @@ benchmarked entirely on a single Lunar Lake laptop.
 > time integrators, velocity Verlet, Yoshida's fourth-order symplectic
 > composition and classical RK4, the direct O(N^2) gravitational solver they
 > advance a configuration under, a work-stealing scheduler that runs it across
-> the machine's eight cores, an AVX2 kernel chosen at run time, and the
-> benchmark harness that measures all of it against limits measured on the same
-> machine. Orrery now simulates gravity correctly, and at four fifths of the
-> ceiling that actually binds the kernel. What is missing is the algorithm: the
-> solver still computes every pair, and the Barnes-Hut tree is the next phase.
-> Progress is tracked in the phase table in
+> the machine's eight cores, an AVX2 kernel chosen at run time, the benchmark
+> harness that measures all of it against limits measured on the same machine,
+> and the Barnes-Hut tree solver that replaces most of the interactions with an
+> approximation whose error is measured against the direct one rather than
+> assumed. Orrery now simulates gravity correctly, at four fifths of the ceiling
+> that binds the direct kernel, and at a cost that grows as N^1.24 rather than
+> N^2. What is missing is the GPU: nothing here has yet asked the integrated Arc
+> for anything, and a SYCL backend is the next phase. Progress is tracked in the
+> phase table in
 > [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md), and this README
 > gains results and figures as the phases that produce them land. Nothing is
 > claimed here before it can be reproduced.
@@ -165,10 +168,69 @@ every source and writes only its own acceleration, so a threaded evaluation is
 bit for bit identical to a serial one whatever the thread count, and the test
 suite asserts that for equality rather than against a tolerance.
 
-The full tables, the roofline plot, the per-worker breakdown and an honest
-account of which of these figures reproduce and which do not are in
-[`docs/performance/roofline.md`](docs/performance/roofline.md) and
-[`docs/performance/threading.md`](docs/performance/threading.md). Reproduce
+## What the tree solver changed
+
+The direct solver computes every pair and is the reference everything else is
+measured against. The Barnes-Hut solver replaces distant groups of particles
+with a single term each, which turns the cost from N^2 into something close to
+N log N and introduces an error the opening angle controls.
+
+Measured over two and a half decades of N, against the same vectorised
+eight-core direct solver above:
+
+| N | Tree | Direct | Speedup | Interactions per particle |
+| --- | --- | --- | --- | --- |
+| 1024 | 0.879 ms | 0.283 ms | 0.32x | 647 |
+| 4096 | 5.573 ms | 4.417 ms | 0.79x | 1403 |
+| 8192 | 15.47 ms | 18.40 ms | **1.19x** | 1852 |
+| 32768 | 96.00 ms | 400.3 ms | 4.17x | 2580 |
+| 65536 | 236.3 ms | 1082 ms | 4.58x | 2953 |
+| 262144 | 868.2 ms | about 17 s | about 20x | 3373 |
+
+The crossover is at about **6100 particles**, which is high compared with the
+figures usually quoted for Barnes-Hut and is high for a good reason: the
+opponent is an AVX2 kernel running at four fifths of its hardware ceiling on
+eight cores, not a scalar loop. Direct summation at 262144 particles is not
+measured but extrapolated from its own N^2 scaling, and is marked as such.
+
+Fitted across the whole range the cost goes as **N^1.24**, against 1.11 for
+exactly N log N and 2.0 for direct summation. The tree depth grows from 6 to 11
+levels over the same range, which is log N almost exactly.
+
+The interaction counter says something the timings cannot. At 262144 particles
+the tree computes **78 times fewer** interactions than direct summation and is
+only 20 times faster, because a tree interaction costs about four times as much
+as a direct one: the direct kernel computes four pairs per AVX2 register from
+contiguous memory, and the tree's cell terms are scalar and sit at the end of a
+walk. That gap, rather than the asymptotics, is what a faster tree has to
+attack next.
+
+Accuracy is measured against a compensated-summation reference, not against the
+direct solver, since both of those have rounding error of their own. At 16384
+particles, with the default opening angle of 0.5, the root mean square relative
+error is 1.9e-3 and the worst particle is at 1.0e-2; closing the angle to 0.2
+brings those to 1.1e-4 and 3.5e-4 for 3.6 times the time. Quadrupole moments are
+an option rather than a default, because the measurement says they are the
+cheaper way to buy accuracy only below about a part in a thousand:
+
+| Target RMS error | Monopole only | With quadrupoles | Cheaper |
+| --- | --- | --- | --- |
+| 1e-2 | 11.3 ms | not reachable at any legal angle | monopole |
+| 1e-3 | 43.5 ms | 43.9 ms | neither |
+| 1e-4 | 127 ms | 90 ms | quadrupole, by 1.4x |
+
+Momentum is the one invariant the tree gives up. Direct summation conserves it
+to round-off because it evaluates each pair from both ends; a tree does not,
+since particle i may see j through a cell while j sees i directly. The test
+suite measures the size of that violation and that closing the angle reduces it,
+rather than asserting a zero that would be false.
+
+The full tables, the roofline plot, the per-worker breakdown, the error against
+cost curve and an honest account of which of these figures reproduce and which
+do not are in
+[`docs/performance/roofline.md`](docs/performance/roofline.md),
+[`docs/performance/threading.md`](docs/performance/threading.md) and
+[`docs/performance/barnes_hut.md`](docs/performance/barnes_hut.md). Reproduce
 with:
 
 ```
@@ -176,6 +238,7 @@ cmake --preset release
 cmake --build --preset release
 ./build/release/benchmarks/orrery_roofline 8192 21
 ./build/release/benchmarks/orrery_threading_scaling 8192 11
+./build/release/benchmarks/orrery_tree_scaling
 ```
 
 ## Target hardware
