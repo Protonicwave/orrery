@@ -23,6 +23,8 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
 endif()
 
 option(ORRERY_BUILD_TESTS "Build the test suite" ${PROJECT_IS_TOP_LEVEL})
+option(ORRERY_BUILD_BENCHMARKS "Build the measurement programs"
+       ${PROJECT_IS_TOP_LEVEL})
 option(ORRERY_SINGLE_PRECISION
        "Use float rather than double as the scalar type" OFF)
 option(ORRERY_WARNINGS_AS_ERRORS "Treat compiler warnings as errors"
@@ -48,4 +50,8 @@ add_subdirectory(src)
 if(ORRERY_BUILD_TESTS)
   enable_testing()
   add_subdirectory(tests)
+endif()
+
+if(ORRERY_BUILD_BENCHMARKS)
+  add_subdirectory(benchmarks)
 endif()
