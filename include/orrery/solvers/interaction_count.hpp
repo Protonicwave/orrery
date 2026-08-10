@@ -54,6 +54,25 @@ struct InteractionCount {
     /// separate, so the name that will have to be distinguished later is
     /// distinguished now.
     std::uint64_t particle_particle{};
+
+    /// How many of those evaluations were between a particle and a cell of a
+    /// tree treated as a single mass.
+    ///
+    /// Zero for direct summation, which is the point of the separation: the sum
+    /// of the two counters is what a tree solver actually computed, and the
+    /// ratio between them is what it bought. A Barnes-Hut evaluation over a
+    /// million particles performs a few hundred of these per particle where
+    /// direct summation performs a million particle-particle interactions, and
+    /// quoting one total would hide that behind an average.
+    ///
+    /// The two are not interchangeable as costs, either, which is the second
+    /// reason to keep them apart. A particle-particle interaction is one
+    /// iteration of a vectorised loop over contiguous memory. A particle-cell
+    /// interaction is preceded by a walk down a tree, is not vectorised, and
+    /// costs several times as much arithmetic where quadrupole moments are in
+    /// use. `docs/performance/barnes_hut.md` measures the ratio rather than
+    /// assuming it.
+    std::uint64_t particle_cell{};
 };
 
 } // namespace orrery::solvers

@@ -1,4 +1,4 @@
-# The force solvers: direct summation now, Barnes-Hut in Phase 8.
+# The force solvers: direct summation and Barnes-Hut.
 #
 # It sits above integrators and depends on it, which is the one direction that
 # might look wrong at first glance. A solver is an acceleration field, and that
@@ -7,9 +7,9 @@
 # ADR-0012 records that choice and ADR-0014 the interface added here on top of
 # it.
 add_library(
-  orrery_solvers STATIC direct_kernel.cpp direct_kernel_scalar.cpp
-                        direct_solver.cpp morton.cpp octree.cpp
-                        reference_kernel.cpp)
+  orrery_solvers STATIC
+  barnes_hut_solver.cpp direct_kernel.cpp direct_kernel_scalar.cpp
+  direct_solver.cpp morton.cpp octree.cpp reference_kernel.cpp tree_walk.cpp)
 add_library(orrery::solvers ALIAS orrery_solvers)
 
 # All three are public: the solver interface derives from the integrators'
