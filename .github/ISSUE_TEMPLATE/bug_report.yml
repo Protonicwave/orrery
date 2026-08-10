@@ -1,0 +1,73 @@
+name: Bug report
+description: Something behaves incorrectly, fails to build, or crashes
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A numerical result cannot be investigated without the seed, the
+        configuration and the build settings, so please fill in the build
+        environment section even if the problem looks unrelated to it.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened
+      description: The observed behaviour, and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: How to reproduce
+      description: >
+        The exact commands, including the CMake preset, the configuration file
+        or command-line flags, and the particle count.
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: seed
+    attributes:
+      label: Seed
+      description: >
+        The random seed, if the run involved sampled initial conditions. Write
+        "none" if it did not.
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Build environment
+      description: >
+        Operating system, compiler and version, CMake preset, and whether the
+        build is single or double precision.
+      value: |
+        Operating system:
+        Compiler and version:
+        CMake preset:
+        Precision:
+    validations:
+      required: true
+
+  - type: input
+    id: commit
+    attributes:
+      label: Commit
+      description: The commit hash the problem was observed at.
+    validations:
+      required: true
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Output
+      description: >
+        Relevant compiler diagnostics, test failure output, or diagnostics from
+        the run. Sanitiser output is particularly useful.
+      render: shell
+    validations:
+      required: false

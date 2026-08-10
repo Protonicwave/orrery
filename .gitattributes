@@ -1,0 +1,15 @@
+# Development happens on Windows and CI runs on Linux. Normalising line endings
+# in the repository keeps the two from producing whole-file diffs.
+* text=auto eol=lf
+
+# Windows-only tooling that must keep CRLF to remain executable.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary formats, so Git never tries to merge or diff them as text.
+*.png binary
+*.jpg binary
+*.mp4 binary
+*.orrery binary
+*.ckpt binary

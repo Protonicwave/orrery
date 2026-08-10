@@ -1,0 +1,10 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Implementation plan
+    url: https://github.com/Protonicwave/orrery/blob/main/docs/IMPLEMENTATION_PLAN.md
+    about: >
+      What is being built, in what order, and what is deliberately out of scope.
+      Read this before opening a proposal.
+  - name: Contributing guide
+    url: https://github.com/Protonicwave/orrery/blob/main/CONTRIBUTING.md
+    about: Conventions, testing categories and the definition of done.

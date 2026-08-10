@@ -486,7 +486,7 @@ and re-checked whenever kernels change.
 
 | Phase | Title | State |
 | --- | --- | --- |
-| 0 | Repository foundations | Not started |
+| 0 | Repository foundations | Complete |
 | 1 | Build system and CI | Not started |
 | 2 | Core data structures | Not started |
 | 3 | Diagnostics and initial conditions | Not started |
