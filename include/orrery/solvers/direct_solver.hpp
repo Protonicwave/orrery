@@ -52,10 +52,26 @@
 ///
 /// N(N-1) interactions per evaluation, which is the cost that motivates every
 /// later phase. Phase 6 divided the loop over target particles between threads
-/// and Phase 7 will vectorise the loop inside it, both as work on this kernel
-/// rather than as second copies of it. The arithmetic below is the same
-/// arithmetic Phase 5 validated; what changed is who runs which iterations of
-/// the outer loop.
+/// and Phase 7 vectorised the loop inside it, both as work on this kernel
+/// rather than as second copies of it. The physics below is the physics Phase 5
+/// validated; what changed is who runs which iterations of the outer loop and
+/// how many pairs the inner one handles at once.
+///
+/// ## Vectorisation
+///
+/// The solver holds no arithmetic of its own any more. The summation over a
+/// range of sources lives in `solvers/direct_kernel.hpp`, in a scalar version
+/// and an AVX2 version, and this class chooses between them once per force
+/// evaluation. That file sets out the two ways the vector kernel's answer
+/// differs from the scalar one, reassociated summation and fused
+/// multiply-add, and neither is a relaxation of IEEE arithmetic; ADR-0020
+/// records that the project enables no fast-math flag anywhere.
+///
+/// The default is the fastest kernel the machine can run, which is what a
+/// simulation wants. A test or a benchmark that needs a particular one asks for
+/// it with `select_kernel` and reads back what it got with `kernel`, because a
+/// request for a kernel the processor does not implement is answered with the
+/// scalar one rather than refused.
 ///
 /// ## Threading
 ///
@@ -81,6 +97,7 @@
 #include "orrery/core/softening.hpp"
 #include "orrery/core/types.hpp"
 #include "orrery/core/vec3_span.hpp"
+#include "orrery/solvers/direct_kernel.hpp"
 #include "orrery/solvers/force_solver.hpp"
 #include "orrery/solvers/interaction_count.hpp"
 
@@ -140,6 +157,27 @@ public:
     /// is useless without.
     [[nodiscard]] const backend::Executor* executor() const noexcept { return executor_; }
 
+    /// Ask for a particular kernel, and settle for the scalar one if this
+    /// machine cannot run it.
+    ///
+    /// Deliberately not a constructor argument. A simulation should take the
+    /// fastest kernel available and never mention the subject; the callers that
+    /// care are the accuracy test comparing two kernels on one configuration
+    /// and the benchmark timing them against each other, and both of those want
+    /// to change the choice on a solver they already hold rather than to build
+    /// a second one.
+    ///
+    /// Silently falling back rather than refusing is the right behaviour for
+    /// the same reason `accumulate_range_for` never returns null: a request for
+    /// AVX2 on a machine without it should produce correct physics, and the
+    /// caller that cares which kernel ran asks `kernel()`.
+    void select_kernel(KernelKind kind) noexcept {
+        kernel_ = kernel_available(kind) ? kind : KernelKind::kScalar;
+    }
+
+    /// The kernel this solver will actually use.
+    [[nodiscard]] KernelKind kernel() const noexcept { return kernel_; }
+
 private:
     core::Softening softening_;
 
@@ -153,6 +191,14 @@ private:
     /// solvers on two threads accumulating into one set of counters would race
     /// over statistics neither of them asked for.
     backend::Executor* executor_{nullptr};
+
+    /// The fastest kernel this machine can run, unless a caller says otherwise.
+    ///
+    /// Resolved when the solver is constructed rather than on every evaluation,
+    /// because the answer cannot change while the process runs and because a
+    /// feature query inside a force evaluation would be the sort of small
+    /// avoidable cost this project spends comments avoiding elsewhere.
+    KernelKind kernel_{fastest_available_kernel()};
 
     InteractionCount count_;
 };

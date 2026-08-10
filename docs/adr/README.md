@@ -31,3 +31,4 @@ introduces it.
 | [0015](0015-compute-every-pair-from-both-ends.md) | Compute every pair from both ends rather than applying Newton's third law | Accepted |
 | [0016](0016-balance-the-threads-dynamically.md) | Balance the threads dynamically by stealing ranges | Accepted |
 | [0017](0017-thread-the-solver-through-an-executor.md) | Thread the solver through an executor it does not own | Accepted |
+| [0018](0018-dispatch-to-the-vector-kernel-at-run-time.md) | Compile the vector kernel apart and choose it at run time | Accepted |
