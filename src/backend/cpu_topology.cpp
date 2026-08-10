@@ -24,6 +24,12 @@
 
 namespace orrery::backend {
 
+// Only the platforms that can answer the question compile the helper that
+// shapes the answer. On macOS and the BSDs neither implementation below is
+// compiled, so an unconditional definition here would be an unused function,
+// which this project's warning set correctly treats as an error.
+#if defined(_WIN32) || defined(__linux__)
+
 namespace {
 
 /// Turn a capability ranking into core classes.
@@ -66,6 +72,8 @@ namespace {
 }
 
 } // namespace
+
+#endif
 
 #ifdef _WIN32
 
