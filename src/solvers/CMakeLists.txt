@@ -6,8 +6,9 @@
 # that implements it, so that an integrator needs to know nothing about solvers.
 # ADR-0012 records that choice and ADR-0014 the interface added here on top of
 # it.
-add_library(orrery_solvers STATIC direct_kernel.cpp direct_kernel_scalar.cpp
-                                  direct_solver.cpp reference_kernel.cpp)
+add_library(
+  orrery_solvers STATIC direct_kernel.cpp direct_kernel_scalar.cpp
+                        direct_solver.cpp morton.cpp reference_kernel.cpp)
 add_library(orrery::solvers ALIAS orrery_solvers)
 
 # All three are public: the solver interface derives from the integrators'
