@@ -4,8 +4,12 @@ include(Catch)
 
 add_executable(
   orrery_core_test
-  core/aligned_allocator_test.cpp core/build_info_test.cpp
-  core/particle_data_test.cpp core/types_test.cpp core/vec3_test.cpp)
+  core/aligned_allocator_test.cpp
+  core/build_info_test.cpp
+  core/particle_data_test.cpp
+  core/softening_test.cpp
+  core/types_test.cpp
+  core/vec3_test.cpp)
 
 target_link_libraries(
   orrery_core_test PRIVATE orrery::core orrery::warnings
