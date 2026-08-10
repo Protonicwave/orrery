@@ -32,3 +32,15 @@ target_link_libraries(
           orrery::initial_conditions orrery::core orrery::warnings)
 
 orrery_enable_linting(orrery_roofline)
+
+# What Phase 8 exists to establish: that the tree is N log N over two decades,
+# where it overtakes direct summation on this machine, and what its
+# approximation costs in accuracy at each opening angle.
+add_executable(orrery_tree_scaling tree_scaling.cpp)
+
+target_link_libraries(
+  orrery_tree_scaling
+  PRIVATE orrery::benchmark_harness orrery::solvers orrery::backend
+          orrery::initial_conditions orrery::core orrery::warnings)
+
+orrery_enable_linting(orrery_tree_scaling)
