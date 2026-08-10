@@ -19,12 +19,17 @@ Checks: >
   -readability-magic-numbers,
   -cppcoreguidelines-pro-bounds-pointer-arithmetic,
   -cppcoreguidelines-pro-bounds-constant-array-index,
+  -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access,
+  -modernize-use-designated-initializers,
   -cppcoreguidelines-avoid-do-while,
   -misc-non-private-member-variables-in-classes,
   -modernize-use-trailing-return-type,
   -readability-identifier-length,
   -readability-uppercase-literal-suffix,
   -cert-err58-cpp,
+  -bugprone-random-generator-seed,
+  -cert-msc32-c,
+  -cert-msc51-cpp,
   -portability-avoid-pragma-once
 
 # Rationale for the exclusions above, in order.
@@ -45,6 +50,21 @@ Checks: >
 #   the compiler sees no aliasing or bounds machinery. Interfaces still use
 #   std::span, which is where the bounds safety belongs.
 #
+# cppcoreguidelines-pro-bounds-avoid-unchecked-container-access: subscripting a
+#   component array by particle index is the central idiom of this project, and
+#   the remedy the check asks for is a bounds check on every one of the N^2
+#   accesses a force evaluation makes. The bound is a loop invariant that the
+#   caller already knows, so the check would be paid for billions of times to
+#   re-establish something proved once. Bounds safety enters at the interfaces
+#   instead, where std::span carries the length alongside the pointer.
+#
+# modernize-use-designated-initializers: the check would rewrite Vec3{1, 2, 3}
+#   as Vec3{.x = 1, .y = 2, .z = 3}. For a type whose three components have a
+#   universally understood order, that triples the width of every coordinate in
+#   the project and makes an analytic configuration harder to read rather than
+#   easier. The check earns its place on types whose fields have no conventional
+#   ordering, and this project has none of those yet.
+#
 # cppcoreguidelines-avoid-do-while: do-while is the natural shape of a
 #   convergence loop that must run at least once.
 #
@@ -64,6 +84,16 @@ Checks: >
 #
 # cert-err58-cpp: Catch2 registers its test cases through static objects whose
 #   constructors may throw, which is the framework's design rather than ours.
+#
+# bugprone-random-generator-seed and its cert aliases: these object to seeding a
+#   generator with a constant, which is exactly what this project requires. A
+#   property test that cannot be re-run on the input that failed it is not
+#   evidence of anything, and a sampled set of initial conditions that differs
+#   between runs makes every result that follows from it unreproducible. The
+#   convention in section 4 of the implementation plan states the rule the check
+#   would otherwise enforce the opposite of: randomness is seeded explicitly and
+#   the seed is recorded in the failure message. Nothing here is cryptographic,
+#   which is the setting the check was written for.
 #
 # portability-avoid-pragma-once: the remedy this check asks for is an include
 #   guard, which is a macro, and section 4 of the implementation plan avoids
@@ -139,6 +169,15 @@ CheckOptions:
     value: k
   - key: readability-identifier-naming.MacroDefinitionCase
     value: UPPER_CASE
+
+  # The exception to the naming rules above. A type that plugs into the standard
+  # library has to spell its member aliases the way the standard library asks
+  # for them: an allocator whose value_type were named ValueType would simply
+  # not be an allocator. These names are dictated from outside the project, so
+  # they are exempt rather than renamed, and the exemption lists them
+  # individually so that it cannot quietly cover anything else.
+  - key: readability-identifier-naming.TypeAliasIgnoredRegexp
+    value: '^(value_type|size_type|difference_type|pointer|const_pointer|reference|const_reference|iterator|const_iterator|propagate_on_container_[a-z_]+|is_always_equal|other)$'
 
   # A function long enough to trip these limits is doing more than one thing.
   # The kernels are the expected exception and are reviewed on their own terms.
