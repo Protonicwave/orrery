@@ -9,6 +9,7 @@
 #include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include "orrery/backend/partition.hpp"
 #include "orrery/backend/serial_executor.hpp"
 #include "orrery/backend/static_executor.hpp"
 #include "orrery/backend/thread_pool.hpp"
@@ -18,8 +19,10 @@
 
 namespace {
 
+using orrery::backend::equal_share;
 using orrery::backend::Executor;
 using orrery::backend::ExecutorStatistics;
+using orrery::backend::IndexRange;
 using orrery::backend::SerialExecutor;
 using orrery::backend::StaticExecutor;
 using orrery::backend::ThreadPool;
@@ -122,12 +125,10 @@ TEST_CASE("repeated regions reuse the same threads", "[unit][backend]") {
     REQUIRE(stealing.statistics().regions == static_cast<std::uint64_t>(kRegions));
 }
 
-TEST_CASE("the work is shared out rather than left on one worker", "[unit][backend]") {
-    // A pool that ran everything on worker zero would pass every correctness
-    // test above and be worthless. The assertion is deliberately weak, that
-    // more than one worker did something, because how the work divides is the
-    // scheduler's business and depends on the machine. What is being ruled out
-    // is a dispatch that never reached the other threads at all.
+TEST_CASE("every executor accounts for all the work", "[unit][backend]") {
+    // The items counter is what `docs/performance/threading.md` divides between
+    // core classes to show how the schemes differ, so it has to add up to the
+    // work that was actually asked for rather than approximately to it.
     constexpr Index kCount = 100000;
 
     StaticExecutor fixed{4};
@@ -135,9 +136,6 @@ TEST_CASE("the work is shared out rather than left on one worker", "[unit][backe
 
     for (Executor* executor : {static_cast<Executor*>(&fixed), static_cast<Executor*>(&stealing)}) {
         executor->run(kCount, [](Index begin, Index end) {
-            // Enough arithmetic that a worker cannot finish the whole range
-            // before the others have woken up, which would let a correct
-            // scheduler look like a broken one.
             volatile double sink = 0;
             for (Index index = begin; index < end; ++index) {
                 sink += static_cast<double>(index);
@@ -147,17 +145,56 @@ TEST_CASE("the work is shared out rather than left on one worker", "[unit][backe
         const ExecutorStatistics statistics = executor->statistics();
 
         std::uint64_t total_items = 0;
-        unsigned busy_workers = 0;
         for (const WorkerStatistics& worker : statistics.workers) {
             total_items += worker.items;
-            if (worker.items > 0) {
-                busy_workers += 1;
-            }
         }
 
-        CAPTURE(std::string{executor->name()}, busy_workers, total_items);
+        CAPTURE(std::string{executor->name()}, total_items);
         REQUIRE(total_items == kCount);
-        REQUIRE(busy_workers > 1);
+    }
+}
+
+TEST_CASE("static shares reach every worker", "[unit][backend]") {
+    // A dispatch that never reached the other threads would pass every
+    // correctness test in this file and be worthless, so something has to rule
+    // it out. Under static partitioning it can be ruled out exactly: the pool
+    // runs the body on every worker and waits for all of them, each worker's
+    // share here is non-empty, so all four do their own share and no other.
+    //
+    // The same assertion must not be made of work stealing, and an earlier
+    // version of this file made it and failed intermittently on continuous
+    // integration. A worker that wakes first is entitled to drain its own range
+    // and then steal every other range before its peers have woken at all. That
+    // is the scheme working rather than failing: no work is lost, and on a
+    // machine whose other cores are slow to arrive, the worker that is already
+    // running should not wait for them. Work stealing promises that the range is
+    // covered exactly once, not that any particular worker gets a share of it,
+    // and a test may only assert what the thing under test promises.
+    //
+    // What covers the stealing scheme instead is the pool test at the end of
+    // this file, which does guarantee that a body reaches every worker, and the
+    // steal counter below.
+    constexpr Index kCount = 100000;
+    constexpr unsigned kWorkers = 4;
+
+    StaticExecutor fixed{kWorkers};
+
+    fixed.run(kCount, [](Index begin, Index end) {
+        volatile double sink = 0;
+        for (Index index = begin; index < end; ++index) {
+            sink += static_cast<double>(index);
+        }
+    });
+
+    const ExecutorStatistics statistics = fixed.statistics();
+
+    for (unsigned worker = 0; worker < kWorkers; ++worker) {
+        const IndexRange share = equal_share(kCount, kWorkers, worker);
+
+        CAPTURE(worker, share.begin, share.end, statistics.workers[worker].items);
+
+        REQUIRE(!share.empty());
+        REQUIRE(statistics.workers[worker].items == share.size());
     }
 }
 
