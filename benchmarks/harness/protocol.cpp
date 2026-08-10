@@ -1,8 +1,10 @@
 #include "harness/protocol.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -44,7 +46,7 @@ namespace {
 /// See `Protocol::settling_limit` for why this is a loop rather than a count.
 /// Returns as soon as the machine is doing the same thing twice, which after a
 /// cool-down takes a handful of evaluations and after nothing at all takes one.
-void settle(const Protocol& protocol, core::FunctionRef<void()> body) {
+[[nodiscard]] Duration settle(const Protocol& protocol, core::FunctionRef<void()> body) {
     // Two agreements in a row rather than one. A single pair of similar
     // timings happens by chance often enough to end the loop while the clock is
     // still moving, and the cost of asking for three consecutive similar
@@ -65,13 +67,34 @@ void settle(const Protocol& protocol, core::FunctionRef<void()> body) {
             agreements = change < protocol.settled_within ? agreements + 1 : 0;
 
             if (agreements >= kAgreementsRequired) {
-                return;
+                return current;
             }
         }
 
         previous = current;
         have_previous = true;
     }
+
+    // Never settled within the limit. The last measurement is still the best
+    // estimate available of how long the body takes, which is all the caller
+    // wants it for, and the dispersion of the trials that follow will say that
+    // the machine was not steady.
+    return previous;
+}
+
+/// How many calls to fold into one timed trial.
+///
+/// See `Protocol::minimum_trial`. The cap is there so that a body which the
+/// clock cannot resolve at all does not turn one trial into an unbounded loop;
+/// a body that fast is not being measured by this harness anyway.
+[[nodiscard]] int repeats_for(Duration single_call, Duration minimum) {
+    constexpr std::int64_t kMaximumRepeats = 1000;
+
+    if (minimum.count() <= 0 || single_call.count() <= 0 || single_call >= minimum) {
+        return 1;
+    }
+
+    return static_cast<int>(std::min(minimum.count() / single_call.count(), kMaximumRepeats));
 }
 
 } // namespace
@@ -81,18 +104,28 @@ TrialSet run_trials(const Protocol& protocol, core::FunctionRef<void()> body) {
         body();
     }
 
-    settle(protocol, body);
+    const Duration single_call = settle(protocol, body);
+    const int repeats = repeats_for(single_call, protocol.minimum_trial);
 
     std::vector<Duration> timings;
     timings.reserve(static_cast<std::size_t>(protocol.trials));
 
     for (int trial = 0; trial < protocol.trials; ++trial) {
-        // Reserving the vector above is why the push is inside the timed region
-        // and the allocation is not: an allocation inside the loop would land in
-        // some trials and not others, and it would land in the early ones,
-        // which is exactly where a drift measurement would then find something
-        // that was not thermal.
-        timings.push_back(time_once(body));
+        const Clock::time_point start = Clock::now();
+
+        for (int repeat = 0; repeat < repeats; ++repeat) {
+            body();
+        }
+
+        const auto elapsed = std::chrono::duration_cast<Duration>(Clock::now() - start);
+
+        // Recorded per call, so that everything downstream means the same thing
+        // whether the body was fast enough to need repeating or not. Reserving
+        // the vector above is why the allocation is outside the timed region:
+        // one inside would land in some trials and not others, and it would
+        // land in the early ones, which is exactly where a drift measurement
+        // would then find something that was not thermal.
+        timings.push_back(elapsed / repeats);
     }
 
     return TrialSet{std::move(timings)};

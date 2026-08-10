@@ -34,7 +34,7 @@
 /// residue is of order the machine epsilon of a single term and does not grow
 /// with the particle count, so it is far below the errors being measured. The
 /// reference is therefore a bound on the kernels' accuracy rather than an exact
-/// answer, and `docs/performance/vectorisation.md` states it as such.
+/// answer, and `docs/performance/roofline.md` states it as such.
 ///
 /// This is not a kernel. It is O(N) per particle with a branch in the loop and
 /// no attempt at anything, and calling it for every particle of a large

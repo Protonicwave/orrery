@@ -106,6 +106,27 @@ struct Protocol {
     /// quoted with fewer.
     int trials{11};
 
+    /// The shortest a timed trial is allowed to be.
+    ///
+    /// A body faster than this is called several times inside one trial and the
+    /// total divided by the number of calls, so that what is recorded is still
+    /// the duration of one call. The reported figures are unaffected in meaning
+    /// and considerably less noisy.
+    ///
+    /// This was added after a session in which the single-precision kernel,
+    /// which is about twice as fast as the double-precision one, reported an
+    /// interquartile range of half its own median while the thermal canary
+    /// showed the machine perfectly steady. At ten milliseconds a trial is
+    /// short enough for one scheduling event, one interrupt or one page of
+    /// somebody else's work to move it by a large fraction, and no number of
+    /// repeats of a measurement that short recovers the precision.
+    ///
+    /// Fifty milliseconds, which is long enough to average over that and short
+    /// enough that twenty-one trials of a dozen configurations still finish in
+    /// minutes. Zero disables the scaling, which is what a caller wants when it
+    /// is timing something whose repetition would not be equivalent.
+    Duration minimum_trial{std::chrono::milliseconds(50)};
+
     /// How long to wait before a configuration is measured.
     Duration cooldown{std::chrono::milliseconds(750)};
 };

@@ -47,8 +47,16 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "^([Xx]86_64|AMD64|amd64|i[3-6]86|[Xx]86)$")
     set_source_files_properties(arithmetic_probe_avx2.cpp PROPERTIES COMPILE_OPTIONS
                                                               "/arch:AVX2")
   else()
-    set_source_files_properties(arithmetic_probe_avx2.cpp PROPERTIES COMPILE_OPTIONS
-                                                              "-mavx2;-mfma")
+    # FMA by name and, on GCC, the spurious warning about ignored attributes on
+    # the intrinsic vector types when they appear as template arguments. Both
+    # are explained in src/solvers/CMakeLists.txt, which does the same thing for
+    # the direct kernel.
+    set(orrery_avx2_options "-mavx2;-mfma")
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+      list(APPEND orrery_avx2_options "-Wno-ignored-attributes")
+    endif()
+    set_source_files_properties(arithmetic_probe_avx2.cpp
+                                PROPERTIES COMPILE_OPTIONS "${orrery_avx2_options}")
   endif()
 endif()
 

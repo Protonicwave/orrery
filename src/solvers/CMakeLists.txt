@@ -50,8 +50,19 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "^([Xx]86_64|AMD64|amd64|i[3-6]86|[Xx]86)$")
     # The kernel accumulates with fused multiply-add and would fail to compile
     # without it, which is the right failure: a silent fallback to separate
     # multiply and add would change the arithmetic the accuracy tests measure.
+    #
+    # GCC warns that it is ignoring the alignment attributes on __m256d when the
+    # type appears as a template argument, which it does here in the alias that
+    # selects the register width from the build's scalar type. The attributes
+    # are not in fact ignored, the warning is long-standing and known to be
+    # spurious for the intrinsic vector types, and there is no way to write the
+    # alias without it. Suppressed on this file alone, where the intrinsics are.
+    set(orrery_avx2_options "-mavx2;-mfma")
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+      list(APPEND orrery_avx2_options "-Wno-ignored-attributes")
+    endif()
     set_source_files_properties(direct_kernel_avx2.cpp
-                                PROPERTIES COMPILE_OPTIONS "-mavx2;-mfma")
+                                PROPERTIES COMPILE_OPTIONS "${orrery_avx2_options}")
   endif()
 endif()
 
