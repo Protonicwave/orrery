@@ -28,6 +28,7 @@ using orrery::core::Vec3Array;
 using orrery::initial_conditions::KeplerParameters;
 using orrery::initial_conditions::make_kepler_orbit;
 using orrery::integrators::Integrator;
+using orrery::integrators::refresh_accelerations;
 using orrery::integrators::RungeKutta4;
 using orrery::integrators::VelocityVerlet;
 using orrery::integrators::Yoshida4;
@@ -71,7 +72,7 @@ TEST_CASE("a step costs the force evaluations the method says it does", "[unit][
         ParticleData data = make_kepler_orbit(kOrbit);
         CountingDirectField field;
 
-        integrator->prepare(data, field);
+        refresh_accelerations(data, field);
         REQUIRE(field.evaluations() == 1);
 
         field.reset_evaluations();
@@ -101,7 +102,7 @@ TEST_CASE("a lone particle travels in a straight line", "[unit][integrators]") {
         data.add(kStart, kVelocity, 1);
 
         CountingDirectField field;
-        integrator->prepare(data, field);
+        refresh_accelerations(data, field);
 
         for (Index step = 0; step < kSteps; ++step) {
             integrator->step(data, kStep, field);
@@ -133,7 +134,7 @@ TEST_CASE("an empty configuration steps without complaint", "[unit][integrators]
     for (const std::unique_ptr<Integrator>& integrator : all_integrators()) {
         CAPTURE(name_of(*integrator));
 
-        integrator->prepare(data, field);
+        refresh_accelerations(data, field);
         integrator->step(data, static_cast<Real>(0.1), field);
 
         REQUIRE(data.empty());
@@ -158,7 +159,7 @@ TEST_CASE("a step leaves the accelerations agreeing with the positions", "[unit]
         ParticleData data = make_kepler_orbit(kOrbit);
         CountingDirectField field;
 
-        integrator->prepare(data, field);
+        refresh_accelerations(data, field);
         integrator->step(data, static_cast<Real>(0.01), field);
         integrator->step(data, static_cast<Real>(0.01), field);
 
@@ -201,7 +202,7 @@ TEST_CASE("the symmetric methods run backwards to where they started",
         ParticleData data = start;
         CountingDirectField field{Softening{static_cast<Real>(0.01)}};
 
-        integrator->prepare(data, field);
+        refresh_accelerations(data, field);
 
         for (Index index = 0; index < kSteps; ++index) {
             integrator->step(data, step, field);

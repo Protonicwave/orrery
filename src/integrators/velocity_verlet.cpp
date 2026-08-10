@@ -60,8 +60,9 @@ void velocity_verlet_step(core::ParticleData& data, Real timestep, AccelerationF
     const Real half_step = timestep / 2;
 
     // The acceleration used here is the one left by the previous step, or by
-    // `prepare` before the first. This is the single evaluation the method
-    // saves, and the invariant in `integrator.hpp` is what makes it sound.
+    // `refresh_accelerations` before the first. This is the single evaluation
+    // the method saves, and the invariant in `integrator.hpp` is what makes it
+    // sound.
     kick(data.velocities(), data.accelerations(), half_step);
     drift(data.positions(), data.velocities(), timestep);
 

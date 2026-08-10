@@ -30,6 +30,7 @@ using orrery::core::Softening;
 using orrery::core::Vec3;
 using orrery::initial_conditions::make_plummer_sphere;
 using orrery::integrators::Integrator;
+using orrery::integrators::refresh_accelerations;
 using orrery::integrators::RungeKutta4;
 using orrery::testing::all_integrators;
 using orrery::testing::CountingDirectField;
@@ -75,7 +76,7 @@ struct Interval {
 
     const Diagnostics before = measure_diagnostics(data, softening);
 
-    integrator.prepare(data, field);
+    refresh_accelerations(data, field);
 
     for (Index step = 0; step < kSteps; ++step) {
         integrator.step(data, kTimestep, field);

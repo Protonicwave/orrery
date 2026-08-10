@@ -23,6 +23,7 @@ using orrery::initial_conditions::kepler_period;
 using orrery::initial_conditions::KeplerParameters;
 using orrery::initial_conditions::make_kepler_orbit;
 using orrery::integrators::Integrator;
+using orrery::integrators::refresh_accelerations;
 using orrery::integrators::Yoshida4;
 using orrery::testing::all_integrators;
 using orrery::testing::CountingDirectField;
@@ -54,7 +55,7 @@ constexpr KeplerParameters kCircularOrbit{
 
     const Real timestep = kepler_period(kCircularOrbit) / static_cast<Real>(steps);
 
-    integrator.prepare(data, field);
+    refresh_accelerations(data, field);
 
     for (Index step = 0; step < steps; ++step) {
         integrator.step(data, timestep, field);
@@ -139,7 +140,7 @@ TEST_CASE("the integrated orbit takes the period Kepler's third law gives it",
     ParticleData data = make_kepler_orbit(kOrbit);
     CountingDirectField field;
     Yoshida4 integrator;
-    integrator.prepare(data, field);
+    refresh_accelerations(data, field);
 
     const auto separation_y = [&data]() {
         return data.positions().get(1).y - data.positions().get(0).y;

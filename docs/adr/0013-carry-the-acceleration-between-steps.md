@@ -30,9 +30,9 @@ The `Integrator` interface states one invariant:
 
     `accelerations()` holds the acceleration at `positions()`.
 
-`Integrator::prepare` establishes it. Every `step` requires it on entry and
+`refresh_accelerations` establishes it. Every `step` requires it on entry and
 restores it on exit. A caller that moves particles behind the integrator's back,
-or that changes the masses or the field, calls `prepare` again.
+or that changes the masses or the field, calls `refresh_accelerations` again.
 
 The rule is documented at the interface rather than inside each method, and a
 unit test asserts it directly: after two steps, the accelerations in the store are
@@ -49,12 +49,12 @@ at, that is the difference between a simulation that is worth running and one
 that is not.
 
 **Keep a private copy of the acceleration inside the integrator.** The state
-becomes the integrator's own, so no caller can invalidate it, and `prepare`
-disappears. It doubles the acceleration storage, which is 24 bytes per particle
+becomes the integrator's own, so no caller can invalidate it, and the
+preparation step disappears. It doubles the acceleration storage, which is 24 bytes per particle
 in double precision and is the third-largest array in the project, and it does so
 to hold a second copy of numbers the particle store already has room for. It also
-makes swapping integrators mid-run silently wrong rather than a matter of calling
-`prepare`.
+makes swapping integrators mid-run silently wrong rather than a matter of one
+call.
 
 **Cache inside the integrator with a validity flag on the particle store.** A
 version counter that `ParticleData` bumps on every mutation, checked by the
@@ -83,9 +83,9 @@ therefore asserted by a test of its own rather than trusted, and the comparison 
 for exact equality, since the same field at the same positions produces the same
 bits and any difference at all is staleness rather than rounding.
 
-Phase 11's checkpoint and restart has to save the accelerations or call `prepare`
-after loading. Calling `prepare` is the better answer and costs one evaluation at
-the start of a resumed run, which is why the interface has the method at all.
+Phase 11's checkpoint and restart has to save the accelerations or call
+`refresh_accelerations` after loading. Calling it is the better answer and costs
+one evaluation at the start of a resumed run, which is why the header offers it.
 
 The invariant is what makes the reported `force_evaluations_per_step` figures
 true: one, three and four. Those are the numbers every comparison between methods

@@ -19,9 +19,10 @@
 ///
 ///     `accelerations()` holds the acceleration at `positions()`.
 ///
-/// `prepare` establishes it, and every `step` requires it on entry and restores
-/// it on exit. A caller that changes the positions behind an integrator's back,
-/// or that swaps in a different acceleration field, calls `prepare` again.
+/// `refresh_accelerations` establishes it, and every `step` requires it on entry
+/// and restores it on exit. A caller that changes the positions behind an
+/// integrator's back, or that swaps in a different acceleration field, calls
+/// `refresh_accelerations` again.
 /// ADR-0013 records why the invariant is stated here rather than left to each
 /// integrator to manage privately.
 ///
@@ -37,21 +38,24 @@
 
 namespace orrery::integrators {
 
+/// Establish the acceleration invariant for a configuration.
+///
+/// Call once before the first step, and again after anything outside the
+/// integrator changes the positions, the masses or the field.
+///
+/// A free function rather than a member, because it belongs to the contract
+/// rather than to any method: every integrator needs the invariant established
+/// the same way, and one that established it differently would be establishing
+/// something else. It lives in this header so that it is found where the
+/// contract it serves is written.
+inline void refresh_accelerations(core::ParticleData& data, AccelerationField& field) {
+    field.evaluate(data.positions(), data.masses(), data.accelerations());
+}
+
 /// A method for advancing particle positions and velocities through time.
 class Integrator {
 public:
     virtual ~Integrator() = default;
-
-    /// Establish the acceleration invariant for a configuration.
-    ///
-    /// Call once before the first step, and again after anything outside the
-    /// integrator changes the positions, the masses or the field. Not virtual,
-    /// because the invariant is a property of the interface rather than of any
-    /// particular method, and an integrator that established it differently
-    /// would be establishing something else.
-    void prepare(core::ParticleData& data, AccelerationField& field) const {
-        field.evaluate(data.positions(), data.masses(), data.accelerations());
-    }
 
     /// Advance the configuration by one step of `timestep`.
     ///

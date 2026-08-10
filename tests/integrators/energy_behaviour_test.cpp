@@ -26,6 +26,7 @@ using orrery::initial_conditions::kepler_period;
 using orrery::initial_conditions::KeplerParameters;
 using orrery::initial_conditions::make_kepler_orbit;
 using orrery::integrators::Integrator;
+using orrery::integrators::refresh_accelerations;
 using orrery::integrators::RungeKutta4;
 using orrery::integrators::VelocityVerlet;
 using orrery::integrators::Yoshida4;
@@ -101,7 +102,7 @@ struct EnergyHistory {
     const Real reference = measure_diagnostics(data, softening).total_energy();
     const Real timestep = kepler_period(kOrbit) / static_cast<Real>(kStepsPerOrbit);
 
-    integrator.prepare(data, field);
+    refresh_accelerations(data, field);
 
     const Index total_steps = kOrbits * kStepsPerOrbit;
     const Index window = total_steps / 20;
