@@ -3,11 +3,14 @@
 # nothing, which is what keeps the dependency direction in the implementation
 # plan enforceable rather than aspirational.
 #
-# Most of the layer is header-only, because a 3-vector operation or a span
-# accessor that could not be inlined into a kernel would cost more than it does
-# work. Only the particle container, whose operations are per-container rather
-# than per-particle, has a translation unit of its own.
-add_library(orrery_core STATIC build_info.cpp particle_data.cpp)
+# The parts a kernel calls per particle are header-only, because a 3-vector
+# operation or a span accessor that could not be inlined would cost more than it
+# does work. The parts whose unit of work is a whole container, the particle
+# store, the diagnostics and the random source, have translation units instead,
+# which also keeps <random> and the compensated summation out of every file that
+# includes a header from this layer.
+add_library(orrery_core STATIC build_info.cpp diagnostics.cpp particle_data.cpp
+                               random.cpp)
 add_library(orrery::core ALIAS orrery_core)
 
 target_include_directories(
