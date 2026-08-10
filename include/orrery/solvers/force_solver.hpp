@@ -40,6 +40,16 @@ namespace orrery::solvers {
 /// implementation plan permits dispatch at.
 class ForceSolver : public integrators::AccelerationField {
 public:
+    /// Public and virtual, the second by inheritance from `AccelerationField`.
+    ///
+    /// Stated here rather than left implicit because the copy and move
+    /// operations below are declared, and a class that declares some of the
+    /// special members and not the rest is the shape that hides a mistake.
+    /// Public rather than protected like the others: a caller holding a
+    /// `std::unique_ptr<ForceSolver>` has to be able to destroy what it points
+    /// at, and it is the derived destructor that runs.
+    ~ForceSolver() override = default;
+
     /// The solver's name, for benchmark tables and test messages.
     [[nodiscard]] virtual std::string_view name() const noexcept = 0;
 
