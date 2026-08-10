@@ -51,14 +51,33 @@
 /// ## Cost
 ///
 /// N(N-1) interactions per evaluation, which is the cost that motivates every
-/// later phase. This implementation is single-threaded and scalar: threading
-/// arrives in Phase 6 and explicit vectorisation in Phase 7, both as work on this
-/// kernel rather than as second copies of it. What is written here is the
-/// arithmetic, in the layout the later phases need, and nothing else.
+/// later phase. Phase 6 divided the loop over target particles between threads
+/// and Phase 7 will vectorise the loop inside it, both as work on this kernel
+/// rather than as second copies of it. The arithmetic below is the same
+/// arithmetic Phase 5 validated; what changed is who runs which iterations of
+/// the outer loop.
+///
+/// ## Threading
+///
+/// The solver does not contain a thread. It is handed an executor from
+/// `backend/`, which divides the range of target particles among however many
+/// workers it has, and the kernel is written so that this division changes
+/// nothing about the answer. Each target reads every position and mass and
+/// writes only its own acceleration, so no two workers write to the same place
+/// and none reads what another wrote. ADR-0015 chose that form in Phase 5 partly
+/// for this reason, and ADR-0017 records the seam.
+///
+/// The consequence worth stating is that a threaded evaluation is bit for bit
+/// identical to a serial one. Particle i's acceleration is summed in index order
+/// whichever worker happens to compute it, so no result depends on the thread
+/// count, the chunk size or the order the chunks were claimed in. That is what
+/// makes the direct solver still usable as the project's reference after being
+/// parallelised, and it is asserted by test rather than assumed.
 
 #include <span>
 #include <string_view>
 
+#include "orrery/backend/executor.hpp"
 #include "orrery/core/softening.hpp"
 #include "orrery/core/types.hpp"
 #include "orrery/core/vec3_span.hpp"
@@ -70,7 +89,7 @@ namespace orrery::solvers {
 /// The O(N^2) solver described above.
 class DirectSolver final : public ForceSolver {
 public:
-    /// A solver over exact point masses.
+    /// A solver over exact point masses, evaluated on the calling thread.
     DirectSolver() = default;
 
     /// A solver softening at the given length.
@@ -78,6 +97,19 @@ public:
     /// `explicit` for the reason `Softening`'s own constructor is: the argument
     /// is the modelling decision, not a spelling of the solver.
     explicit DirectSolver(core::Softening softening) noexcept : softening_(softening) {}
+
+    /// A solver over exact point masses, evaluated through `executor`.
+    explicit DirectSolver(backend::Executor& executor) noexcept : executor_(&executor) {}
+
+    /// A softened solver evaluated through `executor`.
+    ///
+    /// The executor is referred to rather than owned, and must outlive the
+    /// solver. That is the right ownership for what it is: a pool of threads is
+    /// a machine-wide resource, one is enough for a whole simulation, and a
+    /// solver that owned one could not be created inside a loop without
+    /// creating and destroying eight threads each time round.
+    DirectSolver(core::Softening softening, backend::Executor& executor) noexcept
+        : softening_(softening), executor_(&executor) {}
 
     /// Write the acceleration at each position into `accelerations`.
     ///
@@ -100,8 +132,28 @@ public:
 
     void reset_interaction_count() noexcept override { count_ = {}; }
 
+    /// The executor this solver evaluates through, or null if it runs on the
+    /// calling thread.
+    ///
+    /// Exposed so that a benchmark can report which scheme produced a timing
+    /// alongside the timing itself, which is the one thing a threading figure
+    /// is useless without.
+    [[nodiscard]] const backend::Executor* executor() const noexcept { return executor_; }
+
 private:
     core::Softening softening_;
+
+    /// Not owned, and null by default.
+    ///
+    /// Null means the calling thread runs the whole range, which is exactly
+    /// what Phase 5 did and what most of the test suite still wants: a
+    /// two-particle configuration costs less to compute than to hand to a pool.
+    /// It is a plain pointer rather than a reference to a shared serial
+    /// executor because such a default would be global mutable state, and two
+    /// solvers on two threads accumulating into one set of counters would race
+    /// over statistics neither of them asked for.
+    backend::Executor* executor_{nullptr};
+
     InteractionCount count_;
 };
 
