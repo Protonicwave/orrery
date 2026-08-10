@@ -81,6 +81,7 @@ using orrery::backend::SerialExecutor;
 using orrery::backend::ThreadPool;
 using orrery::backend::WorkStealingExecutor;
 using orrery::benchmark::capture_machine_state;
+using orrery::benchmark::Duration;
 using orrery::benchmark::Limit;
 using orrery::benchmark::MachineState;
 using orrery::benchmark::measure_divide_and_sqrt_throughput;
@@ -272,6 +273,41 @@ void print_kernels(const std::vector<KernelRow>& rows, const RooflineCeilings& c
                  "with the other eighteen.\n";
 }
 
+/// Every canary mark, against the first.
+///
+/// The endpoint ratio on its own says how much the machine slowed down but not
+/// when, and those are different findings. A slowdown that arrives all at once
+/// after the first heavy configuration is a part hitting its sustained power
+/// limit; one that accumulates evenly across the session is a heatsink filling
+/// up. The trace also says which rows above were measured on which machine,
+/// since a row taken between two marks was taken at a clock between them.
+void print_canary(const ThermalCanary& canary) {
+    const std::vector<Duration>& marks = canary.history().in_order();
+
+    std::cout << "\nthermal canary, a fixed block of arithmetic on one thread touching no\n"
+                 "memory, so that nothing but the clock can change its duration:\n"
+              << std::setw(8) << "mark" << std::setw(12) << "ms" << std::setw(20)
+              << "against the first" << '\n'
+              << std::string(40, '-') << '\n';
+
+    const double first = marks.empty() ? 0.0 : static_cast<double>(marks.front().count());
+
+    for (std::size_t mark = 0; mark < marks.size(); ++mark) {
+        const double milliseconds = static_cast<double>(marks[mark].count()) / 1e6;
+        const double ratio = first > 0 ? static_cast<double>(marks[mark].count()) / first : 0.0;
+
+        std::cout << std::setw(8) << mark << std::setw(12) << std::fixed << std::setprecision(3)
+                  << milliseconds << std::setw(15) << std::setprecision(2) << ratio << "x" << '\n';
+    }
+
+    std::cout << "\nthe machine ran " << std::fixed << std::setprecision(1)
+              << (canary.slowdown() * 100.0)
+              << "% slower at the end of this session than at the start.\n"
+                 "Rows above were measured in the order printed, so an increasing trace\n"
+                 "means the later rows were measured on a slower machine than the earlier\n"
+                 "ones and the comparison between them understates the later ones.\n";
+}
+
 void write_plot(const std::string& path, const std::string& title, const RooflineCeilings& ceilings,
                 const std::vector<RooflinePoint>& points) {
     std::ofstream file{path};
@@ -350,8 +386,21 @@ void run(Index particles, int trials) {
         canary.mark();
     }
 
-    const RooflineCeilings ceilings{.bandwidth = limits[0].rate(), .peak = limits[2].rate()};
     const double slow_operation_ceiling = limits[3].rate();
+
+    // The second flat roof, converted into the units of the vertical axis. The
+    // kernel performs one square root and one division in every twenty
+    // floating-point operations, so a machine retiring S of them per second can
+    // sustain at most 10 S flop/s of *this* kernel however good the code is.
+    // That is a statement about the algorithm's instruction mix rather than
+    // about the implementation, which is why it is drawn as a ceiling and not
+    // as a target.
+    const RooflineCeilings ceilings{
+        .bandwidth = limits[0].rate(),
+        .peak = limits[2].rate(),
+        .restricted =
+            slow_operation_ceiling * (kFlopsPerInteraction / kSlowOperationsPerInteraction),
+        .restricted_label = "divide and square root limit for this mix"};
 
     print_kernels(rows, ceilings, slow_operation_ceiling, particles);
 
@@ -378,12 +427,7 @@ void run(Index particles, int trials) {
 
     canary.mark();
 
-    std::cout << "\nthermal canary: the machine ran " << std::fixed << std::setprecision(1)
-              << (canary.slowdown() * 100.0) << "% slower at the end of this session than at the\n"
-              << "start, over " << canary.marks()
-              << " marks. The canary is a fixed block of arithmetic on one thread\n"
-                 "touching no memory, so nothing but the clock can change its duration.\n"
-                 "A few per cent is a session whose rows can be compared with each other.\n";
+    print_canary(canary);
 }
 
 /// Report a failure with no risk of throwing while doing it.

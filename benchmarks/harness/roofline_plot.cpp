@@ -161,6 +161,25 @@ void write_roof(std::ostream& out, const LogAxis& horizontal, const LogAxis& ver
                vertical.position(ceilings.peak, kBottom, kTop) - 10, "start", 12, kRoofColour,
                "peak " + engineering(ceilings.peak) + " flop/s, ridge at " +
                    engineering(ceilings.ridge()) + " flop/byte");
+
+    if (ceilings.restricted <= 0) {
+        return;
+    }
+
+    // The second roof, dashed to say that it is a property of what the kernel
+    // issues rather than of what the machine can do. It leaves the sloped
+    // section at its own ridge and runs flat from there.
+    const double corner = std::max(ceilings.restricted_ridge(), left_intensity);
+    const double y = vertical.position(ceilings.restricted, kBottom, kTop);
+
+    out << R"(  <polyline fill="none" stroke=")" << kRoofColour
+        << R"(" stroke-width="1.6" stroke-dasharray="6 4" points=")"
+        << horizontal.position(corner, kLeft, kRight) << ',' << y << ' '
+        << horizontal.position(right_intensity, kLeft, kRight) << ',' << y << R"("/>)" << '\n';
+
+    write_text(out, horizontal.position(corner, kLeft, kRight) + 8, y - 10, "start", 12,
+               kRoofColour,
+               ceilings.restricted_label + ", " + engineering(ceilings.restricted) + " flop/s");
 }
 
 /// One kernel's marker, its label, and a dotted line up to the roof.
@@ -183,7 +202,15 @@ void write_point(std::ostream& out, const LogAxis& horizontal, const LogAxis& ve
     label << point.label << ", " << engineering(point.achieved) << " flop/s (" << std::fixed
           << std::setprecision(0) << (point.fraction_of_roof(ceilings) * 100.0) << "% of roof)";
 
-    write_text(out, x + 10, y + 4, "start", 12, kPointColour, label.str());
+    // Labels go to the left of a marker in the right half of the plot and to
+    // the right of one in the left half, so that they stay inside the frame.
+    // The direct solver's arithmetic intensity is enormous, so every point this
+    // project plots is at the right-hand edge and would otherwise be labelled
+    // off the page.
+    const bool on_the_right = x > (kLeft + kRight) / 2;
+
+    write_text(out, on_the_right ? x - 10 : x + 10, y + 4, on_the_right ? "end" : "start", 12,
+               kPointColour, label.str());
 }
 
 } // namespace
@@ -202,6 +229,11 @@ void write_roofline_svg(std::ostream& out, const std::string& title,
     double smallest_intensity = ceilings.ridge();
     double largest_intensity = ceilings.ridge();
     double smallest_rate = ceilings.peak;
+
+    if (ceilings.restricted > 0) {
+        smallest_intensity = std::min(smallest_intensity, ceilings.restricted_ridge());
+        smallest_rate = std::min(smallest_rate, ceilings.restricted);
+    }
 
     for (const RooflinePoint& point : points) {
         smallest_intensity = std::min(smallest_intensity, point.arithmetic_intensity);
@@ -234,6 +266,10 @@ void write_roofline_csv(std::ostream& out, const RooflineCeilings& ceilings,
         << "measured read bandwidth,," << ceilings.bandwidth << ",\n"
         << "measured peak throughput,," << ceilings.peak << ",\n"
         << "ridge," << ceilings.ridge() << ",,\n";
+
+    if (ceilings.restricted > 0) {
+        out << ceilings.restricted_label << " ceiling,," << ceilings.restricted << ",\n";
+    }
 
     for (const RooflinePoint& point : points) {
         out << point.label << ',' << point.arithmetic_intensity << ',' << point.achieved << ','

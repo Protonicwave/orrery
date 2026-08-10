@@ -173,11 +173,17 @@ double fused_multiply_add_block(std::uint64_t rounds, core::Real* sink) noexcept
 
 /// How many blocks the canary runs.
 ///
-/// Chosen so that one call takes a few milliseconds on the target part: long
-/// enough that the clock has settled within the call and that the timing is far
-/// above the clock's resolution, short enough that marking the canary between
-/// configurations does not itself heat the machine it is measuring.
-inline constexpr std::uint64_t kCanaryRounds = 200000;
+/// Two million, which is a few milliseconds on the target part. The first
+/// version used a tenth of that and the trace it produced was useless: at a
+/// third of a millisecond a mark was short enough for scheduling noise to move
+/// it by half, and one mark in the middle of a heavily loaded session came out
+/// *faster* than the first. A canary that can report a machine speeding up
+/// under load is measuring something other than the clock.
+///
+/// The upper bound is that marking the canary must not itself heat the machine
+/// it is measuring. A few milliseconds on one thread, ten times in a session
+/// that runs for minutes on eight, is nothing.
+inline constexpr std::uint64_t kCanaryRounds = 2000000;
 
 /// Which arithmetic probe the machine is running, for the report.
 [[nodiscard]] std::string_view throughput_probe_name() noexcept;

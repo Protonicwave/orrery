@@ -103,27 +103,56 @@ void cool_down(const Protocol& protocol) {
 }
 
 void ThermalCanary::mark() {
+    // One block discarded and three timed, of which the median is kept. The
+    // discard is for the same reason `settle` exists: the canary is often
+    // marked straight after a cool-down, and a first block measured while the
+    // core is still at its idle frequency would report the ramp rather than the
+    // temperature. The median of three is because a single block can be
+    // interrupted, and a canary that reported the machine speeding up under
+    // sustained load would be worse than no canary at all.
+    constexpr int kBlocksPerMark = 3;
+
+    // Blocks discarded until this much time has passed, so that the timed ones
+    // are taken at the frequency the core will hold rather than the one it
+    // happened to be at.
+    //
+    // This is the second thing the canary got wrong and it is worth recording.
+    // With a single discarded block, the trace reported the machine getting
+    // *faster* through a session of sustained eight-core load, by up to a factor
+    // of two. The cause is not thermal at all: a mark taken shortly after the
+    // program starts, or after a cool-down, catches a core that the operating
+    // system has parked at a low frequency, and seven milliseconds of work is
+    // not long enough for the governor to raise it. So the canary was measuring
+    // the ramp rather than the ceiling, in the direction that made a throttling
+    // machine look like an accelerating one.
+    constexpr Duration kSettleFor = std::chrono::milliseconds{60};
+
     core::Real sink = 0;
 
-    // Run once and discard, for the same reason `settle` exists: the canary is
-    // often marked straight after a cool-down, and a first block measured while
-    // the core is still at its idle frequency would report the ramp rather than
-    // the temperature. One block is enough here because the workload is fixed
-    // and short.
-    static_cast<void>(fused_multiply_add_block(kCanaryRounds, &sink));
+    const Clock::time_point settle_until = Clock::now() + kSettleFor;
+    while (Clock::now() < settle_until) {
+        static_cast<void>(fused_multiply_add_block(kCanaryRounds, &sink));
+    }
 
-    const Clock::time_point start = Clock::now();
-    const double operations = fused_multiply_add_block(kCanaryRounds, &sink);
-    const auto elapsed = std::chrono::duration_cast<Duration>(Clock::now() - start);
+    std::vector<Duration> blocks;
+    blocks.reserve(kBlocksPerMark);
 
-    // The operation count is discarded deliberately. What the canary measures
-    // is the time a fixed amount of arithmetic took, and turning that into a
-    // rate would invite it to be read as a throughput figure, which it is not:
-    // it runs on one thread and makes no attempt to saturate anything.
-    static_cast<void>(operations);
+    for (int block = 0; block < kBlocksPerMark; ++block) {
+        const Clock::time_point start = Clock::now();
+
+        // The operation count is discarded deliberately. What the canary
+        // measures is the time a fixed amount of arithmetic took, and turning
+        // that into a rate would invite it to be read as a throughput figure,
+        // which it is not: it runs on one thread and makes no attempt to
+        // saturate anything.
+        static_cast<void>(fused_multiply_add_block(kCanaryRounds, &sink));
+
+        blocks.push_back(std::chrono::duration_cast<Duration>(Clock::now() - start));
+    }
+
     static_cast<void>(sink);
 
-    timings_.push_back(elapsed);
+    timings_.push_back(TrialSet{std::move(blocks)}.median());
     history_ = TrialSet{timings_};
     ++marks_;
 }

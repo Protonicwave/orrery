@@ -31,7 +31,16 @@ constexpr double kBandwidth = 100e9;
 constexpr double kPeak = 200e9;
 
 [[nodiscard]] RooflineCeilings ceilings() {
-    return RooflineCeilings{.bandwidth = kBandwidth, .peak = kPeak};
+    return RooflineCeilings{
+        .bandwidth = kBandwidth, .peak = kPeak, .restricted = 0, .restricted_label = {}};
+}
+
+/// The same machine, with a second flat ceiling at a tenth of the peak.
+[[nodiscard]] RooflineCeilings restricted_ceilings() {
+    return RooflineCeilings{.bandwidth = kBandwidth,
+                            .peak = kPeak,
+                            .restricted = kPeak / 10.0,
+                            .restricted_label = "divide limit"};
 }
 
 } // namespace
@@ -41,7 +50,8 @@ TEST_CASE("the ridge is where the two ceilings cross", "[unit][benchmark]") {
 
     // A machine whose bandwidth was never measured has no ridge, and reporting
     // one would be a division by zero dressed up as a hardware property.
-    const RooflineCeilings unmeasured{.bandwidth = 0, .peak = kPeak};
+    const RooflineCeilings unmeasured{
+        .bandwidth = 0, .peak = kPeak, .restricted = 0, .restricted_label = {}};
     REQUIRE(unmeasured.ridge() == 0.0);
 }
 
@@ -95,6 +105,35 @@ TEST_CASE("the plot contains the ceilings and every point it was given", "[unit]
     // The roof itself, and two markers.
     REQUIRE(svg.find("<polyline") != std::string::npos);
     REQUIRE(svg.find("<circle") != std::string::npos);
+}
+
+TEST_CASE("the second ceiling is drawn only when there is one", "[unit][benchmark]") {
+    // The direct solver issues one square root and one division in every twenty
+    // operations, so its ceiling is far below the machine's peak. A plot that
+    // showed only the peak would put a kernel at the limit of what it can
+    // possibly do a third of the way up the roof and invite the wrong
+    // conclusion entirely.
+    const std::vector<RooflinePoint> points{
+        RooflinePoint{.label = "avx2", .arithmetic_intensity = 1000.0, .achieved = 20e9}};
+
+    std::ostringstream plain;
+    write_roofline_svg(plain, "one ceiling", ceilings(), points);
+
+    std::ostringstream restricted;
+    write_roofline_svg(restricted, "two ceilings", restricted_ceilings(), points);
+
+    REQUIRE(plain.str().find("divide limit") == std::string::npos);
+    REQUIRE(restricted.str().find("divide limit") != std::string::npos);
+
+    // A dashed roof, to say that it is a property of what the kernel issues
+    // rather than of what the machine can do.
+    REQUIRE(restricted.str().find("stroke-dasharray=\"6 4\"") != std::string::npos);
+
+    // And in the values written beside the drawing, so that a reader can check
+    // the figure rather than trust it.
+    std::ostringstream values;
+    write_roofline_csv(values, restricted_ceilings(), points);
+    REQUIRE(values.str().find("divide limit ceiling,,2e+10,") != std::string::npos);
 }
 
 TEST_CASE("a plot with no points is a plot of the machine", "[unit][benchmark]") {

@@ -49,13 +49,40 @@ struct RooflineCeilings {
     /// Floating-point operations per second, from `measure_peak_throughput`.
     double peak{};
 
-    /// The arithmetic intensity where the two cross.
+    /// A second, lower flat ceiling for the instruction mix a kernel actually
+    /// issues, in the same units as `peak`. Zero when there is none to draw.
+    ///
+    /// The plain roofline has one flat section, and for a kernel issuing only
+    /// multiplies and adds that is the right ceiling. The direct solver issues
+    /// one square root and one division in every twenty operations, and those
+    /// retire on a unit with a small fraction of the throughput of the
+    /// multiply-add pipelines, so its ceiling is far below the peak and no
+    /// amount of good implementation would reach the upper one.
+    ///
+    /// Drawing only the peak would therefore mislead in the direction that
+    /// flatters nobody: it would show a well-written kernel at a third of the
+    /// roof and invite the conclusion that two thirds had been left on the
+    /// table. Drawing only this one would hide what the machine can do. Both
+    /// are drawn, and the gap between them is a property of the algorithm
+    /// rather than of the code.
+    double restricted{};
+
+    /// What the restricted ceiling is a ceiling of, for its label.
+    std::string restricted_label;
+
+    /// The arithmetic intensity where the bandwidth and the peak cross.
     ///
     /// Below it a kernel is bound by memory and above it by arithmetic. It is a
     /// property of the machine rather than of any kernel, and it is the number
     /// that decides whether the layout decisions of ADR-0004 or the vector
     /// kernel of this phase is the thing that matters for a given loop.
     [[nodiscard]] double ridge() const noexcept { return bandwidth > 0 ? peak / bandwidth : 0; }
+
+    /// Where the restricted ceiling leaves the sloped section, which is the
+    /// leftmost point at which there is anything to draw.
+    [[nodiscard]] double restricted_ridge() const noexcept {
+        return bandwidth > 0 ? restricted / bandwidth : 0;
+    }
 };
 
 /// One kernel's place on the plot.
