@@ -4,11 +4,11 @@ A GPU-accelerated N-body gravitational simulator in C++20, developed and
 benchmarked entirely on a single Lunar Lake laptop.
 
 > **Status: under construction.** The repository holds the build system, the
-> continuous integration pipeline, the conventions and the core data
-> structures: the scalar types, a 3-vector, a cache-line-aligned allocator and
-> the particle container. There is no physics in it yet, so it builds and tests
-> cleanly and does nothing of interest. Progress
-> is tracked in the phase table in
+> continuous integration pipeline, the conventions, the core data structures,
+> and the first physics: the conserved quantities of a configuration and the
+> configurations themselves, a Plummer sphere, an exact Kepler two-body orbit
+> and a uniform sphere. There is no solver and no integrator yet, so nothing
+> moves. Progress is tracked in the phase table in
 > [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md), and this README
 > gains results and figures as the phases that produce them land. Nothing is
 > claimed here before it can be reproduced.
@@ -109,8 +109,8 @@ docs/adr/      Numbered decision records, never edited after merge
 
 The source layers arrive with the phases that need them, in the structure
 described in the implementation plan: `apps/`, `sim/`, `solvers/`,
-`integrators/`, `backend/` and `core/`, with dependencies pointing downwards
-only.
+`integrators/`, `backend/`, `initial_conditions/` and `core/`, with dependencies
+pointing downwards only. `core/` and `initial_conditions/` exist so far.
 
 ## Documentation
 

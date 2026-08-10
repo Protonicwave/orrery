@@ -20,3 +20,7 @@ introduces it.
 | [0004](0004-store-particles-as-component-arrays.md) | Store particles as one array per component | Accepted |
 | [0005](0005-allocate-particle-arrays-on-cache-lines.md) | Allocate particle arrays on cache-line boundaries | Accepted |
 | [0006](0006-select-precision-at-build-time.md) | Select the scalar precision when the project is configured | Accepted |
+| [0007](0007-work-in-units-where-g-is-one.md) | Work in units where the gravitational constant is one | Accepted |
+| [0008](0008-share-one-softening-definition.md) | Share one softening definition between the solver and the diagnostics | Accepted |
+| [0009](0009-generate-the-random-distributions-here.md) | Generate the random distributions in the project rather than with the standard library | Accepted |
+| [0010](0010-give-initial-conditions-their-own-layer.md) | Give initial conditions their own layer | Accepted |

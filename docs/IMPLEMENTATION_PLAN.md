@@ -77,13 +77,19 @@ Layers depend downwards only. No layer may include a header from a layer above
 it. This is enforced by directory structure and reviewed at every PR.
 
 ```
-apps/          Command-line simulator, interactive renderer
-sim/           Simulation driver: owns solver, integrator, output, checkpoints
-solvers/       Direct O(N^2), Barnes-Hut O(N log N)
-integrators/   Velocity Verlet, Yoshida 4th order, RK4
-backend/       CPU (work-stealing, AVX2) and SYCL (Arc iGPU, unified memory)
-core/          Particle storage, vector maths, diagnostics, memory
+apps/                Command-line simulator, interactive renderer
+sim/                 Simulation driver: owns solver, integrator, output, checkpoints
+solvers/             Direct O(N^2), Barnes-Hut O(N log N)
+integrators/         Velocity Verlet, Yoshida 4th order, RK4
+backend/             CPU (work-stealing, AVX2) and SYCL (Arc iGPU, unified memory)
+initial_conditions/  Sampled models and analytic configurations
+core/                Particle storage, vector maths, diagnostics, memory
 ```
+
+`initial_conditions/` was added in Phase 3. It depends only on `core`, and the
+layers above may use it, which is why it sits between them rather than inside
+`core`: a Plummer model on the include path of every force kernel is not a
+foundational utility. ADR-0010 records the alternatives.
 
 ### Load-bearing decisions
 
@@ -489,7 +495,7 @@ and re-checked whenever kernels change.
 | 0 | Repository foundations | Complete |
 | 1 | Build system and CI | Complete |
 | 2 | Core data structures | Complete |
-| 3 | Diagnostics and initial conditions | Not started |
+| 3 | Diagnostics and initial conditions | Complete |
 | 4 | Time integrators | Not started |
 | 5 | Direct force solver | Not started |
 | 6 | CPU threading for heterogeneous cores | Not started |
