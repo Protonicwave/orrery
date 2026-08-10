@@ -1,0 +1,151 @@
+# Lint policy. Every diagnostic here is an error in CI, so each disabled check
+# carries the reason it is disabled. A check is switched off because it is wrong
+# for this project, never because a diagnostic was inconvenient.
+---
+Checks: >
+  bugprone-*,
+  cert-*,
+  clang-analyzer-*,
+  concurrency-*,
+  cppcoreguidelines-*,
+  misc-*,
+  modernize-*,
+  performance-*,
+  portability-*,
+  readability-*,
+
+  -bugprone-easily-swappable-parameters,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -readability-magic-numbers,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-pro-bounds-constant-array-index,
+  -cppcoreguidelines-avoid-do-while,
+  -misc-non-private-member-variables-in-classes,
+  -modernize-use-trailing-return-type,
+  -readability-identifier-length,
+  -readability-uppercase-literal-suffix,
+  -cert-err58-cpp
+
+# Rationale for the exclusions above, in order.
+#
+# bugprone-easily-swappable-parameters: a force kernel legitimately takes
+#   several same-typed spans of positions, masses and accelerations. The check
+#   fires on almost every kernel signature and the suggested remedy, wrapping
+#   each argument in its own type, costs more clarity than it buys.
+#
+# *-magic-numbers: numerical code contains coefficients that are the definition
+#   of the method rather than a name waiting to be invented. Yoshida's weights
+#   and Plummer's exponents are examples. The convention in section 4 of the
+#   implementation plan already requires every non-obvious constant to carry its
+#   justification in a comment, which is the control that matters here.
+#
+# cppcoreguidelines-pro-bounds-pointer-arithmetic and -constant-array-index:
+#   inner kernels take raw pointers deliberately, as the plan allows, so that
+#   the compiler sees no aliasing or bounds machinery. Interfaces still use
+#   std::span, which is where the bounds safety belongs.
+#
+# cppcoreguidelines-avoid-do-while: do-while is the natural shape of a
+#   convergence loop that must run at least once.
+#
+# misc-non-private-member-variables-in-classes: plain aggregates such as the
+#   3-vector and the diagnostics record are data, and wrapping their members in
+#   accessors would obstruct constexpr use and vectorisation for no benefit.
+#
+# modernize-use-trailing-return-type: a stylistic preference with no effect on
+#   correctness. Formatting and style are settled by .clang-format.
+#
+# readability-identifier-length: i, j, dx and r2 are the conventional names in
+#   this domain and are clearer than the long forms the check would demand.
+#
+# readability-uppercase-literal-suffix: the float suffix reads better lower
+#   case next to physical quantities, and the precision switch means suffixes
+#   appear mostly inside type aliases anyway.
+#
+# cert-err58-cpp: Catch2 registers its test cases through static objects whose
+#   constructors may throw, which is the framework's design rather than ours.
+
+WarningsAsErrors: '*'
+HeaderFilterRegex: '.*/(include/orrery|src|tests|benchmarks)/.*'
+FormatStyle: file
+
+CheckOptions:
+  # Naming follows section 4 of the implementation plan: types PascalCase,
+  # functions and variables snake_case, private members trailing underscore,
+  # constants kPascalCase.
+  - key: readability-identifier-naming.NamespaceCase
+    value: lower_case
+  - key: readability-identifier-naming.ClassCase
+    value: CamelCase
+  - key: readability-identifier-naming.StructCase
+    value: CamelCase
+  - key: readability-identifier-naming.UnionCase
+    value: CamelCase
+  - key: readability-identifier-naming.EnumCase
+    value: CamelCase
+  - key: readability-identifier-naming.EnumConstantCase
+    value: CamelCase
+  - key: readability-identifier-naming.EnumConstantPrefix
+    value: k
+  - key: readability-identifier-naming.TypeAliasCase
+    value: CamelCase
+  - key: readability-identifier-naming.TypedefCase
+    value: CamelCase
+  - key: readability-identifier-naming.TemplateParameterCase
+    value: CamelCase
+  - key: readability-identifier-naming.ConceptCase
+    value: CamelCase
+  - key: readability-identifier-naming.FunctionCase
+    value: lower_case
+  - key: readability-identifier-naming.MethodCase
+    value: lower_case
+  - key: readability-identifier-naming.VariableCase
+    value: lower_case
+  - key: readability-identifier-naming.ParameterCase
+    value: lower_case
+  - key: readability-identifier-naming.MemberCase
+    value: lower_case
+  - key: readability-identifier-naming.PrivateMemberCase
+    value: lower_case
+  - key: readability-identifier-naming.PrivateMemberSuffix
+    value: _
+  - key: readability-identifier-naming.ProtectedMemberCase
+    value: lower_case
+  - key: readability-identifier-naming.ProtectedMemberSuffix
+    value: _
+  # Only compile-time and namespace-scope constants take the k prefix. A local
+  # const is an ordinary variable and keeps snake_case.
+  - key: readability-identifier-naming.GlobalConstantCase
+    value: CamelCase
+  - key: readability-identifier-naming.GlobalConstantPrefix
+    value: k
+  - key: readability-identifier-naming.StaticConstantCase
+    value: CamelCase
+  - key: readability-identifier-naming.StaticConstantPrefix
+    value: k
+  - key: readability-identifier-naming.ClassConstantCase
+    value: CamelCase
+  - key: readability-identifier-naming.ClassConstantPrefix
+    value: k
+  - key: readability-identifier-naming.ConstexprVariableCase
+    value: CamelCase
+  - key: readability-identifier-naming.ConstexprVariablePrefix
+    value: k
+  - key: readability-identifier-naming.MacroDefinitionCase
+    value: UPPER_CASE
+
+  # A function long enough to trip these limits is doing more than one thing.
+  # The kernels are the expected exception and are reviewed on their own terms.
+  - key: readability-function-size.LineThreshold
+    value: 120
+  - key: readability-function-cognitive-complexity.Threshold
+    value: 30
+  - key: readability-function-cognitive-complexity.IgnoreMacros
+    value: true
+
+  # Passing a 3-vector of three doubles by value is cheaper than by reference,
+  # so the threshold is set above its size rather than at the default.
+  - key: performance-unnecessary-value-param.AllowedTypes
+    value: 'Vec3'
+  - key: misc-include-cleaner.IgnoreHeaders
+    value: 'catch2/.*'
+...

@@ -1,0 +1,70 @@
+# Formatting is not discussed in review; this file decides it. The base is LLVM
+# style with a wider column limit, because the physics in this project reads
+# better as one expression per line than as an expression folded across three.
+---
+Language: Cpp
+BasedOnStyle: LLVM
+Standard: c++20
+
+ColumnLimit: 100
+IndentWidth: 4
+ContinuationIndentWidth: 4
+TabWidth: 4
+UseTab: Never
+AccessModifierOffset: -4
+
+PointerAlignment: Left
+ReferenceAlignment: Left
+DerivePointerAlignment: false
+
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+BreakBeforeBraces: Attach
+BreakConstructorInitializers: BeforeColon
+PackConstructorInitializers: NextLine
+EmptyLineBeforeAccessModifier: LogicalBlock
+FixNamespaceComments: true
+NamespaceIndentation: None
+SeparateDefinitionBlocks: Always
+SpaceAfterTemplateKeyword: false
+
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignEscapedNewlines: Left
+AlignTrailingComments: true
+
+# Include ordering follows the convention in the implementation plan: own
+# header, C++ standard library, third party, project. Each block is sorted and
+# clang-format is the tool that enforces it.
+SortIncludes: CaseSensitive
+IncludeBlocks: Regroup
+IncludeCategories:
+  # C++ standard library headers have no extension.
+  - Regex: '^<[a-z_]+>$'
+    Priority: 2
+  # C standard library headers kept alongside the C++ ones.
+  - Regex: '^<c[a-z]+>$'
+    Priority: 2
+  - Regex: '^<(sycl|CL)/'
+    Priority: 3
+  - Regex: '^<(catch2|benchmark|pybind11|glad|GLFW|glm)/'
+    Priority: 3
+  - Regex: '^<orrery/'
+    Priority: 4
+  - Regex: '^<'
+    Priority: 3
+  - Regex: '.*'
+    Priority: 4
+IncludeIsMainRegex: '(_test|_bench)?$'
+
+ReflowComments: true
+SortUsingDeclarations: true
+QualifierAlignment: Left
+IndentPPDirectives: AfterHash
+InsertNewlineAtEOF: true
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1
+...
