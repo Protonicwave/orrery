@@ -84,20 +84,22 @@ TEST_CASE("the cross product is perpendicular to both of its arguments", "[prope
         const Vec3 perpendicular = cross(a, b);
 
         // The exact answer is zero, so the tolerance has to come from the
-        // magnitudes that cancelled to produce it: the terms of the dot product
-        // are of order |a|^2 |b|, and each carries a rounding error of order
-        // epsilon. The factor of 16 covers the handful of operations involved
-        // with room to spare, and holds in both precisions because epsilon
-        // follows the build.
-        const Real scale = squared_norm(a) * norm(b);
-        const Real tolerance = Real{16} * std::numeric_limits<Real>::epsilon() * scale;
+        // magnitudes that cancelled to produce it rather than from the result.
+        // Each component of the cross product carries a rounding error of order
+        // epsilon |a| |b|, and dotting it with a vector multiplies that error
+        // by the length of that vector. The two checks therefore have different
+        // scales, and using one for both leaves the looser check sitting on its
+        // boundary whenever the two vectors differ much in length. The factor
+        // covers the handful of operations involved, and the tolerances hold in
+        // both precisions because epsilon follows the build.
+        const Real factor = Real{32} * std::numeric_limits<Real>::epsilon();
 
-        REQUIRE(std::abs(dot(perpendicular, a)) <= tolerance);
-        REQUIRE(std::abs(dot(perpendicular, b)) <= tolerance);
+        REQUIRE(std::abs(dot(perpendicular, a)) <= factor * squared_norm(a) * norm(b));
+        REQUIRE(std::abs(dot(perpendicular, b)) <= factor * norm(a) * squared_norm(b));
     }
 }
 
-TEST_CASE("the products obey their symmetries exactly", "[property][core]") {
+TEST_CASE("the products obey their symmetries", "[property][core]") {
     INFO("seed = " << kSeed);
     std::mt19937 generator{kSeed};
 
@@ -106,13 +108,34 @@ TEST_CASE("the products obey their symmetries exactly", "[property][core]") {
         const Vec3 a = sample(generator);
         const Vec3 b = sample(generator);
 
-        // Both comparisons are exact rather than approximate, and that is the
-        // point of the test. Swapping the arguments swaps the operands of each
-        // multiplication and negates each subtraction, neither of which changes
-        // a rounded result, so anything other than equality here means the
-        // terms are not the ones the definitions call for.
+        // The dot product's symmetry is exact, and deliberately checked that
+        // way. Swapping the arguments swaps the operands of each
+        // multiplication, which does not change a rounded product, and leaves
+        // the order of the additions alone, so anything other than equality
+        // means the terms are not the ones the definition calls for.
         REQUIRE(dot(a, b) == dot(b, a));
-        REQUIRE(cross(a, b) == -cross(b, a));
+
+        // The cross product's antisymmetry is exact in arithmetic and not in
+        // evaluation. Each component is a difference of two products, and a
+        // compiler is permitted to contract a multiplication and an addition
+        // into a single fused operation, which it does by default on hardware
+        // that has the instruction. The fused product keeps its full precision
+        // while the other is rounded, and swapping the arguments swaps which of
+        // the two that is, so the two results can differ in the last bit. This
+        // is not hypothetical: the exact form of this check passed on x86-64,
+        // whose baseline has no fused multiply-add, and failed on Apple
+        // silicon, which does.
+        //
+        // The tolerance is therefore the size of one rounding of a product of
+        // magnitude |a| |b|, with a factor of four for the operations around
+        // it.
+        const Vec3 forward = cross(a, b);
+        const Vec3 reversed = -cross(b, a);
+        const Real tolerance = Real{4} * std::numeric_limits<Real>::epsilon() * norm(a) * norm(b);
+
+        REQUIRE(std::abs(forward.x - reversed.x) <= tolerance);
+        REQUIRE(std::abs(forward.y - reversed.y) <= tolerance);
+        REQUIRE(std::abs(forward.z - reversed.z) <= tolerance);
     }
 }
 
