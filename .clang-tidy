@@ -24,7 +24,8 @@ Checks: >
   -modernize-use-trailing-return-type,
   -readability-identifier-length,
   -readability-uppercase-literal-suffix,
-  -cert-err58-cpp
+  -cert-err58-cpp,
+  -portability-avoid-pragma-once
 
 # Rationale for the exclusions above, in order.
 #
@@ -63,6 +64,12 @@ Checks: >
 #
 # cert-err58-cpp: Catch2 registers its test cases through static objects whose
 #   constructors may throw, which is the framework's design rather than ours.
+#
+# portability-avoid-pragma-once: the remedy this check asks for is an include
+#   guard, which is a macro, and section 4 of the implementation plan avoids
+#   macros entirely. The portability the check protects is theoretical here:
+#   the three compilers this project supports have all implemented pragma once
+#   for many years, and the project builds on nothing else.
 
 WarningsAsErrors: '*'
 HeaderFilterRegex: '.*/(include/orrery|src|tests|benchmarks)/.*'

@@ -3,12 +3,13 @@
 A GPU-accelerated N-body gravitational simulator in C++20, developed and
 benchmarked entirely on a single Lunar Lake laptop.
 
-> **Status: under construction.** The repository currently holds conventions and
-> documentation only. There is no build system and no code yet, so there is
-> nothing here to compile. Progress is tracked in the phase table in
+> **Status: under construction.** The repository holds the build system, the
+> continuous integration pipeline and the conventions. There is no physics in
+> it yet, so it builds and tests cleanly and does nothing of interest. Progress
+> is tracked in the phase table in
 > [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md), and this README
-> gains a build command, results and figures as the phases that produce them
-> land. Nothing is claimed here before it can be reproduced.
+> gains results and figures as the phases that produce them land. Nothing is
+> claimed here before it can be reproduced.
 
 ## What this is
 
@@ -62,9 +63,44 @@ The figures above are the manufacturer's. The project measures bandwidth and
 throughput on this machine directly, and once it does, the measured values are
 the ones it quotes.
 
+## Building
+
+Requirements: CMake 3.25 or later, a C++20 compiler, and Ninja for the presets
+that use it. Catch2 is fetched at configure time, so the first configure of a
+build tree needs network access. Nothing else has to be installed.
+
+```
+cmake --preset debug
+cmake --build --preset debug
+ctest --preset debug
+```
+
+On Windows the same commands work, run from a Visual Studio developer prompt so
+that MSVC and Ninja are on the path. There are no separate Windows presets: a
+preset naming a Visual Studio generator has to name its version too, and that
+version moves.
+
+The presets are:
+
+| Preset | What it is for |
+| --- | --- |
+| `debug` | Unoptimised with assertions. The default for working on the code |
+| `release` | Optimised with debug information. Every performance figure comes from this |
+| `sanitise` | Address and undefined-behaviour sanitisers, optimised so the suite stays quick enough to run |
+| `single-precision` | Release with `float` rather than `double` as the scalar type |
+| `lint` | Debug with clang-tidy running alongside the compiler. Needs Clang |
+
+Every one of them is exercised by continuous integration, along with a
+clang-format check, on Linux with GCC and Clang, on macOS with Clang, and on
+Windows with MSVC.
+
 ## Repository layout
 
 ```
+cmake/         Build settings, dependency pins, lint integration
+include/       Public headers, under include/orrery/<layer>/
+src/           Implementation, one directory per layer
+tests/         Catch2 test suite, one executable per layer
 docs/          Implementation plan, architecture decision records
 docs/adr/      Numbered decision records, never edited after merge
 ```
