@@ -175,8 +175,16 @@ jobs:
         run: cmake --build --preset lint
 
   sanitise:
-    name: Sanitisers
+    name: Sanitisers ${{ matrix.preset }}
     runs-on: ubuntu-24.04
+    strategy:
+      # Address and undefined cannot be combined with thread, so the two builds
+      # are separate rows rather than one preset with everything switched on.
+      # The thread sanitiser matters from Phase 6 onwards, which is where the
+      # project acquired a scheduler for it to have an opinion about.
+      fail-fast: false
+      matrix:
+        preset: [sanitise, thread-sanitise]
     steps:
       - name: Check out the repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -193,10 +201,10 @@ jobs:
         env:
           CC: clang-${{ env.LLVM_VERSION }}
           CXX: clang++-${{ env.LLVM_VERSION }}
-        run: cmake --preset sanitise
+        run: cmake --preset ${{ matrix.preset }}
 
       - name: Build
-        run: cmake --build --preset sanitise
+        run: cmake --build --preset ${{ matrix.preset }}
 
       - name: Test
-        run: ctest --preset sanitise
+        run: ctest --preset ${{ matrix.preset }}
