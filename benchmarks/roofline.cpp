@@ -194,6 +194,52 @@ struct KernelRow {
                      .interactions = interactions_per_evaluation(data.size())};
 }
 
+/// Every kernel on one thread and on the whole machine, then the first
+/// configuration again.
+///
+/// The single-threaded rows are what isolate vectorisation from threading: a
+/// speedup measured only at full width could be either.
+///
+/// The repeat at the end exists because rows are measured in order and the
+/// machine gets hotter as the session goes on, so a comparison between the
+/// first row and the last is also a comparison between two thermal states. The
+/// canary says how much the clock moved; the repeat says what that was worth to
+/// the thing actually being measured, in the units of the table it appears in.
+/// If the two agree the table can be read straight down; if they do not, the
+/// difference is the size of the confound and every comparison between an early
+/// row and a late one carries it. Either way the reader is told rather than
+/// left to wonder, which is what section 8 of the implementation plan means by
+/// addressing throttling directly rather than quietly.
+[[nodiscard]] std::vector<KernelRow> measure_kernels(ParticleData& data, Executor& serial,
+                                                     Executor& parallel, const Protocol& protocol,
+                                                     ThermalCanary& canary) {
+    std::vector<KernelRow> rows;
+
+    for (const KernelKind kind : {KernelKind::kScalar, KernelKind::kAvx2}) {
+        if (!kernel_available(kind)) {
+            continue;
+        }
+
+        orrery::benchmark::cool_down(protocol);
+        rows.push_back(measure_kernel(data, serial, kind, "serial", protocol));
+        canary.mark();
+
+        orrery::benchmark::cool_down(protocol);
+        rows.push_back(measure_kernel(data, parallel, kind, "stealing", protocol));
+        canary.mark();
+    }
+
+    if (!rows.empty()) {
+        orrery::benchmark::cool_down(protocol);
+        KernelRow repeat = measure_kernel(data, serial, KernelKind::kScalar, "serial", protocol);
+        repeat.kernel += " (repeat)";
+        rows.push_back(std::move(repeat));
+        canary.mark();
+    }
+
+    return rows;
+}
+
 /// A rate in engineering units, so that a table of bytes per second and one of
 /// operations per second read the same way.
 [[nodiscard]] std::string scaled(double value) {
@@ -367,24 +413,7 @@ void run(Index particles, int trials) {
     RandomSource random{kSeed};
     ParticleData data = make_plummer_sphere(PlummerParameters{.count = particles}, random);
 
-    std::vector<KernelRow> rows;
-
-    // Every kernel on one thread and on the whole machine. The single-threaded
-    // rows are what isolate vectorisation from threading: a speedup measured
-    // only at full width could be either.
-    for (const KernelKind kind : {KernelKind::kScalar, KernelKind::kAvx2}) {
-        if (!kernel_available(kind)) {
-            continue;
-        }
-
-        orrery::benchmark::cool_down(protocol);
-        rows.push_back(measure_kernel(data, serial, kind, "serial", protocol));
-        canary.mark();
-
-        orrery::benchmark::cool_down(protocol);
-        rows.push_back(measure_kernel(data, parallel, kind, "stealing", protocol));
-        canary.mark();
-    }
+    const std::vector<KernelRow> rows = measure_kernels(data, serial, parallel, protocol, canary);
 
     const double slow_operation_ceiling = limits[3].rate();
 
@@ -412,7 +441,7 @@ void run(Index particles, int trials) {
 
     std::vector<RooflinePoint> points;
     for (const KernelRow& row : rows) {
-        if (row.workers > 1) {
+        if (row.workers > 1 && !row.kernel.ends_with("(repeat)")) {
             points.push_back(RooflinePoint{.label = row.kernel + ", all cores",
                                            .arithmetic_intensity = intensity,
                                            .achieved = row.flops()});
