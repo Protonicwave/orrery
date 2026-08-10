@@ -63,33 +63,6 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "ORRERY_CLANG_TIDY": "ON"
       }
-    },
-    {
-      "name": "windows-base",
-      "hidden": true,
-      "generator": "Visual Studio 17 2022",
-      "architecture": "x64",
-      "binaryDir": "${sourceDir}/build/${presetName}",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      },
-      "cacheVariables": {
-        "ORRERY_WARNINGS_AS_ERRORS": "ON"
-      }
-    },
-    {
-      "name": "windows-debug",
-      "inherits": "windows-base",
-      "displayName": "Debug, MSVC",
-      "description": "Debug build with the Visual Studio generator. The Ninja presets need a compiler on the path, which on Windows means starting from a developer prompt; this one works from any shell."
-    },
-    {
-      "name": "windows-release",
-      "inherits": "windows-base",
-      "displayName": "Release, MSVC",
-      "description": "Optimised MSVC build with debug information, the Windows counterpart of the release preset."
     }
   ],
   "buildPresets": [
@@ -112,16 +85,6 @@
     {
       "name": "lint",
       "configurePreset": "lint"
-    },
-    {
-      "name": "windows-debug",
-      "configurePreset": "windows-debug",
-      "configuration": "Debug"
-    },
-    {
-      "name": "windows-release",
-      "configurePreset": "windows-release",
-      "configuration": "RelWithDebInfo"
     }
   ],
   "testPresets": [
@@ -155,18 +118,6 @@
       "name": "single-precision",
       "inherits": "base",
       "configurePreset": "single-precision"
-    },
-    {
-      "name": "windows-debug",
-      "inherits": "base",
-      "configurePreset": "windows-debug",
-      "configuration": "Debug"
-    },
-    {
-      "name": "windows-release",
-      "inherits": "base",
-      "configurePreset": "windows-release",
-      "configuration": "RelWithDebInfo"
     }
   ]
 }

@@ -69,16 +69,6 @@ jobs:
             preset: release
             cc: clang
             cxx: clang++
-          - name: Windows MSVC debug
-            os: windows-latest
-            preset: windows-debug
-            cc: ""
-            cxx: ""
-          - name: Windows MSVC release
-            os: windows-latest
-            preset: windows-release
-            cc: ""
-            cxx: ""
     steps:
       - name: Check out the repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -103,6 +93,34 @@ jobs:
       - name: Test
         run: ctest --preset ${{ matrix.preset }}
 
+  build-windows:
+    name: Windows MSVC ${{ matrix.preset }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [debug, release]
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      # Windows gets a job of its own rather than a row in the matrix above
+      # because MSVC is reached through a batch script whose environment does
+      # not survive the end of a step, so configure, build and test have to
+      # share one. The Visual Studio version is discovered with vswhere rather
+      # than named, since the runner image's version changes without notice and
+      # a version named here would be wrong soon afterwards.
+      - name: Configure, build and test
+        shell: cmd
+        run: |
+          set VSWHERE="C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
+          for /f "usebackq tokens=*" %%i in (`%VSWHERE% -latest -products * -property installationPath`) do set "VSPATH=%%i"
+          if not defined VSPATH (echo No Visual Studio installation was found. & exit /b 1)
+          call "%VSPATH%\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
+          cmake --preset ${{ matrix.preset }} || exit /b 1
+          cmake --build --preset ${{ matrix.preset }} || exit /b 1
+          ctest --preset ${{ matrix.preset }} || exit /b 1
+
   format:
     name: clang-format
     runs-on: ubuntu-24.04
@@ -124,7 +142,8 @@ jobs:
             exit 1
           fi
           echo "${files}"
-          "${HOME}/.local/bin/clang-format" --dry-run --Werror ${files}
+          clang-format --version
+          clang-format --dry-run --Werror ${files}
 
   lint:
     name: clang-tidy

@@ -75,14 +75,10 @@ cmake --build --preset debug
 ctest --preset debug
 ```
 
-On Windows, either run those from a Visual Studio developer prompt or use the
-presets that drive MSVC through the Visual Studio generator from any shell:
-
-```
-cmake --preset windows-debug
-cmake --build --preset windows-debug
-ctest --preset windows-debug
-```
+On Windows the same commands work, run from a Visual Studio developer prompt so
+that MSVC and Ninja are on the path. There are no separate Windows presets: a
+preset naming a Visual Studio generator has to name its version too, and that
+version moves.
 
 The presets are:
 
@@ -93,7 +89,6 @@ The presets are:
 | `sanitise` | Address and undefined-behaviour sanitisers, optimised so the suite stays quick enough to run |
 | `single-precision` | Release with `float` rather than `double` as the scalar type |
 | `lint` | Debug with clang-tidy running alongside the compiler. Needs Clang |
-| `windows-debug`, `windows-release` | The MSVC equivalents, through the Visual Studio generator |
 
 Every one of them is exercised by continuous integration, along with a
 clang-format check, on Linux with GCC and Clang, on macOS with Clang, and on
