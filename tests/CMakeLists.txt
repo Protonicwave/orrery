@@ -83,6 +83,28 @@ target_link_libraries(
 
 orrery_enable_linting(orrery_solvers_test)
 
+# The measurement harness, which lives under benchmarks/ because it is not a
+# layer of the simulator. It is still code this project owns and section 5 of
+# the implementation plan asks for it to be covered, so it is tested like
+# anything else. Guarded on the target rather than on ORRERY_BUILD_BENCHMARKS so
+# that a build without the benchmarks still produces a complete suite for what
+# it did build.
+if(TARGET orrery::benchmark_harness)
+  add_executable(
+    orrery_benchmark_test
+    benchmark/machine_limits_test.cpp benchmark/protocol_test.cpp
+    benchmark/roofline_plot_test.cpp benchmark/statistics_test.cpp)
+
+  target_link_libraries(
+    orrery_benchmark_test PRIVATE orrery::benchmark_harness orrery::backend
+                                  orrery::core orrery::warnings
+                                  Catch2::Catch2WithMain)
+
+  orrery_enable_linting(orrery_benchmark_test)
+
+  catch_discover_tests(orrery_benchmark_test)
+endif()
+
 # Registering each Catch2 test case with CTest individually, rather than the
 # whole binary as one test, means a failure report names the case that failed
 # and that cases can be selected by name from ctest.
