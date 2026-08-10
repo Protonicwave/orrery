@@ -41,12 +41,31 @@ namespace {
     return current.count() == 0 ? 0.0 : 1.0;
 }
 
-/// Run and discard evaluations until two of them agree.
+/// One timed measurement: `repeats` calls of `body`, timed together.
+[[nodiscard]] Duration time_folded(core::FunctionRef<void()> body, int repeats) {
+    const Clock::time_point start = Clock::now();
+
+    for (int repeat = 0; repeat < repeats; ++repeat) {
+        body();
+    }
+
+    return std::chrono::duration_cast<Duration>(Clock::now() - start);
+}
+
+/// Run and discard measurements until two of them agree.
 ///
 /// See `Protocol::settling_limit` for why this is a loop rather than a count.
 /// Returns as soon as the machine is doing the same thing twice, which after a
-/// cool-down takes a handful of evaluations and after nothing at all takes one.
-[[nodiscard]] Duration settle(const Protocol& protocol, core::FunctionRef<void()> body) {
+/// cool-down takes a handful of measurements and after nothing at all takes the
+/// minimum.
+///
+/// The measurements are folded to the same length as the timed trials that
+/// follow. Settling on single calls instead would ask two measurements a
+/// microsecond long to agree to five per cent, which on a machine whose clock
+/// resolves a microsecond is a question about scheduling jitter rather than
+/// about the processor's frequency, and the loop would run to its limit every
+/// time without learning anything.
+void settle(const Protocol& protocol, core::FunctionRef<void()> body, int repeats) {
     // Two agreements in a row rather than one. A single pair of similar
     // timings happens by chance often enough to end the loop while the clock is
     // still moving, and the cost of asking for three consecutive similar
@@ -59,7 +78,7 @@ namespace {
     int agreements = 0;
 
     for (int attempt = 0; attempt < protocol.settling_limit; ++attempt) {
-        const Duration current = time_once(body);
+        const Duration current = time_folded(body, repeats);
 
         if (have_previous) {
             const double change = relative_change(previous, current);
@@ -67,7 +86,7 @@ namespace {
             agreements = change < protocol.settled_within ? agreements + 1 : 0;
 
             if (agreements >= kAgreementsRequired) {
-                return current;
+                return;
             }
         }
 
@@ -75,11 +94,10 @@ namespace {
         have_previous = true;
     }
 
-    // Never settled within the limit. The last measurement is still the best
-    // estimate available of how long the body takes, which is all the caller
-    // wants it for, and the dispersion of the trials that follow will say that
-    // the machine was not steady.
-    return previous;
+    // Never settled within the limit, which happens on a machine that is busy
+    // with something else. Nothing to do about it here: the dispersion and the
+    // drift of the trials that follow will say that it was not steady, which is
+    // what those figures are for.
 }
 
 /// How many calls to fold into one timed trial.
@@ -104,28 +122,22 @@ TrialSet run_trials(const Protocol& protocol, core::FunctionRef<void()> body) {
         body();
     }
 
-    const Duration single_call = settle(protocol, body);
-    const int repeats = repeats_for(single_call, protocol.minimum_trial);
+    // One call to size the trials, then settle at that size, then measure.
+    const int repeats = repeats_for(time_once(body), protocol.minimum_trial);
+
+    settle(protocol, body, repeats);
 
     std::vector<Duration> timings;
     timings.reserve(static_cast<std::size_t>(protocol.trials));
 
     for (int trial = 0; trial < protocol.trials; ++trial) {
-        const Clock::time_point start = Clock::now();
-
-        for (int repeat = 0; repeat < repeats; ++repeat) {
-            body();
-        }
-
-        const auto elapsed = std::chrono::duration_cast<Duration>(Clock::now() - start);
-
         // Recorded per call, so that everything downstream means the same thing
-        // whether the body was fast enough to need repeating or not. Reserving
+        // whether the body was fast enough to need folding or not. Reserving
         // the vector above is why the allocation is outside the timed region:
         // one inside would land in some trials and not others, and it would
         // land in the early ones, which is exactly where a drift measurement
         // would then find something that was not thermal.
-        timings.push_back(elapsed / repeats);
+        timings.push_back(time_folded(body, repeats) / repeats);
     }
 
     return TrialSet{std::move(timings)};
