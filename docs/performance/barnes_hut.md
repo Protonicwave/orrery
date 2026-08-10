@@ -256,7 +256,31 @@ uses it, and the section on interaction costs above gives the reason to think a
 larger value might be better on this machine. That is a measurement a later
 phase should make rather than a claim this one is making.
 
-The sanitiser builds the definition of done requires are exercised by continuous
-integration on Linux, for the reason `roofline.md` records: the address
-sanitiser runtime Clang needs against the Microsoft standard library is not
-installed on the development machine.
+## A note on the sanitiser builds
+
+`roofline.md` records that the sanitiser builds cannot be produced on the
+development machine and are left to continuous integration. That is half right,
+and this phase established which half, because the tree solver does more index
+arithmetic than anything else in the project and leaving it entirely to a
+continuous integration run that was unavailable would have been unwise.
+
+The address sanitiser does build and run here. What is missing is `stl_asan.lib`,
+the annotated build of the Microsoft standard library that Visual Studio ships as
+an optional component, and defining `_DISABLE_VECTOR_ANNOTATION` and
+`_DISABLE_STRING_ANNOTATION` removes the dependency on it. The whole suite, 208
+cases, then passes clean. The instrumented binaries need
+`clang_rt.asan_dynamic-x86_64.dll` on the path, both to run and for the test
+discovery step that runs them at build time.
+
+That is a weaker check than the one continuous integration performs, and the
+difference is worth stating rather than glossing: without the annotations, an
+overflow that stays inside a `std::vector`'s allocated capacity is invisible,
+which is exactly the class of mistake an index-heavy tree builder is most likely
+to make. Allocation-boundary overflows, use after free and stack overflows are
+still caught.
+
+The undefined-behaviour sanitiser does not build here at all. Its runtime is
+compiled against a different C runtime from the one this toolchain links, and the
+link fails with a `RuntimeLibrary` mismatch before any of this project's code is
+involved. That one is genuinely continuous integration's to run, along with the
+thread sanitiser and every GCC configuration.
