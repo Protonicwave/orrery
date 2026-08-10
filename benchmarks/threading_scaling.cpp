@@ -24,19 +24,21 @@
 /// equal static shares the wrong partition, quantified directly rather than
 /// inferred from the scheduling results it goes on to explain.
 ///
-/// ## What this is not
+/// ## The methodology is Phase 7's
 ///
-/// It is not the benchmark harness. That is Phase 7's deliverable, and it brings
-/// with it the statistical treatment this program does not have: enough repeats
-/// to characterise the dispersion rather than to take a median of a handful, and
-/// explicit handling of the thermal throttling a laptop part does under
-/// sustained load. Until that exists the numbers here are honest about their
-/// limits, and the spread is printed beside every median so that a row measured
-/// while the machine was busy can be recognised and discarded rather than
-/// quoted.
+/// This program was written in Phase 6 with a timing loop of its own, and said
+/// at the time that the loop was provisional. It now measures through
+/// `benchmarks/harness/`, like everything else in this project: the same
+/// settling warm-up, the same cool-down between configurations, the same median
+/// with its interquartile range, and the same thermal canary bracketing the
+/// session. ADR-0019 records the methodology and why each part of it is there.
+///
+/// The figures moved when it changed, which is the point of having changed it.
+/// The Phase 6 numbers were taken with a fixed two-evaluation warm-up after a
+/// cool-down, so the early trials in each row were measuring the clock ramping
+/// back up from idle. `docs/performance/threading.md` records what was measured
+/// then and `docs/performance/roofline.md` what the same program reports now.
 
-#include <algorithm>
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -45,10 +47,12 @@
 #include <iomanip>
 #include <iostream>
 #include <string>
-#include <thread>
 #include <utility>
 #include <vector>
 
+#include "harness/machine_state.hpp"
+#include "harness/protocol.hpp"
+#include "harness/statistics.hpp"
 #include "orrery/backend/cpu_topology.hpp"
 #include "orrery/backend/executor.hpp"
 #include "orrery/backend/serial_executor.hpp"
@@ -65,9 +69,7 @@
 
 namespace {
 
-using orrery::backend::Clock;
 using orrery::backend::CoreClass;
-using orrery::backend::Duration;
 using orrery::backend::Executor;
 using orrery::backend::ExecutorStatistics;
 using orrery::backend::LogicalProcessor;
@@ -79,6 +81,13 @@ using orrery::backend::ThreadPool;
 using orrery::backend::to_string;
 using orrery::backend::WorkerStatistics;
 using orrery::backend::WorkStealingExecutor;
+using orrery::benchmark::capture_machine_state;
+using orrery::benchmark::cool_down;
+using orrery::benchmark::Duration;
+using orrery::benchmark::Protocol;
+using orrery::benchmark::run_trials;
+using orrery::benchmark::ThermalCanary;
+using orrery::benchmark::TrialSet;
 using orrery::core::Index;
 using orrery::core::ParticleData;
 using orrery::core::RandomSource;
@@ -96,7 +105,7 @@ constexpr std::uint64_t kSeed = 20260810;
 /// minutes.
 constexpr Index kDefaultParticles = 8192;
 
-constexpr int kDefaultRepeats = 9;
+constexpr int kDefaultRepeats = 11;
 
 /// A softening length typical of a Plummer sphere run.
 ///
@@ -117,9 +126,7 @@ struct Measurement {
     std::string affinity;
     unsigned workers{};
 
-    Duration median{};
-    Duration fastest{};
-    Duration slowest{};
+    TrialSet trials;
 
     double idle_fraction{};
     double performance_idle{-1.0};
@@ -167,28 +174,28 @@ struct Measurement {
 /// solver's unthreaded path for the same reason: the same task function, called
 /// the same way, on one thread.
 [[nodiscard]] Measurement measure(ParticleData& data, Executor& executor, std::string affinity,
-                                  int repeats) {
+                                  const Protocol& protocol) {
     DirectSolver solver{kSoftening, executor};
 
-    // Two evaluations thrown away. The first touches every page of the particle
-    // arrays for the first time and wakes threads that have never run, and
-    // neither cost recurs in a simulation that evaluates millions of times.
-    for (int warmup = 0; warmup < 2; ++warmup) {
-        solver.evaluate(data.positions(), data.masses(), data.accelerations());
-    }
+    auto evaluate = [&] { solver.evaluate(data.positions(), data.masses(), data.accelerations()); };
+
+    // The harness runs and discards evaluations until the clock has settled,
+    // then times the rest. The statistics are reset in between, so the
+    // per-worker records below cover exactly the trials that were timed: idle
+    // time accumulated during a warm-up would be the wake-up of threads that
+    // had never run, which is real but is not what this table compares.
+    const Protocol timed = protocol;
+    static_cast<void>(run_trials(Protocol{.warmup = protocol.warmup,
+                                          .settling_limit = protocol.settling_limit,
+                                          .settled_within = protocol.settled_within,
+                                          .trials = 0,
+                                          .cooldown = protocol.cooldown},
+                                 evaluate));
 
     executor.reset_statistics();
 
-    std::vector<Duration> samples;
-    samples.reserve(static_cast<std::size_t>(repeats));
-
-    for (int repeat = 0; repeat < repeats; ++repeat) {
-        const Clock::time_point start = Clock::now();
-        solver.evaluate(data.positions(), data.masses(), data.accelerations());
-        samples.push_back(std::chrono::duration_cast<Duration>(Clock::now() - start));
-    }
-
-    std::ranges::sort(samples);
+    const TrialSet trials =
+        run_trials(Protocol{.warmup = 0, .settling_limit = 0, .trials = timed.trials}, evaluate);
 
     const ExecutorStatistics statistics = executor.statistics();
 
@@ -196,14 +203,7 @@ struct Measurement {
     measurement.scheme = std::string{executor.name()};
     measurement.affinity = std::move(affinity);
     measurement.workers = executor.worker_count();
-
-    // The median rather than the best of the run. A best-of figure reports the
-    // one trial where nothing else on the machine intervened, which is not the
-    // performance anybody gets. The extremes are printed beside it so that a
-    // median taken over a run that was drifting is visible as such.
-    measurement.median = samples[samples.size() / 2];
-    measurement.fastest = samples.front();
-    measurement.slowest = samples.back();
+    measurement.trials = trials;
 
     measurement.per_worker.reserve(statistics.workers.size());
     for (std::size_t worker = 0; worker < statistics.workers.size(); ++worker) {
@@ -233,16 +233,16 @@ void print_percentage(double fraction) {
 }
 
 void print_row(const Measurement& measurement, Duration baseline) {
-    const double milliseconds = static_cast<double>(measurement.median.count()) / 1e6;
-    const double spread = static_cast<double>((measurement.slowest - measurement.fastest).count()) /
-                          static_cast<double>(measurement.median.count()) * 100.0;
-    const double speedup =
-        static_cast<double>(baseline.count()) / static_cast<double>(measurement.median.count());
+    const double milliseconds = static_cast<double>(measurement.trials.median().count()) / 1e6;
+    const double speedup = static_cast<double>(baseline.count()) /
+                           static_cast<double>(measurement.trials.median().count());
 
     std::cout << std::setw(14) << measurement.scheme << std::setw(4) << measurement.workers
               << std::setw(9) << measurement.affinity << std::setw(11) << std::fixed
               << std::setprecision(2) << milliseconds << std::setw(8) << std::setprecision(1)
-              << spread << "%" << std::setw(9) << std::setprecision(2) << speedup << "x";
+              << (measurement.trials.relative_spread() * 100.0) << "%" << std::setw(8)
+              << (measurement.trials.drift() * 100.0) << "%" << std::setw(9) << std::setprecision(2)
+              << speedup << "x";
 
     print_percentage(measurement.idle_fraction);
     print_percentage(measurement.performance_idle);
@@ -254,10 +254,10 @@ void print_row(const Measurement& measurement, Duration baseline) {
 void print_header() {
     std::cout << '\n'
               << std::setw(14) << "scheme" << std::setw(4) << "w" << std::setw(9) << "affinity"
-              << std::setw(11) << "median ms" << std::setw(9) << "spread" << std::setw(10)
-              << "speedup" << std::setw(9) << "idle" << std::setw(9) << "P idle" << std::setw(9)
-              << "E idle" << std::setw(9) << "steals" << '\n'
-              << std::string(93, '-') << '\n';
+              << std::setw(11) << "median ms" << std::setw(9) << "spread" << std::setw(9) << "drift"
+              << std::setw(10) << "speedup" << std::setw(9) << "idle" << std::setw(9) << "P idle"
+              << std::setw(9) << "E idle" << std::setw(9) << "steals" << '\n'
+              << std::string(102, '-') << '\n';
 }
 
 /// Per-worker detail for one configuration.
@@ -299,22 +299,10 @@ void print_worker_breakdown(const Measurement& measurement) {
     return processors.size();
 }
 
-/// Let the part cool between configurations.
-///
-/// A laptop under a sustained N^2 kernel heats up within seconds and drops its
-/// clock, so back-to-back configurations would be measured at different
-/// frequencies and the later ones would look worse for a reason that has
-/// nothing to do with their scheduling. A short pause is a crude answer and it
-/// is stated as such: Phase 7 addresses throttling properly, and until then the
-/// order of the rows is part of the measurement.
-void settle() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(750));
-}
-
 /// What the machine looks like and what was asked of it.
 struct Session {
     Index particles{};
-    int repeats{};
+    Protocol protocol;
     unsigned available{};
     std::vector<LogicalProcessor> processors;
     std::size_t performance_processor{};
@@ -322,10 +310,10 @@ struct Session {
     bool hybrid{};
 };
 
-[[nodiscard]] Session make_session(Index particles, int repeats) {
+[[nodiscard]] Session make_session(Index particles, const Protocol& protocol) {
     Session session;
     session.particles = particles;
-    session.repeats = repeats;
+    session.protocol = protocol;
     session.available = ThreadPool::default_worker_count();
     session.processors = query_logical_processors();
     session.performance_processor = first_processor_of(session.processors, CoreClass::kPerformance);
@@ -336,10 +324,10 @@ struct Session {
 }
 
 void describe(const Session& session) {
-    std::cout << "Orrery threading measurement\n"
-              << "particles: " << session.particles << ", repeats: " << session.repeats
-              << ", scalar: " << (sizeof(Real) == 4 ? "float" : "double") << '\n'
-              << "logical processors: " << session.available << '\n';
+    std::cout << "Orrery threading measurement\n\n";
+    print(std::cout, capture_machine_state());
+    std::cout << "particles:  " << session.particles << ", trials: " << session.protocol.trials
+              << '\n';
 
     if (session.hybrid) {
         std::cout << "topology: hybrid, performance core at index " << session.performance_processor
@@ -369,16 +357,16 @@ struct Report {
 /// where the baseline is taken.
 void collect_baselines(const Session& session, ParticleData& data, Report& report) {
     if (session.hybrid) {
-        settle();
+        cool_down(session.protocol);
         if (pin_current_thread(session.processors[session.efficiency_processor].id)) {
             SerialExecutor serial;
-            Measurement measurement = measure(data, serial, "E core", session.repeats);
-            report.efficiency_baseline = measurement.median;
+            Measurement measurement = measure(data, serial, "E core", session.protocol);
+            report.efficiency_baseline = measurement.trials.median();
             report.have_efficiency_baseline = true;
             report.rows.push_back(std::move(measurement));
         }
 
-        settle();
+        cool_down(session.protocol);
         if (!pin_current_thread(session.processors[session.performance_processor].id)) {
             std::cerr << "warning: could not pin the baseline to a performance core\n";
         }
@@ -386,8 +374,8 @@ void collect_baselines(const Session& session, ParticleData& data, Report& repor
 
     SerialExecutor serial;
     Measurement measurement =
-        measure(data, serial, session.hybrid ? "P core" : "free", session.repeats);
-    report.baseline = measurement.median;
+        measure(data, serial, session.hybrid ? "P core" : "free", session.protocol);
+    report.baseline = measurement.trials.median();
 
     // Ahead of the efficiency baseline if one was taken, so that the row the
     // speedups are formed against is the first in the table.
@@ -404,9 +392,9 @@ void collect_baselines(const Session& session, ParticleData& data, Report& repor
     // hybrid cores and places threads with information a fixed assignment does
     // not have.
     for (unsigned workers = 1; workers <= session.available; ++workers) {
-        settle();
+        cool_down(session.protocol);
         WorkStealingExecutor stealing{workers};
-        report.rows.push_back(measure(data, stealing, "free", session.repeats));
+        report.rows.push_back(measure(data, stealing, "free", session.protocol));
     }
 
     // The comparison this phase exists for, at the full width of the machine.
@@ -418,20 +406,20 @@ void collect_baselines(const Session& session, ParticleData& data, Report& repor
         const bool pinned = affinity == ThreadPool::Affinity::kPinned;
         const char* label = pinned ? "pinned" : "free";
 
-        settle();
+        cool_down(session.protocol);
         {
             StaticExecutor fixed{session.available, affinity};
-            Measurement measurement = measure(data, fixed, label, session.repeats);
+            Measurement measurement = measure(data, fixed, label, session.protocol);
             if (pinned) {
                 report.static_pinned = measurement;
             }
             report.rows.push_back(std::move(measurement));
         }
 
-        settle();
+        cool_down(session.protocol);
         {
             WorkStealingExecutor stealing{session.available, affinity};
-            Measurement measurement = measure(data, stealing, label, session.repeats);
+            Measurement measurement = measure(data, stealing, label, session.protocol);
             if (pinned) {
                 report.stealing_pinned = measurement;
             }
@@ -487,14 +475,28 @@ void report_failure(const char* what) noexcept {
     static_cast<void>(std::fputs("\n", stderr));
 }
 
-void run(Index particles, int repeats) {
-    const Session session = make_session(particles, repeats);
+void run(Index particles, int trials) {
+    const Session session = make_session(particles, Protocol{.trials = trials});
     describe(session);
+
+    ThermalCanary canary;
+    canary.mark();
 
     RandomSource random{kSeed};
     ParticleData data = make_plummer_sphere(PlummerParameters{.count = particles}, random);
 
     present(collect(session, data));
+
+    canary.mark();
+
+    // The session's verdict on itself. Every row above is compared against the
+    // baseline row, which was measured first and therefore on the coolest
+    // machine of the run, so a large slowdown here means the later rows are
+    // flattered against it. ADR-0019 sets out what the canary is and why it is
+    // the number to read before any of the others.
+    std::cout << "\nthermal canary: the machine ran " << std::fixed << std::setprecision(1)
+              << (canary.slowdown() * 100.0)
+              << "% slower at the end of this session than at the start.\n";
 }
 
 } // namespace

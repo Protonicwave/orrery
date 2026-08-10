@@ -9,12 +9,13 @@ benchmarked entirely on a single Lunar Lake laptop.
 > Plummer sphere, an exact Kepler two-body orbit and a uniform sphere, the
 > time integrators, velocity Verlet, Yoshida's fourth-order symplectic
 > composition and classical RK4, the direct O(N^2) gravitational solver they
-> advance a configuration under, and a work-stealing scheduler that runs it
-> across the machine's eight cores. Orrery now simulates gravity correctly, and
-> at 90 per cent of what its eight asymmetric cores can deliver. The kernel is
-> still scalar: explicit vectorisation and the benchmark methodology that
-> measures it against the hardware's limits are the next phase. Progress is
-> tracked in the phase table in
+> advance a configuration under, a work-stealing scheduler that runs it across
+> the machine's eight cores, an AVX2 kernel chosen at run time, and the
+> benchmark harness that measures all of it against limits measured on the same
+> machine. Orrery now simulates gravity correctly, and at four fifths of the
+> ceiling that actually binds the kernel. What is missing is the algorithm: the
+> solver still computes every pair, and the Barnes-Hut tree is the next phase.
+> Progress is tracked in the phase table in
 > [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md), and this README
 > gains results and figures as the phases that produce them land. Nothing is
 > claimed here before it can be reproduced.
@@ -103,42 +104,77 @@ second-order behaviour of velocity Verlet and not a property of the physics.
 
 ## What has been measured so far
 
-The direct solver runs across all eight cores through a work-stealing scheduler.
-On this machine that is not a routine result, because the cores are not alike: a
-performance core computes this kernel 2.17 times as fast as an efficiency core,
-measured directly by pinning the same single-threaded evaluation to one of each.
-Eight such cores are therefore worth 5.84 performance cores rather than eight,
-and that is the limit a speedup here should be read against.
+Every performance figure this project quotes is a fraction of a limit measured
+on this machine rather than a raw timing, and Phase 7 measured the limits. On a
+quiet machine, in double precision:
 
-| Scheme | Speedup over one performance core | Fraction of the 5.84 limit | Performance cores idle |
+| Probe | Sustained | Interquartile spread |
+| --- | --- | --- |
+| Read bandwidth | 95.7 GB/s | 1.5% |
+| Triad bandwidth | 75.2 GB/s | 1.3% |
+| Fused multiply-add | 330 Gflop/s | 2.2% |
+| Divide and square root | 12.2 Gop/s | 3.3% |
+
+The manufacturer's figure for memory bandwidth is about 135 GB/s, so a real
+program reaches 71 per cent of it. The last row is the one that matters here.
+Every pairwise interaction in the direct kernel contains one square root and one
+division, and those retire on a unit with a twenty-seventh of the throughput of
+the multiply-add pipelines, so no implementation of this algorithm on this part
+can approach the peak.
+
+Against those limits, the direct solver at 8192 particles:
+
+| Kernel | Threads | Per evaluation | flop/s | Of the peak | Of the divide ceiling |
+| --- | --- | --- | --- | --- | --- |
+| scalar | 1 | 177.6 ms | 7.56 G | 2.3% | 6.2% |
+| scalar | 8 | 35.57 ms | 37.7 G | 11.4% | 30.9% |
+| avx2 | 1 | 53.13 ms | 25.3 G | 7.6% | 20.7% |
+| avx2 | 8 | **13.80 ms** | **97.3 G** | 29.5% | **79.7%** |
+
+Vectorising is worth 3.34 times on one core and threading a further 3.85, for
+12.87 times together. The right-hand column is the result: the kernel is at four
+fifths of the only ceiling it can compete for, so what is left to win is not in
+the code. In single precision the same kernel reaches 192 Gflop/s, 22.3 times
+the scalar single-threaded figure.
+
+Vectorising also made the kernel **more** accurate, by a factor of 3.5 in double
+precision and 5.7 in single, measured against a compensated-summation reference.
+Keeping one partial sum per lane turns one sum of n terms into four or eight
+sums of n/4 or n/8, and a shorter sum rounds less. No fast-math flag is set
+anywhere in this project (ADR-0020).
+
+The scheduler was re-measured on the vector kernel, and it settled a prediction
+Phase 6 had written down. A performance core now computes this kernel **6.34**
+times as fast as an efficiency core, against 2.17 on the scalar kernel, because
+the two kinds of core differ far more in vector throughput than in scalar. Eight
+such cores are worth 4.63 performance cores rather than 5.84.
+
+| Scheme | Speedup over one performance core | Fraction of the 4.63 limit | Performance cores idle |
 | --- | --- | --- | --- |
-| Equal fixed shares | 4.38x | 75% | 64.5% |
-| Work stealing | 5.23x | 90% | 8.8% |
+| Equal fixed shares | 3.63x | 78% | 83.4% |
+| Work stealing | 4.13x | 89% | 8.2% |
 
-The idle column is the phase's real finding. Given equal shares, the four
-performance cores finish early and spend nearly two thirds of every force
-evaluation waiting for the efficiency cores. Work stealing hands them the
-efficiency cores' backlog instead, and they end up taking 70.5 per cent of the
-particles between them, a ratio of 2.38 to one that matches the hardware
-asymmetry measured independently. The scheduler was never told that ratio and
-holds no weights or calibration: it is what falls out of letting a worker that
-has run out take more.
+The work-stealing scheduler was not changed between the two phases and holds no
+weights, no calibration and no topology, yet the share it gave the performance
+cores moved from 2.38 to one to 5.29 to one, tracking a hardware ratio that had
+nearly tripled. A weight tuned in Phase 6 would have been wrong by a factor of
+three by Phase 7, and wrong silently.
 
-Threading changes no result. Each target particle reads every source and writes
-only its own acceleration, so a threaded evaluation is bit for bit identical to
-a serial one whatever the thread count or the order chunks were claimed in, and
-the test suite asserts that for equality rather than against a tolerance.
+Threading and vectorisation change no result within a kernel. Each target reads
+every source and writes only its own acceleration, so a threaded evaluation is
+bit for bit identical to a serial one whatever the thread count, and the test
+suite asserts that for equality rather than against a tolerance.
 
-The idle-time figures come from pinned runs and reproduce to within a percentage
-point; the timings are medians of eleven trials with a spread of 5 to 36 per
-cent and are indicative. The full tables, the per-worker breakdown and the
-limits of the methodology are in
-[`docs/performance/threading.md`](docs/performance/threading.md), and the
-reasoning is in ADR-0016. Reproduce with:
+The full tables, the roofline plot, the per-worker breakdown and an honest
+account of which of these figures reproduce and which do not are in
+[`docs/performance/roofline.md`](docs/performance/roofline.md) and
+[`docs/performance/threading.md`](docs/performance/threading.md). Reproduce
+with:
 
 ```
 cmake --preset release
 cmake --build --preset release
+./build/release/benchmarks/orrery_roofline 8192 21
 ./build/release/benchmarks/orrery_threading_scaling 8192 11
 ```
 
@@ -155,9 +191,9 @@ figures are recorded rather than left implicit:
 | Memory | 32 GB LPDDR5X-8533, on package |
 | GPU | Intel Arc 130V, Xe2, 7 Xe-cores, memory unified with the host |
 
-The figures above are the manufacturer's. The project measures bandwidth and
-throughput on this machine directly, and once it does, the measured values are
-the ones it quotes.
+The figures above are the manufacturer's. Phase 7 measured bandwidth and
+throughput on this machine directly, and the measured values in the section
+above are the ones the project quotes.
 
 ## Building
 
@@ -208,7 +244,9 @@ The source layers arrive with the phases that need them, in the structure
 described in the implementation plan: `apps/`, `sim/`, `solvers/`,
 `integrators/`, `backend/`, `initial_conditions/` and `core/`, with dependencies
 pointing downwards only. `core/`, `backend/`, `initial_conditions/`,
-`integrators/` and `solvers/` exist so far.
+`integrators/` and `solvers/` exist so far. `benchmarks/harness/` holds the
+measurement infrastructure the benchmark programs share; it is not a layer of
+the simulator and nothing under `src/` depends on it.
 
 ## Documentation
 

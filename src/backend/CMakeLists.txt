@@ -7,8 +7,8 @@
 # either of them appearing in this layer.
 add_library(
   orrery_backend STATIC
-  cpu_topology.cpp serial_executor.cpp static_executor.cpp thread_pool.cpp
-  work_stealing_executor.cpp)
+  cpu_features.cpp cpu_topology.cpp serial_executor.cpp static_executor.cpp
+  thread_pool.cpp work_stealing_executor.cpp)
 add_library(orrery::backend ALIAS orrery_backend)
 
 # The standard threading library is a public dependency because the pool holds

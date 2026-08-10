@@ -8,14 +8,27 @@
 # where a performance claim can be checked against the conditions that produced
 # it.
 #
-# Phase 7 replaces the timing methodology used here with a harness that treats
-# repeats, dispersion and thermal throttling properly. The programs stay; what
-# changes is how they measure.
+# The measurement methodology all of them share, added first because the
+# programs below link it.
+add_subdirectory(harness)
+
 add_executable(orrery_threading_scaling threading_scaling.cpp)
 
 target_link_libraries(
   orrery_threading_scaling
-  PRIVATE orrery::solvers orrery::backend orrery::initial_conditions
-          orrery::core orrery::warnings)
+  PRIVATE orrery::benchmark_harness orrery::solvers orrery::backend
+          orrery::initial_conditions orrery::core orrery::warnings)
 
 orrery_enable_linting(orrery_threading_scaling)
+
+# The measurements Phase 7 exists for: this machine's bandwidth and
+# floating-point ceilings, each kernel's achieved fraction of them, and the
+# roofline plot that puts the two on one pair of axes.
+add_executable(orrery_roofline roofline.cpp)
+
+target_link_libraries(
+  orrery_roofline
+  PRIVATE orrery::benchmark_harness orrery::solvers orrery::backend
+          orrery::initial_conditions orrery::core orrery::warnings)
+
+orrery_enable_linting(orrery_roofline)

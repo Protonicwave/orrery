@@ -47,11 +47,18 @@ include(Dependencies)
 
 add_subdirectory(src)
 
+# Benchmarks before tests, which is the one place in this file where the order
+# matters. Phase 7's measurement harness is a library under benchmarks/, and
+# section 5 of the implementation plan requires every new component to be
+# covered by tests, so tests/ has to be able to see the target. The tests that
+# need it are guarded on its existence rather than on the option, so that a
+# build configured without benchmarks still produces a complete test suite for
+# everything it did build.
+if(ORRERY_BUILD_BENCHMARKS)
+  add_subdirectory(benchmarks)
+endif()
+
 if(ORRERY_BUILD_TESTS)
   enable_testing()
   add_subdirectory(tests)
-endif()
-
-if(ORRERY_BUILD_BENCHMARKS)
-  add_subdirectory(benchmarks)
 endif()

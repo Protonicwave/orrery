@@ -31,7 +31,8 @@ Checks: >
   -bugprone-random-generator-seed,
   -cert-msc32-c,
   -cert-msc51-cpp,
-  -portability-avoid-pragma-once
+  -portability-avoid-pragma-once,
+  -portability-simd-intrinsics
 
 # Rationale for the exclusions above, in order.
 #
@@ -103,6 +104,17 @@ Checks: >
 #   would otherwise enforce the opposite of: randomness is seeded explicitly and
 #   the seed is recorded in the failure message. Nothing here is cryptographic,
 #   which is the setting the check was written for.
+#
+# portability-simd-intrinsics: the check objects to every x86 intrinsic and asks
+#   for std::experimental::simd instead. Phase 7 has exactly one file of
+#   intrinsics, src/solvers/direct_kernel_avx2.cpp, and it is deliberately not
+#   portable: ADR-0018 compiles it apart from the rest of the project for an
+#   instruction set the rest of the project is not compiled for, and selects it
+#   at run time only where the processor reports the feature. The remedy the
+#   check proposes is not available, since the parallelism TS is not in a
+#   released standard this project can require, and it is considered and
+#   rejected on those grounds in that ADR. Every other translation unit here is
+#   portable and would trip this check on nothing.
 #
 # portability-avoid-pragma-once: the remedy this check asks for is an include
 #   guard, which is a macro, and section 4 of the implementation plan avoids
