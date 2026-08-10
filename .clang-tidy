@@ -27,6 +27,7 @@ Checks: >
   -readability-identifier-length,
   -readability-uppercase-literal-suffix,
   -cert-err58-cpp,
+  -clang-analyzer-optin.core.EnumCastOutOfRange,
   -bugprone-random-generator-seed,
   -cert-msc32-c,
   -cert-msc51-cpp,
@@ -84,6 +85,14 @@ Checks: >
 #
 # cert-err58-cpp: Catch2 registers its test cases through static objects whose
 #   constructors may throw, which is the framework's design rather than ours.
+#
+# clang-analyzer-optin.core.EnumCastOutOfRange: the check objects to casting a
+#   combination of flag values back to the enumeration they came from, which is
+#   how every flag enumeration in C++ has always worked. It fires inside Catch2,
+#   on the assertion macros rather than on anything this repository wrote, and
+#   the analyser reaches it only along some paths, so it appears and disappears
+#   with unrelated edits to a test. There is nothing to act on and no way to
+#   suppress it at the call site without a macro.
 #
 # bugprone-random-generator-seed and its cert aliases: these object to seeding a
 #   generator with a constant, which is exactly what this project requires. A

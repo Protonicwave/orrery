@@ -5,10 +5,12 @@ benchmarked entirely on a single Lunar Lake laptop.
 
 > **Status: under construction.** The repository holds the build system, the
 > continuous integration pipeline, the conventions, the core data structures,
-> and the first physics: the conserved quantities of a configuration and the
-> configurations themselves, a Plummer sphere, an exact Kepler two-body orbit
-> and a uniform sphere. There is no solver and no integrator yet, so nothing
-> moves. Progress is tracked in the phase table in
+> the conserved quantities of a configuration, the configurations themselves, a
+> Plummer sphere, an exact Kepler two-body orbit and a uniform sphere, and the
+> time integrators: velocity Verlet, Yoshida's fourth-order symplectic
+> composition and classical RK4. Things now move, but only under an acceleration
+> a test supplies: the force solver arrives in the next phase. Progress is
+> tracked in the phase table in
 > [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md), and this README
 > gains results and figures as the phases that produce them land. Nothing is
 > claimed here before it can be reproduced.
@@ -47,6 +49,37 @@ Deliberately out of scope, each a reasonable extension and none of them planned:
 It is also not a general physics framework. Orrery is a gravitational N-body
 simulator with a layered architecture, and it stays that way until there is a
 genuine second solver to justify anything more.
+
+## What has been demonstrated so far
+
+Every figure below is produced by the test suite, on the machine described in the
+next section, and reproduced by:
+
+```
+cmake --preset release
+cmake --build --preset release
+ctest --preset release
+```
+
+The integrators are measured against a circular two-body orbit, whose exact
+solution after one period is the state it started in, and against an eccentric
+one integrated for four hundred orbits at two hundred steps each:
+
+| Method | Force evaluations per step | Measured order | Relative energy error, first twentieth of the run | Last twentieth |
+| --- | --- | --- | --- | --- |
+| Velocity Verlet | 1 | 1.9998 | 2.6894e-3 | 2.6894e-3 |
+| Yoshida 4 | 3 | 4.0006 | 2.0170e-5 | 2.0170e-5 |
+| RK4 | 4 | 4.1670 | 1.92e-5 | 3.72e-4 |
+
+The last column is the point. The two symplectic methods return the same energy
+error at the end of four hundred orbits as they had at the start, to six digits.
+RK4, of the same order as Yoshida and costing a third more per step, is nineteen
+times further out by the end and still moving. ADR-0011 sets out why that decides
+the default.
+
+The integrated orbital period agrees with `2 pi sqrt(a^3 / G M)` to better than a
+part in ten thousand, linear momentum is conserved to round-off by all three
+methods, and angular momentum to round-off by the symplectic pair.
 
 ## Target hardware
 
@@ -110,7 +143,8 @@ docs/adr/      Numbered decision records, never edited after merge
 The source layers arrive with the phases that need them, in the structure
 described in the implementation plan: `apps/`, `sim/`, `solvers/`,
 `integrators/`, `backend/`, `initial_conditions/` and `core/`, with dependencies
-pointing downwards only. `core/` and `initial_conditions/` exist so far.
+pointing downwards only. `core/`, `initial_conditions/` and `integrators/` exist
+so far.
 
 ## Documentation
 

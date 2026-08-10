@@ -496,7 +496,7 @@ and re-checked whenever kernels change.
 | 1 | Build system and CI | Complete |
 | 2 | Core data structures | Complete |
 | 3 | Diagnostics and initial conditions | Complete |
-| 4 | Time integrators | Not started |
+| 4 | Time integrators | Complete |
 | 5 | Direct force solver | Not started |
 | 6 | CPU threading for heterogeneous cores | Not started |
 | 7 | Vectorisation and benchmark methodology | Not started |

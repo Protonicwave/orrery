@@ -24,3 +24,6 @@ introduces it.
 | [0008](0008-share-one-softening-definition.md) | Share one softening definition between the solver and the diagnostics | Accepted |
 | [0009](0009-generate-the-random-distributions-here.md) | Generate the random distributions in the project rather than with the standard library | Accepted |
 | [0010](0010-give-initial-conditions-their-own-layer.md) | Give initial conditions their own layer | Accepted |
+| [0011](0011-prefer-symplectic-integration.md) | Prefer a symplectic second-order integrator to a non-symplectic fourth-order one | Accepted |
+| [0012](0012-integrators-call-an-abstract-acceleration-field.md) | Give the integrators an abstract acceleration field of their own | Accepted |
+| [0013](0013-carry-the-acceleration-between-steps.md) | Carry the acceleration between steps as an interface invariant | Accepted |
