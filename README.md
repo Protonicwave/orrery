@@ -8,10 +8,12 @@ benchmarked entirely on a single Lunar Lake laptop.
 > the conserved quantities of a configuration, the configurations themselves, a
 > Plummer sphere, an exact Kepler two-body orbit and a uniform sphere, the
 > time integrators, velocity Verlet, Yoshida's fourth-order symplectic
-> composition and classical RK4, and the direct O(N^2) gravitational solver they
-> advance a configuration under. Orrery now simulates gravity, correctly and
-> slowly: the solver is single-threaded and scalar, and making it fast is the
-> subject of the next two phases. Progress is
+> composition and classical RK4, the direct O(N^2) gravitational solver they
+> advance a configuration under, and a work-stealing scheduler that runs it
+> across the machine's eight cores. Orrery now simulates gravity correctly, and
+> at 90 per cent of what its eight asymmetric cores can deliver. The kernel is
+> still scalar: explicit vectorisation and the benchmark methodology that
+> measures it against the hardware's limits are the next phase. Progress is
 > tracked in the phase table in
 > [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md), and this README
 > gains results and figures as the phases that produce them land. Nothing is
@@ -99,6 +101,47 @@ law gives a closed orbit, so a precession is either a wrong force law or an
 artefact of the integrator. Halving the timestep divides it by 3.99, which is the
 second-order behaviour of velocity Verlet and not a property of the physics.
 
+## What has been measured so far
+
+The direct solver runs across all eight cores through a work-stealing scheduler.
+On this machine that is not a routine result, because the cores are not alike: a
+performance core computes this kernel 2.17 times as fast as an efficiency core,
+measured directly by pinning the same single-threaded evaluation to one of each.
+Eight such cores are therefore worth 5.84 performance cores rather than eight,
+and that is the limit a speedup here should be read against.
+
+| Scheme | Speedup over one performance core | Fraction of the 5.84 limit | Performance cores idle |
+| --- | --- | --- | --- |
+| Equal fixed shares | 4.38x | 75% | 64.5% |
+| Work stealing | 5.23x | 90% | 8.8% |
+
+The idle column is the phase's real finding. Given equal shares, the four
+performance cores finish early and spend nearly two thirds of every force
+evaluation waiting for the efficiency cores. Work stealing hands them the
+efficiency cores' backlog instead, and they end up taking 70.5 per cent of the
+particles between them, a ratio of 2.38 to one that matches the hardware
+asymmetry measured independently. The scheduler was never told that ratio and
+holds no weights or calibration: it is what falls out of letting a worker that
+has run out take more.
+
+Threading changes no result. Each target particle reads every source and writes
+only its own acceleration, so a threaded evaluation is bit for bit identical to
+a serial one whatever the thread count or the order chunks were claimed in, and
+the test suite asserts that for equality rather than against a tolerance.
+
+The idle-time figures come from pinned runs and reproduce to within a percentage
+point; the timings are medians of eleven trials with a spread of 5 to 36 per
+cent and are indicative. The full tables, the per-worker breakdown and the
+limits of the methodology are in
+[`docs/performance/threading.md`](docs/performance/threading.md), and the
+reasoning is in ADR-0016. Reproduce with:
+
+```
+cmake --preset release
+cmake --build --preset release
+./build/release/benchmarks/orrery_threading_scaling 8192 11
+```
+
 ## Target hardware
 
 Every performance decision in the project follows from one machine, so its
@@ -140,6 +183,7 @@ The presets are:
 | `debug` | Unoptimised with assertions. The default for working on the code |
 | `release` | Optimised with debug information. Every performance figure comes from this |
 | `sanitise` | Address and undefined-behaviour sanitisers, optimised so the suite stays quick enough to run |
+| `thread-sanitise` | Thread sanitiser, for the scheduler. Separate because it cannot be combined with the address sanitiser |
 | `single-precision` | Release with `float` rather than `double` as the scalar type |
 | `lint` | Debug with clang-tidy running alongside the compiler. Needs Clang |
 
@@ -150,19 +194,21 @@ Windows with MSVC.
 ## Repository layout
 
 ```
-cmake/         Build settings, dependency pins, lint integration
-include/       Public headers, under include/orrery/<layer>/
-src/           Implementation, one directory per layer
-tests/         Catch2 test suite, one executable per layer
-docs/          Implementation plan, architecture decision records
-docs/adr/      Numbered decision records, never edited after merge
+cmake/            Build settings, dependency pins, lint integration
+include/          Public headers, under include/orrery/<layer>/
+src/              Implementation, one directory per layer
+tests/            Catch2 test suite, one executable per layer
+benchmarks/       Measurement programs. They report numbers rather than assert them
+docs/             Implementation plan, architecture decision records
+docs/adr/         Numbered decision records, never edited after merge
+docs/performance/ Measured results, with the machine state that produced them
 ```
 
 The source layers arrive with the phases that need them, in the structure
 described in the implementation plan: `apps/`, `sim/`, `solvers/`,
 `integrators/`, `backend/`, `initial_conditions/` and `core/`, with dependencies
-pointing downwards only. `core/`, `initial_conditions/`, `integrators/` and
-`solvers/` exist so far.
+pointing downwards only. `core/`, `backend/`, `initial_conditions/`,
+`integrators/` and `solvers/` exist so far.
 
 ## Documentation
 

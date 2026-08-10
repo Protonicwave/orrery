@@ -72,7 +72,13 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(orrery_warnings INTERFACE -Werror)
   endif()
 elseif(MSVC)
-  target_compile_options(orrery_warnings INTERFACE /W4)
+  # C4324 reports that a structure was padded to satisfy an alignas, which is
+  # what alignas is for. The project uses it to give a per-thread counter and a
+  # per-thread work range a cache line each, so that two cores updating their
+  # own do not contend for the same line. The padding the warning objects to is
+  # the entire mechanism, and there is no way to ask for the alignment without
+  # it. GCC and Clang do not warn here at all.
+  target_compile_options(orrery_warnings INTERFACE /W4 /wd4324)
 
   if(ORRERY_WARNINGS_AS_ERRORS)
     target_compile_options(orrery_warnings INTERFACE /WX)

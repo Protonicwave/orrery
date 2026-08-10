@@ -45,6 +45,16 @@
       }
     },
     {
+      "name": "thread-sanitise",
+      "inherits": "base",
+      "displayName": "Thread sanitiser",
+      "description": "Instrumented build for the data race check the scheduler in Phase 6 makes necessary. It is a separate preset because the thread sanitiser cannot be combined with the address sanitiser, and optimisation is kept on for the same reason the other sanitiser preset keeps it: an instrumented suite slow enough to be skipped is a check that is not performed.",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "ORRERY_SANITISERS": "thread"
+      }
+    },
+    {
       "name": "single-precision",
       "inherits": "base",
       "displayName": "Release, single precision",
@@ -77,6 +87,10 @@
     {
       "name": "sanitise",
       "configurePreset": "sanitise"
+    },
+    {
+      "name": "thread-sanitise",
+      "configurePreset": "thread-sanitise"
     },
     {
       "name": "single-precision",
@@ -113,6 +127,11 @@
       "name": "sanitise",
       "inherits": "base",
       "configurePreset": "sanitise"
+    },
+    {
+      "name": "thread-sanitise",
+      "inherits": "base",
+      "configurePreset": "thread-sanitise"
     },
     {
       "name": "single-precision",

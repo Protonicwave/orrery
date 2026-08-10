@@ -29,3 +29,5 @@ introduces it.
 | [0013](0013-carry-the-acceleration-between-steps.md) | Carry the acceleration between steps as an interface invariant | Accepted |
 | [0014](0014-give-the-solvers-an-interface-of-their-own.md) | Give the force solvers an interface of their own above the acceleration field | Accepted |
 | [0015](0015-compute-every-pair-from-both-ends.md) | Compute every pair from both ends rather than applying Newton's third law | Accepted |
+| [0016](0016-balance-the-threads-dynamically.md) | Balance the threads dynamically by stealing ranges | Accepted |
+| [0017](0017-thread-the-solver-through-an-executor.md) | Thread the solver through an executor it does not own | Accepted |

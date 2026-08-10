@@ -9,13 +9,13 @@
 add_library(orrery_solvers STATIC direct_solver.cpp)
 add_library(orrery::solvers ALIAS orrery_solvers)
 
-# Both are public: the solver interface derives from the integrators'
-# acceleration field and every function here takes spans over core's component
-# arrays, so a consumer of this library is a consumer of both whether it says so
-# or not.
+# All three are public: the solver interface derives from the integrators'
+# acceleration field, every function here takes spans over core's component
+# arrays, and a solver is constructed from a reference to a backend executor. A
+# consumer of this library is a consumer of all three whether it says so or not.
 target_link_libraries(
   orrery_solvers
-  PUBLIC orrery::integrators orrery::core
+  PUBLIC orrery::integrators orrery::backend orrery::core
   PRIVATE orrery::warnings)
 
 orrery_enable_linting(orrery_solvers)
