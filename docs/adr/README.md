@@ -15,3 +15,5 @@ introduces it.
 | Number | Title | Status |
 | --- | --- | --- |
 | [0001](0001-record-architecture-decisions.md) | Record architecture decisions | Accepted |
+| [0002](0002-pin-dependencies-to-exact-commits.md) | Pin dependencies to exact commits fetched at configure time | Accepted |
+| [0003](0003-build-settings-through-interface-targets.md) | Carry build settings on interface targets rather than global flags | Accepted |
