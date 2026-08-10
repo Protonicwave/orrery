@@ -8,7 +8,8 @@
 # it.
 add_library(
   orrery_solvers STATIC direct_kernel.cpp direct_kernel_scalar.cpp
-                        direct_solver.cpp morton.cpp reference_kernel.cpp)
+                        direct_solver.cpp morton.cpp octree.cpp
+                        reference_kernel.cpp)
 add_library(orrery::solvers ALIAS orrery_solvers)
 
 # All three are public: the solver interface derives from the integrators'
