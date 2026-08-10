@@ -2,8 +2,9 @@
 # and a layer's tests can be run on their own while working on it.
 include(Catch)
 
-add_executable(orrery_core_test core/build_info_test.cpp core/types_test.cpp
-                                core/vec3_test.cpp)
+add_executable(
+  orrery_core_test core/aligned_allocator_test.cpp core/build_info_test.cpp
+                   core/types_test.cpp core/vec3_test.cpp)
 
 target_link_libraries(
   orrery_core_test PRIVATE orrery::core orrery::warnings
