@@ -1,0 +1,7 @@
+quantity,arithmetic_intensity_flop_per_byte,rate_flop_per_second,fraction_of_roof
+measured read bandwidth,,9.56771e+10,
+measured peak throughput,,3.30253e+11,
+ridge,3.45174,,
+divide and square root limit for this mix ceiling,,1.22059e+11,
+scalar, all cores,5119.38,3.77318e+10,0.114251
+avx2, all cores,5119.38,9.72681e+10,0.294526
