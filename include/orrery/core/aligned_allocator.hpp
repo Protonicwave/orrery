@@ -94,11 +94,17 @@ public:
         return static_cast<T*>(::operator new(count * sizeof(T), std::align_val_t{kAlignment}));
     }
 
-    static void deallocate(T* pointer, std::size_t count) noexcept {
-        // The sized and aligned form, matching the allocation above. An
-        // ordinary operator delete would be undefined behaviour here, since the
-        // storage did not come from an ordinary operator new.
-        ::operator delete(pointer, count * sizeof(T), std::align_val_t{kAlignment});
+    static void deallocate(T* pointer, std::size_t /*count*/) noexcept {
+        // The aligned form, matching the allocation above. An ordinary operator
+        // delete would be undefined behaviour here, since the storage did not
+        // come from an ordinary operator new.
+        //
+        // The sized overload is deliberately not used, although the count is to
+        // hand. It saves the allocator a size lookup, but it is only declared
+        // by compilers built with sized deallocation enabled, which is not the
+        // default in every release this project supports. A hint worth that
+        // little is not worth a portability condition.
+        ::operator delete(pointer, std::align_val_t{kAlignment});
     }
 
     /// The largest count that can be expressed in bytes without wrapping.
