@@ -1,0 +1,34 @@
+; Editor defaults. Formatting of C++ sources is decided by .clang-format; the
+; settings here exist so that an editor without clang-format integration still
+; produces a diff that clang-format will accept.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+max_line_length = 100
+
+[*.{c,cc,cpp,h,hpp,ipp,cu,sycl}]
+indent_size = 4
+
+[{CMakeLists.txt,*.cmake}]
+indent_size = 2
+
+[*.{json,yml,yaml}]
+indent_size = 2
+
+[*.md]
+indent_size = 2
+; Trailing whitespace is a line break in Markdown, so leave it alone.
+trim_trailing_whitespace = false
+
+[*.py]
+indent_size = 4
+
+[Makefile]
+indent_style = tab

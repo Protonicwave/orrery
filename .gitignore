@@ -1,0 +1,65 @@
+# Build trees. CMake presets place every configuration under build/.
+build/
+out/
+install/
+cmake-build-*/
+
+# CMake artefacts that can appear outside a build tree.
+CMakeCache.txt
+CMakeFiles/
+CMakeUserPresets.json
+cmake_install.cmake
+compile_commands.json
+CTestTestfile.cmake
+Testing/
+
+# Compiler and linker output.
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.pdb
+*.ilk
+*.exp
+
+# Sanitiser, profiler and coverage output.
+*.gcda
+*.gcno
+*.gcov
+*.profraw
+*.profdata
+perf.data
+perf.data.old
+callgrind.out.*
+asan.log.*
+ubsan.log.*
+
+# Simulation output. Trajectories and checkpoints are large and reproducible
+# from a configuration file, so they are never committed.
+*.orrery
+*.ckpt
+results/
+frames/
+*.mp4
+
+# Python tooling for the bindings and the example notebooks.
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# Editors and operating systems.
+.vscode/
+.vs/
+.idea/
+.cache/
+*.swp
+.DS_Store
+Thumbs.db
