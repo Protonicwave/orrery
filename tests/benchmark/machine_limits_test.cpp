@@ -44,8 +44,14 @@ using orrery::core::Real;
 constexpr std::size_t kTestBytes = std::size_t{1} << 20U;
 
 [[nodiscard]] Protocol quick() {
-    return Protocol{
-        .warmup = 1, .settling_limit = 2, .trials = 3, .cooldown = std::chrono::milliseconds{0}};
+    // A short minimum trial rather than the harness default, so that these
+    // cases still exercise the folding in `Protocol::minimum_trial` without
+    // turning a one-megabyte probe into fifty milliseconds of repeats.
+    return Protocol{.warmup = 1,
+                    .settling_limit = 2,
+                    .trials = 3,
+                    .minimum_trial = std::chrono::milliseconds{1},
+                    .cooldown = std::chrono::milliseconds{0}};
 }
 
 /// Every probe has to satisfy this, and a deleted loop satisfies none of it.

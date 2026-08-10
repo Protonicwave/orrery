@@ -19,6 +19,7 @@
 namespace {
 
 using orrery::benchmark::cool_down;
+using orrery::benchmark::Duration;
 using orrery::benchmark::Protocol;
 using orrery::benchmark::run_trials;
 using orrery::benchmark::ThermalCanary;
@@ -48,8 +49,11 @@ TEST_CASE("settling stops early rather than always running to its limit", "[unit
     // is agreement. Without the special case for it the loop would run its full
     // limit every time, which is both slow and, on a short measurement, a
     // program that spends its time settling rather than measuring.
-    const Protocol protocol{
-        .warmup = 0, .settling_limit = 100, .trials = 1, .cooldown = std::chrono::milliseconds{0}};
+    const Protocol protocol{.warmup = 0,
+                            .settling_limit = 100,
+                            .trials = 1,
+                            .minimum_trial = Duration{0},
+                            .cooldown = std::chrono::milliseconds{0}};
 
     int calls = 0;
     const TrialSet trials = run_trials(protocol, [&] { ++calls; });
@@ -61,14 +65,49 @@ TEST_CASE("settling stops early rather than always running to its limit", "[unit
 }
 
 TEST_CASE("a protocol with no trials measures nothing without failing", "[unit][benchmark]") {
-    const Protocol protocol{
-        .warmup = 0, .settling_limit = 0, .trials = 0, .cooldown = std::chrono::milliseconds{0}};
+    const Protocol protocol{.warmup = 0,
+                            .settling_limit = 0,
+                            .trials = 0,
+                            .minimum_trial = Duration{0},
+                            .cooldown = std::chrono::milliseconds{0}};
 
     int calls = 0;
     const TrialSet trials = run_trials(protocol, [&] { ++calls; });
 
     REQUIRE(trials.empty());
     REQUIRE(calls == 0);
+}
+
+TEST_CASE("a body too fast to time is folded into a longer trial", "[unit][benchmark]") {
+    // The behaviour the case above switches off. A body the clock can barely
+    // resolve is called repeatedly inside one trial and the total divided by
+    // the number of calls, so that a short measurement is not dominated by one
+    // scheduling event. See `Protocol::minimum_trial`.
+    //
+    // How many times is deliberately not asserted: it depends on the clock's
+    // resolution and on how fast the machine is, which is the point of
+    // computing it rather than fixing it. What is asserted is that folding
+    // happened at all, and that it did not happen when it was switched off.
+    const Protocol folded{.warmup = 0,
+                          .trials = 4,
+                          .minimum_trial = std::chrono::milliseconds{2},
+                          .cooldown = std::chrono::milliseconds{0}};
+
+    int busy_calls = 0;
+    const TrialSet busy = run_trials(folded, [&] {
+        ++busy_calls;
+        // Enough arithmetic that the body takes a measurable but tiny time, so
+        // that the harness has something to divide into the minimum.
+        volatile double sink = 0;
+        for (int step = 0; step < 1000; ++step) {
+            sink = sink + 1.0;
+        }
+    });
+
+    REQUIRE(busy.count() == 4);
+
+    CAPTURE(busy_calls);
+    REQUIRE(busy_calls > 4);
 }
 
 TEST_CASE("the canary reports nothing until it has been marked twice", "[unit][benchmark]") {
