@@ -1,0 +1,183 @@
+# Continuous integration. Every job here is one line of the definition of done
+# in CONTRIBUTING.md, so a green run is the evidence that a pull request meets
+# it rather than a claim that it does.
+#
+# Actions are pinned to a commit rather than a tag, for the same reason the C++
+# dependencies are: a tag can be moved onto different code without anything in
+# this repository changing. ADR-0002.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A later push to a branch makes the earlier run's answer obsolete, so the
+# earlier run is cancelled rather than left to finish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # The LLVM release used for lint and for the sanitiser run. It is pinned so
+  # that a runner image update cannot introduce diagnostics the project has not
+  # seen, and it matches the clang-format version below.
+  LLVM_VERSION: "22"
+  CLANG_FORMAT_VERSION: "22.1.8"
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # One compiler failing says nothing about the others, and the whole point
+      # of the matrix is to learn about all of them in one run.
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux GCC debug
+            os: ubuntu-24.04
+            preset: debug
+            cc: gcc
+            cxx: g++
+          - name: Linux GCC release
+            os: ubuntu-24.04
+            preset: release
+            cc: gcc
+            cxx: g++
+          - name: Linux Clang debug
+            os: ubuntu-24.04
+            preset: debug
+            cc: clang
+            cxx: clang++
+          - name: Linux Clang release
+            os: ubuntu-24.04
+            preset: release
+            cc: clang
+            cxx: clang++
+          - name: Linux Clang single precision
+            os: ubuntu-24.04
+            preset: single-precision
+            cc: clang
+            cxx: clang++
+          - name: macOS Clang release
+            os: macos-latest
+            preset: release
+            cc: clang
+            cxx: clang++
+          - name: Windows MSVC debug
+            os: windows-latest
+            preset: windows-debug
+            cc: ""
+            cxx: ""
+          - name: Windows MSVC release
+            os: windows-latest
+            preset: windows-release
+            cc: ""
+            cxx: ""
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Install Ninja
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install --yes ninja-build
+
+      - name: Install Ninja
+        if: runner.os == 'macOS'
+        run: brew install ninja
+
+      - name: Configure
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+        run: cmake --preset ${{ matrix.preset }}
+
+      - name: Build
+        run: cmake --build --preset ${{ matrix.preset }}
+
+      - name: Test
+        run: ctest --preset ${{ matrix.preset }}
+
+  format:
+    name: clang-format
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Install clang-format
+        run: pipx install "clang-format==${CLANG_FORMAT_VERSION}"
+
+      - name: Check formatting
+        # git ls-files rather than a find, so that a source file which is not
+        # tracked is not quietly exempt from the project's formatting.
+        run: |
+          set -o errexit
+          files=$(git ls-files '*.cpp' '*.hpp' '*.ipp')
+          if [ -z "${files}" ]; then
+            echo "No C++ sources were found. The pattern above is wrong."
+            exit 1
+          fi
+          echo "${files}"
+          "${HOME}/.local/bin/clang-format" --dry-run --Werror ${files}
+
+  lint:
+    name: clang-tidy
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Install LLVM and Ninja
+        run: |
+          set -o errexit
+          wget --quiet --output-document=llvm.sh https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh "${LLVM_VERSION}"
+          sudo apt-get install --yes "clang-tidy-${LLVM_VERSION}" ninja-build
+
+      - name: Configure
+        env:
+          CC: clang-${{ env.LLVM_VERSION }}
+          CXX: clang++-${{ env.LLVM_VERSION }}
+        run: >
+          cmake --preset lint
+          -DORRERY_CLANG_TIDY_EXECUTABLE=clang-tidy-${{ env.LLVM_VERSION }}
+
+      # clang-tidy runs as part of compilation, so building the lint preset is
+      # the check. A diagnostic is an error by the WarningsAsErrors setting in
+      # .clang-tidy.
+      - name: Lint
+        run: cmake --build --preset lint
+
+  sanitise:
+    name: Sanitisers
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Install LLVM and Ninja
+        run: |
+          set -o errexit
+          wget --quiet --output-document=llvm.sh https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh "${LLVM_VERSION}"
+          sudo apt-get install --yes ninja-build
+
+      - name: Configure
+        env:
+          CC: clang-${{ env.LLVM_VERSION }}
+          CXX: clang++-${{ env.LLVM_VERSION }}
+        run: cmake --preset sanitise
+
+      - name: Build
+        run: cmake --build --preset sanitise
+
+      - name: Test
+        run: ctest --preset sanitise
