@@ -49,10 +49,18 @@ public:
     /// excludes `FunctionRef` itself so that copy construction is not hijacked,
     /// and excludes const callables so that the erased pointer can be a plain
     /// `void*` and the thunk can recover it without a const cast.
+    /// The parameter is a forwarding reference that is deliberately never
+    /// forwarded, which is the one shape a reference type has and an owning
+    /// wrapper does not. Forwarding would mean moving from the caller's
+    /// callable, and there is nothing here to move it into: what is stored is
+    /// its address. The reference is taken so that both an lvalue and a
+    /// temporary lambda at the call site bind to it, and the constraint above
+    /// rules out the copy constructor and const callables so that the erased
+    /// pointer can be a plain `void*`.
     template<typename Callable, typename Erased = std::remove_reference_t<Callable>>
         requires(!std::is_same_v<Erased, FunctionRef> && !std::is_const_v<Erased> &&
                  std::is_invocable_r_v<Result, Erased&, Args...>)
-    // NOLINTNEXTLINE(bugprone-forwarding-reference-overload)
+    // NOLINTNEXTLINE(bugprone-forwarding-reference-overload,cppcoreguidelines-missing-std-forward)
     constexpr FunctionRef(Callable&& callable) noexcept
         : object_(std::addressof(callable)), invoke_(&invoke_erased<Erased>) {}
 

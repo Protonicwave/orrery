@@ -41,7 +41,7 @@ namespace orrery::backend {
 class ThreadPool {
 public:
     /// Whether workers are tied to a particular logical processor.
-    enum class Affinity {
+    enum class Affinity : std::uint8_t {
         /// Let the operating system place the threads.
         ///
         /// The default, and on this hardware usually the faster of the two:

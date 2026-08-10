@@ -26,6 +26,7 @@
 /// would produce exactly the wrong conclusion about the scheduler, so an honest
 /// absence is worth more than a plausible default.
 
+#include <cstdint>
 #include <string_view>
 #include <vector>
 
@@ -37,7 +38,13 @@ namespace orrery::backend {
 /// the hardware this project targets and of what the operating systems report.
 /// A part with three tiers, or one whose classes cannot be distinguished, is
 /// described by `kUnknown` rather than by stretching this enumeration.
-enum class CoreClass {
+/// The base type is named rather than left to the compiler's default of `int`,
+/// which would be four bytes for three values. It is stored one per logical
+/// processor and one per worker, so the size is of no consequence at all here;
+/// it is spelled out because the lint set asks for it and because a narrow
+/// enumeration is the right habit in a project whose data layout decisions are
+/// load bearing elsewhere.
+enum class CoreClass : std::uint8_t {
     /// The platform does not distinguish, or the machine is homogeneous.
     kUnknown,
     /// The slower, smaller core. Skymont on the target machine.

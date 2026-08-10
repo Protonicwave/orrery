@@ -111,7 +111,13 @@ Checks: >
 #   for many years, and the project builds on nothing else.
 
 WarningsAsErrors: '*'
-HeaderFilterRegex: '.*/(include/orrery|src|tests|benchmarks)/.*'
+# Both separators, because a path on Windows arrives with backslashes and a
+# pattern written only with forward slashes matches none of them. That is not a
+# cosmetic difference: an unmatched header filter suppresses every diagnostic
+# raised in this project's own headers, so lint on a Windows development machine
+# silently checked translation units and not the interfaces they include, and
+# agreed with a continuous integration run that had checked both.
+HeaderFilterRegex: '.*[\\/](include[\\/]orrery|src|tests|benchmarks)[\\/].*'
 FormatStyle: file
 
 CheckOptions:
