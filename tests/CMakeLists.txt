@@ -51,9 +51,27 @@ target_link_libraries(
 
 orrery_enable_linting(orrery_integrators_test)
 
+add_executable(
+  orrery_solvers_test
+  solvers/conservation_test.cpp solvers/direct_solver_test.cpp
+  solvers/kepler_orbit_test.cpp)
+
+# The solver is validated by integrating configurations it did not create, so
+# these tests reach across three layers: the solver under test, an integrator to
+# move the particles with, and the analytic orbits and sampled spheres to start
+# from. That is the shape the validation category asks for, since the comparison
+# is against closed-form results rather than against fixtures written by hand.
+target_link_libraries(
+  orrery_solvers_test
+  PRIVATE orrery::solvers orrery::integrators orrery::initial_conditions
+          orrery::core orrery::warnings Catch2::Catch2WithMain)
+
+orrery_enable_linting(orrery_solvers_test)
+
 # Registering each Catch2 test case with CTest individually, rather than the
 # whole binary as one test, means a failure report names the case that failed
 # and that cases can be selected by name from ctest.
 catch_discover_tests(orrery_core_test)
 catch_discover_tests(orrery_initial_conditions_test)
 catch_discover_tests(orrery_integrators_test)
+catch_discover_tests(orrery_solvers_test)
