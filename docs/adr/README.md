@@ -27,3 +27,5 @@ introduces it.
 | [0011](0011-prefer-symplectic-integration.md) | Prefer a symplectic second-order integrator to a non-symplectic fourth-order one | Accepted |
 | [0012](0012-integrators-call-an-abstract-acceleration-field.md) | Give the integrators an abstract acceleration field of their own | Accepted |
 | [0013](0013-carry-the-acceleration-between-steps.md) | Carry the acceleration between steps as an interface invariant | Accepted |
+| [0014](0014-give-the-solvers-an-interface-of-their-own.md) | Give the force solvers an interface of their own above the acceleration field | Accepted |
+| [0015](0015-compute-every-pair-from-both-ends.md) | Compute every pair from both ends rather than applying Newton's third law | Accepted |

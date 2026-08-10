@@ -4,3 +4,4 @@
 add_subdirectory(core)
 add_subdirectory(initial_conditions)
 add_subdirectory(integrators)
+add_subdirectory(solvers)
