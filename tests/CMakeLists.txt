@@ -6,6 +6,7 @@ add_executable(
   orrery_core_test
   core/aligned_allocator_test.cpp
   core/build_info_test.cpp
+  core/diagnostics_test.cpp
   core/particle_data_test.cpp
   core/random_test.cpp
   core/softening_test.cpp
