@@ -4,8 +4,10 @@ A GPU-accelerated N-body gravitational simulator in C++20, developed and
 benchmarked entirely on a single Lunar Lake laptop.
 
 > **Status: under construction.** The repository holds the build system, the
-> continuous integration pipeline and the conventions. There is no physics in
-> it yet, so it builds and tests cleanly and does nothing of interest. Progress
+> continuous integration pipeline, the conventions and the core data
+> structures: the scalar types, a 3-vector, a cache-line-aligned allocator and
+> the particle container. There is no physics in it yet, so it builds and tests
+> cleanly and does nothing of interest. Progress
 > is tracked in the phase table in
 > [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md), and this README
 > gains results and figures as the phases that produce them land. Nothing is

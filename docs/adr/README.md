@@ -17,3 +17,6 @@ introduces it.
 | [0001](0001-record-architecture-decisions.md) | Record architecture decisions | Accepted |
 | [0002](0002-pin-dependencies-to-exact-commits.md) | Pin dependencies to exact commits fetched at configure time | Accepted |
 | [0003](0003-build-settings-through-interface-targets.md) | Carry build settings on interface targets rather than global flags | Accepted |
+| [0004](0004-store-particles-as-component-arrays.md) | Store particles as one array per component | Accepted |
+| [0005](0005-allocate-particle-arrays-on-cache-lines.md) | Allocate particle arrays on cache-line boundaries | Accepted |
+| [0006](0006-select-precision-at-build-time.md) | Select the scalar precision when the project is configured | Accepted |
