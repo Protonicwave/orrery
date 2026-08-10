@@ -21,8 +21,8 @@ target_link_libraries(
 orrery_enable_linting(orrery_core_test)
 
 add_executable(
-  orrery_backend_test backend/cpu_topology_test.cpp backend/executor_test.cpp
-                      backend/partition_test.cpp)
+  orrery_backend_test backend/cpu_features_test.cpp backend/cpu_topology_test.cpp
+                      backend/executor_test.cpp backend/partition_test.cpp)
 
 target_link_libraries(
   orrery_backend_test PRIVATE orrery::backend orrery::core orrery::warnings
@@ -63,8 +63,12 @@ orrery_enable_linting(orrery_integrators_test)
 
 add_executable(
   orrery_solvers_test
-  solvers/conservation_test.cpp solvers/direct_solver_test.cpp
-  solvers/kepler_orbit_test.cpp solvers/parallel_direct_solver_test.cpp)
+  solvers/conservation_test.cpp
+  solvers/direct_kernel_test.cpp
+  solvers/direct_solver_test.cpp
+  solvers/kepler_orbit_test.cpp
+  solvers/kernel_accuracy_test.cpp
+  solvers/parallel_direct_solver_test.cpp)
 
 # The solver is validated by integrating configurations it did not create, so
 # these tests reach across four layers: the solver under test, the backend that
