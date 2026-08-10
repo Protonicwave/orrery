@@ -6,10 +6,12 @@ benchmarked entirely on a single Lunar Lake laptop.
 > **Status: under construction.** The repository holds the build system, the
 > continuous integration pipeline, the conventions, the core data structures,
 > the conserved quantities of a configuration, the configurations themselves, a
-> Plummer sphere, an exact Kepler two-body orbit and a uniform sphere, and the
-> time integrators: velocity Verlet, Yoshida's fourth-order symplectic
-> composition and classical RK4. Things now move, but only under an acceleration
-> a test supplies: the force solver arrives in the next phase. Progress is
+> Plummer sphere, an exact Kepler two-body orbit and a uniform sphere, the
+> time integrators, velocity Verlet, Yoshida's fourth-order symplectic
+> composition and classical RK4, and the direct O(N^2) gravitational solver they
+> advance a configuration under. Orrery now simulates gravity, correctly and
+> slowly: the solver is single-threaded and scalar, and making it fast is the
+> subject of the next two phases. Progress is
 > tracked in the phase table in
 > [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md), and this README
 > gains results and figures as the phases that produce them land. Nothing is
@@ -81,6 +83,22 @@ The integrated orbital period agrees with `2 pi sqrt(a^3 / G M)` to better than 
 part in ten thousand, linear momentum is conserved to round-off by all three
 methods, and angular momentum to round-off by the symplectic pair.
 
+The direct solver is measured against the same kind of standard. The acceleration
+of a two-body pair is exact, bit for bit, at separations where the arithmetic is
+exact. Total linear momentum is conserved to 5e-17 of the terms that cancelled to
+produce it, over a hundred and twenty-eight particles: that is round-off and
+nothing else, and it is worth stating because the kernel computes each pair from
+both ends and nothing in it arranges for the cancellation (ADR-0015). An eccentric
+orbit released at periapsis returns to its starting state after one period to
+8.8e-6, and over two hundred revolutions keeps its semi-major axis to 6.7e-4 and
+its eccentricity to 5.0e-4, neither of them drifting.
+
+The axis of that orbit turns by 9.7e-4 radians per revolution, and the last test
+in the file is what makes the number mean something. Only an exact inverse square
+law gives a closed orbit, so a precession is either a wrong force law or an
+artefact of the integrator. Halving the timestep divides it by 3.99, which is the
+second-order behaviour of velocity Verlet and not a property of the physics.
+
 ## Target hardware
 
 Every performance decision in the project follows from one machine, so its
@@ -143,8 +161,8 @@ docs/adr/      Numbered decision records, never edited after merge
 The source layers arrive with the phases that need them, in the structure
 described in the implementation plan: `apps/`, `sim/`, `solvers/`,
 `integrators/`, `backend/`, `initial_conditions/` and `core/`, with dependencies
-pointing downwards only. `core/`, `initial_conditions/` and `integrators/` exist
-so far.
+pointing downwards only. `core/`, `initial_conditions/`, `integrators/` and
+`solvers/` exist so far.
 
 ## Documentation
 
