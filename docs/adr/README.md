@@ -32,3 +32,4 @@ introduces it.
 | [0016](0016-balance-the-threads-dynamically.md) | Balance the threads dynamically by stealing ranges | Accepted |
 | [0017](0017-thread-the-solver-through-an-executor.md) | Thread the solver through an executor it does not own | Accepted |
 | [0018](0018-dispatch-to-the-vector-kernel-at-run-time.md) | Compile the vector kernel apart and choose it at run time | Accepted |
+| [0020](0020-keep-the-arithmetic-ieee.md) | Keep the arithmetic IEEE and measure what vectorising changed | Accepted |
