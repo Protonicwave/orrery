@@ -488,7 +488,7 @@ and re-checked whenever kernels change.
 | --- | --- | --- |
 | 0 | Repository foundations | Complete |
 | 1 | Build system and CI | Complete |
-| 2 | Core data structures | Not started |
+| 2 | Core data structures | Complete |
 | 3 | Diagnostics and initial conditions | Not started |
 | 4 | Time integrators | Not started |
 | 5 | Direct force solver | Not started |
