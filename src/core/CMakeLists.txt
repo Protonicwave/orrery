@@ -10,7 +10,7 @@
 # which also keeps <random> and the compensated summation out of every file that
 # includes a header from this layer.
 add_library(orrery_core STATIC build_info.cpp diagnostics.cpp particle_data.cpp
-                               random.cpp)
+                               random.cpp vec3_array.cpp)
 add_library(orrery::core ALIAS orrery_core)
 
 target_include_directories(

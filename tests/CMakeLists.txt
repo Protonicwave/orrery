@@ -11,6 +11,7 @@ add_executable(
   core/random_test.cpp
   core/softening_test.cpp
   core/types_test.cpp
+  core/vec3_array_test.cpp
   core/vec3_test.cpp)
 
 target_link_libraries(
