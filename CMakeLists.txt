@@ -37,6 +37,15 @@ option(ORRERY_CLANG_TIDY "Run clang-tidy on this project's targets" OFF)
 # everything above it selects between them at run time. ADR-0025.
 option(ORRERY_ENABLE_SYCL "Build the SYCL backend for the integrated GPU" OFF)
 
+# Off by default for the same reason, and a different one. It fetches GLFW, and
+# it needs a machine with a display and an OpenGL 3.3 driver, which a build
+# server generally is not. A build without it still produces the whole
+# simulator; what it does not produce is the viewer. The parts of the viz layer
+# that are arithmetic rather than graphics, the camera and the tone mapping, are
+# built and tested either way, which is deliberate: they are where the mistakes
+# that show up as a black window live.
+option(ORRERY_ENABLE_RENDERER "Build the real-time renderer and the viewer" OFF)
+
 # Sanitisers are a list rather than a boolean because address and thread cannot
 # be combined, and later phases will want thread on its own once the scheduler
 # in Phase 6 exists.

@@ -84,6 +84,16 @@
       }
     },
     {
+      "name": "renderer",
+      "inherits": "base",
+      "displayName": "Release with the real-time renderer",
+      "description": "Release with the viewer and the offline frame export built. It fetches GLFW and needs an OpenGL 3.3 driver, so it is a preset of its own rather than part of the default build: a machine with no display can still build and test everything else, including the parts of the visualisation layer that are arithmetic. This is the configuration docs/visualisation.md quotes.",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "ORRERY_ENABLE_RENDERER": "ON"
+      }
+    },
+    {
       "name": "lint",
       "inherits": "base",
       "displayName": "Debug with clang-tidy",
@@ -122,6 +132,10 @@
     {
       "name": "sycl-single-precision",
       "configurePreset": "sycl-single-precision"
+    },
+    {
+      "name": "renderer",
+      "configurePreset": "renderer"
     },
     {
       "name": "lint",
@@ -174,6 +188,11 @@
       "name": "sycl-single-precision",
       "inherits": "base",
       "configurePreset": "sycl-single-precision"
+    },
+    {
+      "name": "renderer",
+      "inherits": "base",
+      "configurePreset": "renderer"
     }
   ]
 }
