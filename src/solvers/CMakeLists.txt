@@ -10,7 +10,7 @@ add_library(
   orrery_solvers STATIC
   barnes_hut_solver.cpp direct_kernel.cpp direct_kernel_scalar.cpp
   direct_solver.cpp morton.cpp octree.cpp reference_kernel.cpp
-  sycl_direct_solver.cpp tree_walk.cpp)
+  sycl_direct_solver.cpp sycl_tree_solver.cpp tree_walk.cpp)
 add_library(orrery::solvers ALIAS orrery_solvers)
 
 # All three are public: the solver interface derives from the integrators'
