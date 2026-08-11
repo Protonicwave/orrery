@@ -6,11 +6,11 @@
 #include "orrery/core/types.hpp"
 
 #ifdef ORRERY_ENABLE_SYCL
-#include <algorithm>
-#include <cstdint>
-#include <vector>
+#    include <algorithm>
+#    include <cstdint>
+#    include <vector>
 
-#include <sycl/sycl.hpp>
+#    include <sycl/sycl.hpp>
 #endif
 
 namespace orrery::backend {
@@ -110,9 +110,13 @@ std::optional<DeviceDescription> describe_default_device() noexcept {
 // lets a benchmark or a test be written once and report "not built with SYCL"
 // on an ordinary build instead of being conditionally compiled out of it.
 
-std::optional<DeviceDescription> discover_gpu_device() noexcept { return std::nullopt; }
+std::optional<DeviceDescription> discover_gpu_device() noexcept {
+    return std::nullopt;
+}
 
-std::optional<DeviceDescription> describe_default_device() noexcept { return std::nullopt; }
+std::optional<DeviceDescription> describe_default_device() noexcept {
+    return std::nullopt;
+}
 
 #endif
 

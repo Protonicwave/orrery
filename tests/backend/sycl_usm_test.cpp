@@ -17,19 +17,19 @@
 
 #ifdef ORRERY_ENABLE_SYCL
 
-#include <cstddef>
-#include <optional>
-#include <utility>
-#include <vector>
+#    include "orrery/backend/sycl_usm.hpp"
 
-#include <catch2/catch_message.hpp>
-#include <catch2/catch_test_macros.hpp>
+#    include <cstddef>
+#    include <optional>
+#    include <utility>
+#    include <vector>
 
-#include <sycl/sycl.hpp>
+#    include <catch2/catch_message.hpp>
+#    include <catch2/catch_test_macros.hpp>
+#    include <sycl/sycl.hpp>
 
-#include "orrery/backend/sycl_device.hpp"
-#include "orrery/backend/sycl_usm.hpp"
-#include "orrery/core/types.hpp"
+#    include "orrery/backend/sycl_device.hpp"
+#    include "orrery/core/types.hpp"
 
 namespace {
 
@@ -94,8 +94,9 @@ TEST_CASE("Host and device share one allocation with no copy", "[backend][sycl][
 
     // Read and written by the device, through the same pointer value. The
     // capture is the pointer itself: nothing here transfers, maps or copies.
-    queue->parallel_for(sycl::range<1>{kCount},
-                        [=](sycl::id<1> id) { data[id] = data[id] * Real{2}; })
+    queue
+        ->parallel_for(sycl::range<1>{kCount},
+                       [=](sycl::id<1> id) { data[id] = data[id] * Real{2}; })
         .wait_and_throw();
 
     // Read back by the host, again through the same pointer. If a copy were

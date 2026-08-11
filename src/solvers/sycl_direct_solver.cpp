@@ -2,20 +2,20 @@
 
 #ifdef ORRERY_ENABLE_SYCL
 
-#include <algorithm>
-#include <cstdint>
-#include <memory>
-#include <span>
-#include <utility>
+#    include <algorithm>
+#    include <cstdint>
+#    include <memory>
+#    include <span>
+#    include <utility>
 
-#include <sycl/sycl.hpp>
+#    include <sycl/sycl.hpp>
 
-#include "orrery/backend/sycl_device.hpp"
-#include "orrery/backend/sycl_usm.hpp"
-#include "orrery/core/softening.hpp"
-#include "orrery/core/types.hpp"
-#include "orrery/core/units.hpp"
-#include "orrery/core/vec3_span.hpp"
+#    include "orrery/backend/sycl_device.hpp"
+#    include "orrery/backend/sycl_usm.hpp"
+#    include "orrery/core/softening.hpp"
+#    include "orrery/core/types.hpp"
+#    include "orrery/core/units.hpp"
+#    include "orrery/core/vec3_span.hpp"
 
 namespace orrery::solvers {
 
@@ -66,8 +66,10 @@ namespace {
 struct SyclDirectSolver::Impl {
     explicit Impl(sycl::device device, backend::DeviceDescription description,
                   core::Softening softening)
-        : queue(device, sycl::property::queue::in_order{}), description(std::move(description)),
-          softening(softening), tile(choose_tile_size(this->description)) {}
+        : queue(device, sycl::property::queue::in_order{}),
+          description(std::move(description)),
+          softening(softening),
+          tile(choose_tile_size(this->description)) {}
 
     /// In-order because there is exactly one kernel and nothing to overlap it
     /// with. An out-of-order queue would buy the ability to run independent
@@ -163,19 +165,29 @@ SyclDirectSolver::~SyclDirectSolver() = default;
 SyclDirectSolver::SyclDirectSolver(SyclDirectSolver&&) noexcept = default;
 SyclDirectSolver& SyclDirectSolver::operator=(SyclDirectSolver&&) noexcept = default;
 
-core::Softening SyclDirectSolver::softening() const noexcept { return impl_->softening; }
+core::Softening SyclDirectSolver::softening() const noexcept {
+    return impl_->softening;
+}
 
-InteractionCount SyclDirectSolver::interaction_count() const noexcept { return impl_->count; }
+InteractionCount SyclDirectSolver::interaction_count() const noexcept {
+    return impl_->count;
+}
 
-void SyclDirectSolver::reset_interaction_count() noexcept { impl_->count = {}; }
+void SyclDirectSolver::reset_interaction_count() noexcept {
+    impl_->count = {};
+}
 
 const backend::DeviceDescription& SyclDirectSolver::device() const noexcept {
     return impl_->description;
 }
 
-Index SyclDirectSolver::tile_size() const noexcept { return impl_->tile; }
+Index SyclDirectSolver::tile_size() const noexcept {
+    return impl_->tile;
+}
 
-const SyclEvaluationTimings& SyclDirectSolver::timings() const noexcept { return impl_->timings; }
+const SyclEvaluationTimings& SyclDirectSolver::timings() const noexcept {
+    return impl_->timings;
+}
 
 bool SyclDirectSolver::uses_shared_memory() const noexcept {
     if (impl_->position_x.empty()) {
@@ -251,76 +263,75 @@ void SyclDirectSolver::evaluate(Vec3Span<const Real> positions, std::span<const 
         sycl::local_accessor<Real, 1> tile_z{sycl::range<1>{tile}, handler};
         sycl::local_accessor<Real, 1> tile_mass{sycl::range<1>{tile}, handler};
 
-        handler.parallel_for(
-            sycl::nd_range<1>{sycl::range<1>{padded}, sycl::range<1>{tile}},
-            [=](sycl::nd_item<1> item) {
-                const Index target = item.get_global_id(0);
-                const Index lane = item.get_local_id(0);
+        handler.parallel_for(sycl::nd_range<1>{sycl::range<1>{padded}, sycl::range<1>{tile}},
+                             [=](sycl::nd_item<1> item) {
+                                 const Index target = item.get_global_id(0);
+                                 const Index lane = item.get_local_id(0);
 
-                const Real x = position_x[target];
-                const Real y = position_y[target];
-                const Real z = position_z[target];
+                                 const Real x = position_x[target];
+                                 const Real y = position_y[target];
+                                 const Real z = position_z[target];
 
-                Real sum_x{0};
-                Real sum_y{0};
-                Real sum_z{0};
+                                 Real sum_x{0};
+                                 Real sum_y{0};
+                                 Real sum_z{0};
 
-                for (Index base = 0; base < padded; base += tile) {
-                    // One cooperative load per work-item, then the whole group
-                    // reads the tile out of local memory. This is the reuse the
-                    // kernel exists for: each source position is fetched from
-                    // global memory once per group rather than once per target.
-                    const Index source = base + lane;
-                    tile_x[lane] = position_x[source];
-                    tile_y[lane] = position_y[source];
-                    tile_z[lane] = position_z[source];
-                    tile_mass[lane] = mass[source];
+                                 for (Index base = 0; base < padded; base += tile) {
+                                     // One cooperative load per work-item, then the whole group
+                                     // reads the tile out of local memory. This is the reuse the
+                                     // kernel exists for: each source position is fetched from
+                                     // global memory once per group rather than once per target.
+                                     const Index source = base + lane;
+                                     tile_x[lane] = position_x[source];
+                                     tile_y[lane] = position_y[source];
+                                     tile_z[lane] = position_z[source];
+                                     tile_mass[lane] = mass[source];
 
-                    sycl::group_barrier(item.get_group());
+                                     sycl::group_barrier(item.get_group());
 
-                    for (Index j = 0; j < tile; ++j) {
-                        const Real dx = tile_x[j] - x;
-                        const Real dy = tile_y[j] - y;
-                        const Real dz = tile_z[j] - z;
+                                     for (Index j = 0; j < tile; ++j) {
+                                         const Real dx = tile_x[j] - x;
+                                         const Real dy = tile_y[j] - y;
+                                         const Real dz = tile_z[j] - z;
 
-                        // The self term, masked in both factors. Selecting the
-                        // mass to zero alone would leave a division by zero in
-                        // an unsoftened run, and `inf * 0` is NaN rather than
-                        // the zero contribution intended. Selecting the squared
-                        // separation to one keeps the reciprocal finite so that
-                        // the zero mass can do its job.
-                        const bool self = (base + j) == target;
-                        const Real separation_squared =
-                            self ? Real{1} : (dx * dx + dy * dy + dz * dz);
-                        const Real source_mass = self ? Real{0} : tile_mass[j];
+                                         // The self term, masked in both factors. Selecting the
+                                         // mass to zero alone would leave a division by zero in
+                                         // an unsoftened run, and `inf * 0` is NaN rather than
+                                         // the zero contribution intended. Selecting the squared
+                                         // separation to one keeps the reciprocal finite so that
+                                         // the zero mass can do its job.
+                                         const bool self = (base + j) == target;
+                                         const Real separation_squared =
+                                             self ? Real{1} : (dx * dx + dy * dy + dz * dz);
+                                         const Real source_mass = self ? Real{0} : tile_mass[j];
 
-                        // The same function the CPU kernel and the potential
-                        // energy diagnostic call, compiled for the device. That
-                        // is the property single-source buys and the reason
-                        // ADR-0025 weighs it above the alternatives: there is
-                        // one definition of the softened force in this project,
-                        // not one per backend.
-                        const Real factor =
-                            source_mass *
-                            core::softened_inverse_distance_cubed(separation_squared, softening);
+                                         // The same function the CPU kernel and the potential
+                                         // energy diagnostic call, compiled for the device. That
+                                         // is the property single-source buys and the reason
+                                         // ADR-0025 weighs it above the alternatives: there is
+                                         // one definition of the softened force in this project,
+                                         // not one per backend.
+                                         const Real factor =
+                                             source_mass * core::softened_inverse_distance_cubed(
+                                                               separation_squared, softening);
 
-                        sum_x += dx * factor;
-                        sum_y += dy * factor;
-                        sum_z += dz * factor;
-                    }
+                                         sum_x += dx * factor;
+                                         sum_y += dy * factor;
+                                         sum_z += dz * factor;
+                                     }
 
-                    // Before overwriting the tile on the next pass. Without this
-                    // a fast work-item would load the next tile over values a
-                    // slow one in the same group is still reading.
-                    sycl::group_barrier(item.get_group());
-                }
+                                     // Before overwriting the tile on the next pass. Without this
+                                     // a fast work-item would load the next tile over values a
+                                     // slow one in the same group is still reading.
+                                     sycl::group_barrier(item.get_group());
+                                 }
 
-                // G is one in this project's units (ADR-0007), written for the
-                // reason `direct_solver.cpp` gives rather than for its value.
-                acceleration_x[target] = core::kGravitationalConstant * sum_x;
-                acceleration_y[target] = core::kGravitationalConstant * sum_y;
-                acceleration_z[target] = core::kGravitationalConstant * sum_z;
-            });
+                                 // G is one in this project's units (ADR-0007), written for the
+                                 // reason `direct_solver.cpp` gives rather than for its value.
+                                 acceleration_x[target] = core::kGravitationalConstant * sum_x;
+                                 acceleration_y[target] = core::kGravitationalConstant * sum_y;
+                                 acceleration_z[target] = core::kGravitationalConstant * sum_z;
+                             });
     });
 
     // The kernel writes shared memory the host is about to read, so the wait is

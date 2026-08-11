@@ -1,10 +1,11 @@
+#include "orrery/backend/sycl_device.hpp"
+
 #include <optional>
 #include <string>
 
 #include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
 
-#include "orrery/backend/sycl_device.hpp"
 #include "orrery/core/types.hpp"
 
 /// \file

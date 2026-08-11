@@ -42,13 +42,13 @@
 
 #ifdef ORRERY_ENABLE_SYCL
 
-#include <cstddef>
-#include <cstdint>
-#include <new>
-#include <span>
-#include <utility>
+#    include <cstddef>
+#    include <cstdint>
+#    include <new>
+#    include <span>
+#    include <utility>
 
-#include <sycl/sycl.hpp>
+#    include <sycl/sycl.hpp>
 
 namespace orrery::backend {
 
@@ -115,7 +115,8 @@ public:
     /// which is a setup-boundary failure of the kind section 4 permits
     /// exceptions at. No kernel is on the stack at this point.
     UsmArray(sycl::queue& queue, std::size_t count)
-        : queue_(&queue), size_(count),
+        : queue_(&queue),
+          size_(count),
           data_(count == 0 ? nullptr
                            : sycl::aligned_alloc_shared<T>(kAlignmentBytes, count, queue)) {
         if (count != 0 && data_ == nullptr) {
@@ -129,7 +130,8 @@ public:
     UsmArray& operator=(const UsmArray&) = delete;
 
     UsmArray(UsmArray&& other) noexcept
-        : queue_(std::exchange(other.queue_, nullptr)), size_(std::exchange(other.size_, 0)),
+        : queue_(std::exchange(other.queue_, nullptr)),
+          size_(std::exchange(other.size_, 0)),
           data_(std::exchange(other.data_, nullptr)) {}
 
     UsmArray& operator=(UsmArray&& other) noexcept {

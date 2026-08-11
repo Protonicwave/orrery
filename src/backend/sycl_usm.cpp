@@ -2,7 +2,7 @@
 
 #ifdef ORRERY_ENABLE_SYCL
 
-#include <sycl/sycl.hpp>
+#    include <sycl/sycl.hpp>
 
 namespace orrery::backend {
 

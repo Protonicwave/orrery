@@ -42,7 +42,7 @@
 
 #ifdef ORRERY_ENABLE_SYCL
 
-#include "orrery/solvers/sycl_direct_solver.hpp"
+#    include "orrery/solvers/sycl_direct_solver.hpp"
 
 namespace {
 
@@ -88,8 +88,8 @@ struct ErrorSummary {
         const double dy = static_cast<double>(measured.y) - exact.y;
         const double dz = static_cast<double>(measured.z) - exact.z;
 
-        const double magnitude = std::sqrt((exact.x * exact.x) + (exact.y * exact.y) +
-                                           (exact.z * exact.z));
+        const double magnitude =
+            std::sqrt((exact.x * exact.x) + (exact.y * exact.y) + (exact.z * exact.z));
         if (magnitude == 0) {
             continue;
         }
@@ -181,8 +181,7 @@ TEST_CASE("The GPU solver agrees with the CPU solver", "[solvers][sycl][validati
 
         const Vec3 difference{from_gpu.x - from_cpu.x, from_gpu.y - from_cpu.y,
                               from_gpu.z - from_cpu.z};
-        worst_between =
-            std::max(worst_between, static_cast<double>(norm(difference)) / magnitude);
+        worst_between = std::max(worst_between, static_cast<double>(norm(difference)) / magnitude);
     }
 
     INFO("worst relative difference between backends: " << worst_between);

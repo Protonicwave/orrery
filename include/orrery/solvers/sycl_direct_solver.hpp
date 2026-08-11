@@ -118,7 +118,8 @@ public:
     /// A factory rather than a constructor precisely because construction can
     /// fail for reasons that are not faults. A constructor has only one way to
     /// report failure and section 4 reserves that for setup errors.
-    [[nodiscard]] static std::unique_ptr<SyclDirectSolver> try_create(core::Softening softening = {});
+    [[nodiscard]] static std::unique_ptr<SyclDirectSolver>
+    try_create(core::Softening softening = {});
 
     ~SyclDirectSolver() override;
 

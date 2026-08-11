@@ -39,28 +39,29 @@
 
 #ifdef ORRERY_ENABLE_SYCL
 
-#include <algorithm>
-#include <cmath>
-#include <cstdint>
-#include <iomanip>
-#include <memory>
-#include <string>
-#include <vector>
+#    include <algorithm>
+#    include <chrono>
+#    include <cmath>
+#    include <cstdint>
+#    include <iomanip>
+#    include <memory>
+#    include <string>
+#    include <vector>
 
-#include "harness/machine_state.hpp"
-#include "harness/protocol.hpp"
-#include "harness/statistics.hpp"
-#include "orrery/backend/thread_pool.hpp"
-#include "orrery/backend/work_stealing_executor.hpp"
-#include "orrery/core/particle_data.hpp"
-#include "orrery/core/random.hpp"
-#include "orrery/core/softening.hpp"
-#include "orrery/core/types.hpp"
-#include "orrery/core/vec3.hpp"
-#include "orrery/initial_conditions/plummer.hpp"
-#include "orrery/solvers/direct_solver.hpp"
-#include "orrery/solvers/reference_kernel.hpp"
-#include "orrery/solvers/sycl_direct_solver.hpp"
+#    include "harness/machine_state.hpp"
+#    include "harness/protocol.hpp"
+#    include "harness/statistics.hpp"
+#    include "orrery/backend/thread_pool.hpp"
+#    include "orrery/backend/work_stealing_executor.hpp"
+#    include "orrery/core/particle_data.hpp"
+#    include "orrery/core/random.hpp"
+#    include "orrery/core/softening.hpp"
+#    include "orrery/core/types.hpp"
+#    include "orrery/core/vec3.hpp"
+#    include "orrery/initial_conditions/plummer.hpp"
+#    include "orrery/solvers/direct_solver.hpp"
+#    include "orrery/solvers/reference_kernel.hpp"
+#    include "orrery/solvers/sycl_direct_solver.hpp"
 
 namespace {
 
@@ -115,6 +116,27 @@ constexpr Index kErrorSamples = 512;
 /// softening, a square root, a division, and three fused multiply-adds for the
 /// accumulation.
 constexpr double kFlopsPerInteraction = 20.0;
+
+/// A longer cool-down than the harness default.
+///
+/// This is the first benchmark in the project to load the GPU and the CPU hard
+/// in the same session, and on a Lunar Lake part they are on one package under
+/// one power budget. Sustained GPU work therefore heats the cores the CPU rows
+/// are measured on, and sustained eight-thread AVX2 work heats the GPU the rows
+/// either side of it are measured on, in a way no previous phase produced.
+///
+/// The first session run with the harness default of 750 milliseconds ended
+/// with a thermal canary reporting the machine 191 per cent slower than it
+/// started, against 1.7 per cent for Phase 8 and 5.2 for Phase 7. Per-row
+/// spreads stayed under 6 per cent, so the rows were internally sound and the
+/// session was not: a canary that large means rows measured minutes apart
+/// cannot be compared, which is exactly what a speedup column does.
+/// `docs/performance/roofline.md` records the same failure mode and the same
+/// remedy, which is to repeat the session rather than quote it.
+///
+/// Three seconds, which is four times the default and still leaves a session of
+/// eight sizes finishing in minutes.
+const Protocol kProtocol{.cooldown = std::chrono::seconds(3)};
 
 [[nodiscard]] double milliseconds(orrery::benchmark::Duration duration) {
     return std::chrono::duration<double, std::milli>(duration).count();
@@ -196,9 +218,8 @@ struct AccuracyRow {
         DirectSolver cpu{kSoftening, executor};
 
         orrery::benchmark::cool_down(protocol);
-        row.cpu = orrery::benchmark::run_trials(protocol, [&] {
-            cpu.evaluate(data.positions(), data.masses(), data.accelerations());
-        });
+        row.cpu = orrery::benchmark::run_trials(
+            protocol, [&] { cpu.evaluate(data.positions(), data.masses(), data.accelerations()); });
         row.cpu_timed = true;
     }
 
@@ -300,7 +321,7 @@ int run() {
 
     WorkStealingExecutor executor{ThreadPool::default_worker_count()};
 
-    const Protocol protocol;
+    const Protocol& protocol = kProtocol;
     ThermalCanary canary;
     canary.mark();
 
