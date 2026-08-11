@@ -135,9 +135,10 @@ rest of the project, and ahead-of-time compilation for the device makes them
 worse still while removing a first-run compilation pause at runtime. That
 trade-off is left to Phase 9's build integration to settle and measure.
 
-Choosing SYCL does not by itself establish that no copy occurs. USM has three
-kinds of allocation, and only device and shared allocations have the property
-this architecture makes possible. Using the wrong one would produce a working
+Choosing SYCL does not by itself establish that no copy occurs. USM has several
+kinds of allocation and only the shared kind is addressable from both sides
+without a transfer; device allocations are not host-addressable at all, and
+filling one means an explicit copy. Using the wrong kind would produce a working
 kernel that quietly copies and a speedup figure that means something other than
 what it claims. The demonstration required by the phase's definition of done is
 therefore about which allocation was made and what the runtime reports about it,
