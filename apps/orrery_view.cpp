@@ -93,6 +93,23 @@ struct Options {
     /// Where exported frames go. Empty shows a window instead.
     std::string export_directory;
 
+    /// Whether the window is put on the screen at all.
+    ///
+    /// A visible window on Windows is presented by the desktop compositor,
+    /// which paces it to the display whatever the swap interval says, so a
+    /// frame rate measured from one is a measurement of the monitor. Hiding the
+    /// window takes the compositor out of the path. It is what `--export`
+    /// already does, and it is offered on its own so that the cost of drawing
+    /// can be measured apart from the cost of writing the result down.
+    bool visible = true;
+
+    /// Whether presenting waits for the display's refresh.
+    ///
+    /// On for ordinary use, where drawing faster than the screen refreshes
+    /// spends power on frames nobody sees. Off for a measurement, because a
+    /// frame rate taken against the refresh is a measurement of the display.
+    bool vertical_sync = true;
+
     /// Radians of azimuth added to the camera between frames.
     ///
     /// For a turntable, which is the honest way to show the three-dimensional
@@ -122,7 +139,11 @@ void print_usage(std::ostream& out) {
         << "  --distance X               Camera distance. Framed automatically\n"
         << "                             when not given.\n"
         << "  --azimuth X, --elevation X Camera angles, in radians.\n"
-        << "  --spin X                   Radians of azimuth added per frame.\n\n"
+        << "  --spin X                   Radians of azimuth added per frame.\n"
+        << "  --no-vsync                 Do not wait for the display's refresh.\n"
+        << "  --hidden                   Draw without showing the window. With\n"
+        << "                             --no-vsync, this is how the cost of\n"
+        << "                             drawing alone is measured.\n\n"
         << "While a window is open: drag to turn, right-drag to pan, scroll to\n"
         << "zoom, - and = to change the exposure, space to pause, r to reframe,\n"
         << "p to write a frame to the current directory, escape to leave.\n";
@@ -227,6 +248,10 @@ private:
             options.camera.elevation = reader.number(argument);
         } else if (argument == "--spin") {
             options.spin = reader.number(argument);
+        } else if (argument == "--no-vsync") {
+            options.vertical_sync = false;
+        } else if (argument == "--hidden") {
+            options.visible = false;
         } else if (argument == "--set") {
             options.settings.emplace_back(reader.value(argument));
         } else {
@@ -321,11 +346,11 @@ public:
           window_({.width = options.width,
                    .height = options.height,
                    .title = "Orrery",
-                   .visible = options.export_directory.empty(),
+                   .visible = options.visible && options.export_directory.empty(),
                    // An export should finish as fast as the machine allows. An
                    // interactive window should not draw frames the display will
                    // never show.
-                   .vertical_sync = options.export_directory.empty()}),
+                   .vertical_sync = options.vertical_sync && options.export_directory.empty()}),
           renderer_(ViewerWindow::loader(), window_.width(), window_.height()),
           render_(options.render) {
         window_.camera() = options.camera;
@@ -486,12 +511,18 @@ int command_run(std::span<const std::string_view> arguments, std::ostream& out,
     const auto started = std::chrono::steady_clock::now();
 
     while (viewer.show(simulation.particles().positions())) {
-        if (viewer.paused()) {
-            continue;
-        }
-        if (simulation.step_index() >= configuration.run.steps) {
+        const bool complete = simulation.step_index() >= configuration.run.steps;
+
+        // A finished run leaves a window open on its final state, which is what
+        // someone watching a merger wants at the end of it, and ends an export,
+        // which would otherwise write the same frame until the disc filled.
+        if (complete && !options.export_directory.empty()) {
             break;
         }
+        if (complete || viewer.paused()) {
+            continue;
+        }
+
         for (Index step = 0; step < options.steps_per_frame; ++step) {
             simulation.step();
         }

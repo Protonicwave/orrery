@@ -77,7 +77,8 @@ Layers depend downwards only. No layer may include a header from a layer above
 it. This is enforced by directory structure and reviewed at every PR.
 
 ```
-apps/                Command-line simulator, interactive renderer
+apps/                Command-line simulator, viewer
+viz/                 Camera, tone mapping, point renderer, window
 sim/                 Simulation driver: owns solver, integrator, output, checkpoints
 solvers/             Direct O(N^2), Barnes-Hut O(N log N)
 integrators/         Velocity Verlet, Yoshida 4th order, RK4
@@ -90,6 +91,15 @@ core/                Particle storage, vector maths, diagnostics, memory
 layers above may use it, which is why it sits between them rather than inside
 `core`: a Plummer model on the include path of every force kernel is not a
 foundational utility. ADR-0010 records the alternatives.
+
+`viz/` was added in Phase 12, where this list previously said the renderer was
+part of `apps/`. It sits beside `sim/` rather than under it: it depends on `core`
+alone, it does not know what a solver is and cannot read a file, and `sim` does
+not know it exists. Putting a simulation and a picture of one together is the job
+of `apps/`, which is the one layer that names both. Leaving the renderer inside
+`apps/` would have made it a program rather than a library and so untestable,
+which for a camera and a tone mapping curve is the wrong way round: those are
+arithmetic, and a mistake in them appears on screen as a black window.
 
 ### Load-bearing decisions
 
@@ -504,7 +514,7 @@ and re-checked whenever kernels change.
 | 9 | SYCL backend, direct kernel | Complete |
 | 10 | SYCL backend, tree traversal | Complete |
 | 11 | Simulation driver, configuration and I/O | Complete |
-| 12 | Visualisation | Not started |
+| 12 | Visualisation | Complete |
 | 13 | Python bindings | Not started |
 | 14 | Validation report, documentation and release | Not started |
 

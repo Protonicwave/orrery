@@ -23,6 +23,7 @@ using orrery::core::centre_of_mass;
 using orrery::core::cross;
 using orrery::core::dot;
 using orrery::core::Index;
+using orrery::core::kSinglePrecision;
 using orrery::core::linear_momentum;
 using orrery::core::norm;
 using orrery::core::ParticleData;
@@ -96,7 +97,10 @@ TEST_CASE("a sampled galaxy is at rest at the origin", "[property][initial-condi
     // been recentred at all, whose centre would sit a few hundredths of a scale
     // length from the origin and whose momentum would be of order the rotation
     // speed divided by the square root of the count.
-    constexpr Real kResidue = static_cast<Real>(1e-9);
+    // The bound follows the precision the build was configured with, since what
+    // is left after the recentring is round-off accumulated over the count and
+    // a float carries nine fewer digits of it than a double.
+    constexpr Real kResidue = static_cast<Real>(kSinglePrecision ? 1e-6 : 1e-9);
 
     REQUIRE(norm(centre_of_mass(data.positions(), data.masses())) < kResidue);
     REQUIRE(norm(linear_momentum(data.velocities(), data.masses())) < kResidue);
@@ -136,10 +140,12 @@ TEST_CASE("every disc particle is on the circular orbit its radius supports",
 
     const Vec3 boost = circular_velocity(positions.get(0)) - velocities.get(0);
 
-    // Loose enough for the single-precision build, where a rotation and a cross
-    // product cost several units in the last place, and still five orders of
-    // magnitude sharper than the departure the boost itself would produce.
-    constexpr Real kTolerance = static_cast<Real>(1e-5);
+    // A rotation and a cross product cost several units in the last place, and
+    // the innermost disc particles are at a hundredth of a scale length where
+    // the cancellation is worst, so the single-precision bound is far looser.
+    // Both are orders of magnitude sharper than the per cent the boost itself
+    // would produce, which is what makes this a test rather than a formality.
+    constexpr Real kTolerance = static_cast<Real>(kSinglePrecision ? 5e-4 : 1e-5);
 
     for (Index particle = 1; particle < disc_galaxy_disc_count(kGalaxy); ++particle) {
         const Vec3 expected = circular_velocity(positions.get(particle));

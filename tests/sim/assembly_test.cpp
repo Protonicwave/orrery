@@ -17,6 +17,7 @@
 namespace {
 
 using orrery::core::Index;
+using orrery::core::kSinglePrecision;
 using orrery::core::norm;
 using orrery::core::ParticleData;
 using orrery::core::Real;
@@ -56,7 +57,8 @@ TEST_CASE("a galaxy configuration is assembled with the mass and particles it as
 
     const Real mass = total_mass(data.masses());
     const Real requested = configuration.initial_conditions.total_mass;
-    REQUIRE(std::abs(mass - requested) < static_cast<Real>(1e-9) * requested);
+    REQUIRE(std::abs(mass - requested) <
+            static_cast<Real>(kSinglePrecision ? 1e-6 : 1e-9) * requested);
 }
 
 TEST_CASE("a collision divides the count and the mass between its two galaxies",
@@ -71,7 +73,8 @@ TEST_CASE("a collision divides the count and the mass between its two galaxies",
 
     const Real mass = total_mass(data.masses());
     const Real requested = configuration.initial_conditions.total_mass;
-    REQUIRE(std::abs(mass - requested) < static_cast<Real>(1e-9) * requested);
+    REQUIRE(std::abs(mass - requested) <
+            static_cast<Real>(kSinglePrecision ? 1e-6 : 1e-9) * requested);
 
     // Both galaxies are made of particles of one mass, which is what makes the
     // count a resolution rather than an arbitrary division. A split that gave
@@ -79,7 +82,8 @@ TEST_CASE("a collision divides the count and the mass between its two galaxies",
     // here and nowhere else.
     const std::span<const Real> masses = data.masses();
     for (Index particle = 0; particle < data.size(); ++particle) {
-        REQUIRE(std::abs(masses[particle] - masses[0]) < static_cast<Real>(1e-12) * masses[0]);
+        REQUIRE(std::abs(masses[particle] - masses[0]) <
+                static_cast<Real>(kSinglePrecision ? 1e-6 : 1e-12) * masses[0]);
     }
 }
 

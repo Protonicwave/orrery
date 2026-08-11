@@ -19,6 +19,7 @@ namespace {
 
 using orrery::core::centre_of_mass;
 using orrery::core::Index;
+using orrery::core::kSinglePrecision;
 using orrery::core::linear_momentum;
 using orrery::core::norm;
 using orrery::core::ParticleData;
@@ -111,17 +112,20 @@ TEST_CASE("the two galaxies are placed on the encounter they were asked for",
     // ratio except one.
     const Vec3 separation = secondary.position - primary.position;
     const Vec3 expected = galaxy_collision_separation(kEncounter);
-    REQUIRE(norm(separation - expected) < static_cast<Real>(1e-6) * norm(expected));
+    REQUIRE(norm(separation - expected) <
+            static_cast<Real>(kSinglePrecision ? 1e-4 : 1e-6) * norm(expected));
 
     const Vec3 relative = secondary.velocity - primary.velocity;
     const Vec3 expected_velocity = galaxy_collision_relative_velocity(kEncounter);
-    REQUIRE(norm(relative - expected_velocity) < static_cast<Real>(1e-6) * norm(expected_velocity));
+    REQUIRE(norm(relative - expected_velocity) <
+            static_cast<Real>(kSinglePrecision ? 1e-4 : 1e-6) * norm(expected_velocity));
 
     // The approach is along the negative x axis and the separation is not, so a
     // configuration that had aimed one galaxy at the other would fail here while
     // passing everything above.
     REQUIRE(relative.x < 0);
-    REQUIRE(std::abs(relative.y) < static_cast<Real>(1e-6) * norm(expected_velocity));
+    REQUIRE(std::abs(relative.y) <
+            static_cast<Real>(kSinglePrecision ? 1e-4 : 1e-6) * norm(expected_velocity));
 }
 
 TEST_CASE("the pair is at rest at the origin", "[property][initial-conditions]") {
@@ -130,7 +134,7 @@ TEST_CASE("the pair is at rest at the origin", "[property][initial-conditions]")
 
     const ParticleData data = make_galaxy_collision(kEncounter, random);
 
-    constexpr Real kResidue = static_cast<Real>(1e-9);
+    constexpr Real kResidue = static_cast<Real>(kSinglePrecision ? 1e-5 : 1e-9);
     REQUIRE(norm(centre_of_mass(data.positions(), data.masses())) < kResidue);
     REQUIRE(norm(linear_momentum(data.velocities(), data.masses())) < kResidue);
 }
@@ -147,7 +151,8 @@ TEST_CASE("an approach speed of one is a parabolic encounter", "[validation][ini
     parameters.approach_speed = 1;
     const Real scale = disc_galaxy_total_mass(kPrimary) * disc_galaxy_total_mass(kSecondary) /
                        norm(galaxy_collision_separation(parameters));
-    REQUIRE(std::abs(galaxy_collision_orbit_energy(parameters)) < static_cast<Real>(1e-6) * scale);
+    REQUIRE(std::abs(galaxy_collision_orbit_energy(parameters)) <
+            static_cast<Real>(kSinglePrecision ? 1e-4 : 1e-6) * scale);
 
     parameters.approach_speed = static_cast<Real>(0.8);
     REQUIRE(galaxy_collision_orbit_energy(parameters) < 0);

@@ -22,8 +22,10 @@ benchmarked entirely on a single Lunar Lake laptop.
 > of the ceiling that binds the direct kernel on the CPU, at a cost that grows
 > as N log N rather than N^2, with no host-to-device copy anywhere, and it does
 > so for two million particles at about 0.6 seconds per force evaluation. A run
-> can be interrupted and resumed to a state identical in every bit. What is
-> missing is the renderer and the bindings. Progress is tracked
+> can be interrupted and resumed to a state identical in every bit, and there is
+> now a real-time renderer to watch one in, a pair of disc galaxies to point it
+> at, and a documented path from a run to an encoded video. What is missing is
+> the Python bindings. Progress is tracked
 > in the phase table in
 > [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md), and this README
 > gains results and figures as the phases that produce them land. Nothing is
@@ -440,6 +442,67 @@ one, starts twenty times more accurate at 1.30e-4 and finishes at 2.783e-3,
 having just overtaken it and still growing. That is ADR-0011's argument, visible
 in one column of a CSV file.
 
+## Looking at one
+
+A configuration of point masses is also a picture. Build with the renderer,
+which is off by default because it fetches GLFW and needs an OpenGL 3.3 driver,
+and watch the demonstration scenario:
+
+```
+cmake --preset renderer
+cmake --build --preset renderer
+./build/renderer/apps/orrery-view run examples/collision.orrery \
+    --set initial_conditions.count=20000
+```
+
+That is two disc galaxies of unequal mass on a bound, grazing encounter. They
+fall together, pass, draw tidal tails out of one another, separate, return and
+merge. Drag to turn, scroll to zoom, `-` and `=` for the exposure, space to
+pause.
+
+Every particle is drawn as a small round sprite with additive blending into a
+floating-point target, because a picture of a galaxy is a sum of light along the
+line of sight rather than a question of what is nearest, and a sum has no upper
+bound. A tone mapping curve then compresses that range, which is what lets both
+the bright core and the faint outer arms appear in one image. There is no depth
+test anywhere.
+
+Measured on this machine at 1280 by 720, drawing alone:
+
+| Particles | Frames per second |
+| --- | --- |
+| 20 000 | 5020 |
+| 200 000 | 740 |
+| 1 000 000 | 126 |
+
+A live run draws and integrates in the same loop, and there the solver is the
+limit rather than the renderer: 141 frames a second at ten thousand particles,
+56 at twenty thousand and 34 at thirty thousand, at which point the renderer is
+drawing three thousand frames a second and waiting. **So the collision runs live
+at thirty thousand particles above thirty frames a second, and a recorded run
+plays back at a million.**
+
+A run too large to watch live is integrated once and played back:
+
+```
+orrery run examples/collision.orrery
+orrery-view play collision.otj
+```
+
+and a video is the frames plus one documented command:
+
+```
+orrery-view play collision.otj --export frames --width 1920 --height 1080
+ffmpeg -framerate 60 -i frames/frame_%05d.ppm \
+    -c:v libx264 -pix_fmt yuv420p -crf 18 collision.mp4
+```
+
+The 20 000-particle run above takes 122 seconds for 6000 steps, conserves energy
+to 3.3 parts in a thousand, and ends with a virial ratio of 0.99 against 0.94 at
+the start: the merger virialising. The controls, the measurements, the
+demonstration and what the galaxy model does and does not claim to be are in
+[`docs/visualisation.md`](docs/visualisation.md) and ADR-0038.
+
 ## Target hardware
 
 Every performance decision in the project follows from one machine, so its
@@ -485,6 +548,7 @@ The presets are:
 | `single-precision` | Release with `float` rather than `double` as the scalar type |
 | `sycl` | Release with the GPU backend. Needs the oneAPI DPC++ compiler |
 | `sycl-single-precision` | The same with `float`. The configuration the GPU figures come from |
+| `renderer` | Release with the viewer. Fetches GLFW and needs an OpenGL 3.3 driver |
 | `lint` | Debug with clang-tidy running alongside the compiler. Needs Clang |
 
 Every one of them is exercised by continuous integration, along with a
@@ -514,7 +578,7 @@ required to report no device rather than fail.
 cmake/            Build settings, dependency pins, lint integration
 include/          Public headers, under include/orrery/<layer>/
 src/              Implementation, one directory per layer
-apps/             The command-line simulator
+apps/             The command-line simulator and the viewer
 examples/         Configuration files that run as they are
 tests/            Catch2 test suite, one executable per layer
 benchmarks/       Measurement programs. They report numbers rather than assert them
@@ -527,8 +591,10 @@ docs/performance/ Measured results, with the machine state that produced them
 The source layers arrive with the phases that need them, in the structure
 described in the implementation plan: `apps/`, `sim/`, `solvers/`,
 `integrators/`, `backend/`, `initial_conditions/` and `core/`, with dependencies
-pointing downwards only. All of them exist now except the renderer, which is part
-of `apps/` and arrives with Phase 12. `sim/` owns a run: it holds the solver, the
+pointing downwards only. All of them now exist. `viz/` sits beside `sim/` rather
+than under it: it depends on `core/` alone, it does not know what a solver is and
+cannot read a file, and putting a simulation and a picture of one together is the
+job of the layer above them both. `sim/` owns a run: it holds the solver, the
 integrator and the output, and it is the only layer that knows files exist, which
 is why the checkpoint reader is there and not in `core/`. `backend/` holds both execution
 backends: the CPU thread pool and its schedulers, and the SYCL device discovery
@@ -542,6 +608,8 @@ the simulator and nothing under `src/` depends on it.
 
 - [Implementation plan](docs/IMPLEMENTATION_PLAN.md): what is built, in what
   order, and what each phase has to demonstrate.
+- [Visualisation](docs/visualisation.md): the viewer's controls, what it costs,
+  the demonstration scenario and the path from a run to a video.
 - [File formats](docs/formats/): the configuration language, the binary
   trajectory and the checkpoint, each specified well enough to be read by
   something other than this program.
