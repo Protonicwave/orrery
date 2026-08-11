@@ -34,3 +34,7 @@ introduces it.
 | [0018](0018-dispatch-to-the-vector-kernel-at-run-time.md) | Compile the vector kernel apart and choose it at run time | Accepted |
 | [0019](0019-report-the-median-with-its-dispersion.md) | Report the median with its dispersion, and measure the throttling | Accepted |
 | [0020](0020-keep-the-arithmetic-ieee.md) | Keep the arithmetic IEEE and measure what vectorising changed | Accepted |
+| [0021](0021-sort-a-copy-rather-than-the-caller-s-particles.md) | Sort a copy of the configuration rather than the caller's particles | Accepted |
+| [0022](0022-rebuild-the-tree-every-evaluation.md) | Rebuild the tree on every force evaluation | Accepted |
+| [0023](0023-open-cells-on-a-corrected-distance.md) | Open a cell on the distance to its centre of mass, corrected for where that is | Accepted |
+| [0024](0024-make-quadrupole-moments-an-option.md) | Make quadrupole moments an option that is off by default | Accepted |

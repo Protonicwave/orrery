@@ -63,12 +63,16 @@ orrery_enable_linting(orrery_integrators_test)
 
 add_executable(
   orrery_solvers_test
+  solvers/barnes_hut_test.cpp
   solvers/conservation_test.cpp
   solvers/direct_kernel_test.cpp
   solvers/direct_solver_test.cpp
   solvers/kepler_orbit_test.cpp
   solvers/kernel_accuracy_test.cpp
-  solvers/parallel_direct_solver_test.cpp)
+  solvers/morton_test.cpp
+  solvers/octree_test.cpp
+  solvers/parallel_direct_solver_test.cpp
+  solvers/tree_walk_test.cpp)
 
 # The solver is validated by integrating configurations it did not create, so
 # these tests reach across four layers: the solver under test, the backend that
