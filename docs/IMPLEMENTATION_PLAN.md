@@ -502,7 +502,7 @@ and re-checked whenever kernels change.
 | 7 | Vectorisation and benchmark methodology | Complete |
 | 8 | Barnes-Hut tree solver | Complete |
 | 9 | SYCL backend, direct kernel | Complete |
-| 10 | SYCL backend, tree traversal | Not started |
+| 10 | SYCL backend, tree traversal | Complete |
 | 11 | Simulation driver, configuration and I/O | Not started |
 | 12 | Visualisation | Not started |
 | 13 | Python bindings | Not started |

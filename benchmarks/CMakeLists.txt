@@ -60,3 +60,17 @@ target_link_libraries(
           orrery::initial_conditions orrery::core orrery::warnings)
 
 orrery_enable_linting(orrery_sycl_direct)
+
+# What Phase 10 exists to establish: that the coherent traversal is worth what
+# it costs, at what sub-group width, and how far the tree scales on this device
+# before something other than the traversal becomes the limit.
+#
+# Built in every configuration, on the same terms as the program above.
+add_executable(orrery_sycl_tree sycl_tree.cpp)
+
+target_link_libraries(
+  orrery_sycl_tree
+  PRIVATE orrery::benchmark_harness orrery::solvers orrery::backend
+          orrery::initial_conditions orrery::core orrery::warnings)
+
+orrery_enable_linting(orrery_sycl_tree)

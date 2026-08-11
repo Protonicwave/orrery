@@ -17,40 +17,6 @@ using core::Softening;
 using core::Vec3;
 using core::Vec3Span;
 
-Vec3 monopole_acceleration(Vec3 offset, Real mass, Softening softening) noexcept {
-    // The same expression as one iteration of the direct kernel, with the
-    // cell's total mass in place of a particle's and its centre of mass in
-    // place of a position. That is what a monopole is, and writing it as
-    // anything else would put a second copy of the force law in the project.
-    const Real factor =
-        mass * core::softened_inverse_distance_cubed(core::squared_norm(offset), softening);
-
-    return offset * factor;
-}
-
-Vec3 quadrupole_acceleration(Vec3 offset, const Quadrupole& moment, Softening softening) noexcept {
-    const Real inverse = core::softened_inverse_distance(core::squared_norm(offset), softening);
-
-    // Formed from the fifth and seventh powers of one reciprocal square root
-    // rather than from two further calls, because the divide and square root
-    // unit is the bottleneck this project measured in Phase 7 and these are
-    // multiplications.
-    const Real inverse_squared = inverse * inverse;
-    const Real inverse_fifth = inverse_squared * inverse_squared * inverse;
-    const Real inverse_seventh = inverse_fifth * inverse_squared;
-
-    // Q d, with the tensor's symmetry spent: six stored components describe
-    // nine, and the three off-diagonal ones appear twice each.
-    const Vec3 contracted{(moment.xx * offset.x) + (moment.xy * offset.y) + (moment.xz * offset.z),
-                          (moment.xy * offset.x) + (moment.yy * offset.y) + (moment.yz * offset.z),
-                          (moment.xz * offset.x) + (moment.yz * offset.y) + (moment.zz * offset.z)};
-
-    const Real quadratic = core::dot(offset, contracted);
-
-    return (contracted * -inverse_fifth) +
-           (offset * (static_cast<Real>(2.5) * quadratic * inverse_seventh));
-}
-
 Vec3 walk_tree(const Octree& tree, Vec3Span<const Real> positions, std::span<const Real> masses,
                Index target, Softening softening, AccumulateRange accumulate,
                WalkCounts& counts) noexcept {
