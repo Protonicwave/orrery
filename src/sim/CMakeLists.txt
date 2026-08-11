@@ -8,11 +8,14 @@
 # <fstream> on the include path of the force kernels.
 add_library(
   orrery_sim STATIC
+  assembly.cpp
   binary_stream.cpp
   checkpoint.cpp
   config_file.cpp
   configuration.cpp
   diagnostics_log.cpp
+  run_output.cpp
+  simulation.cpp
   trajectory.cpp)
 add_library(orrery::sim ALIAS orrery_sim)
 
