@@ -12,13 +12,14 @@ benchmarked entirely on a single Lunar Lake laptop.
 > advance a configuration under, a work-stealing scheduler that runs it across
 > the machine's eight cores, an AVX2 kernel chosen at run time, the benchmark
 > harness that measures all of it against limits measured on the same machine,
-> and the Barnes-Hut tree solver that replaces most of the interactions with an
+> the Barnes-Hut tree solver that replaces most of the interactions with an
 > approximation whose error is measured against the direct one rather than
-> assumed. Orrery now simulates gravity correctly, at four fifths of the ceiling
-> that binds the direct kernel, and at a cost that grows as N^1.24 rather than
-> N^2. What is missing is the GPU: nothing here has yet asked the integrated Arc
-> for anything, and a SYCL backend is the next phase. Progress is tracked in the
-> phase table in
+> assumed, and a SYCL backend that runs the direct kernel on the integrated Arc
+> GPU. Orrery now simulates gravity correctly, at four fifths of the ceiling
+> that binds the direct kernel on the CPU, at a cost that grows as N^1.24 rather
+> than N^2, and four times faster again on the GPU with no host-to-device copy
+> anywhere. What is missing is the tree walk on the GPU, the simulation driver,
+> the renderer and the bindings. Progress is tracked in the phase table in
 > [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md), and this README
 > gains results and figures as the phases that produce them land. Nothing is
 > claimed here before it can be reproduced.
@@ -225,12 +226,64 @@ since particle i may see j through a cell while j sees i directly. The test
 suite measures the size of that violation and that closing the angle reduces it,
 rather than asserting a zero that would be false.
 
+## What the GPU changed
+
+The integrated Arc 130V runs the same direct summation as a backend behind the
+same solver interface, in SYCL, sharing physical memory with the CPU. Measured
+in single precision against all eight CPU cores running the AVX2 kernel:
+
+| N | GPU | CPU | Speedup | Staging | Gflop/s |
+| --- | --- | --- | --- | --- | --- |
+| 1024 | 0.178 ms | 0.119 ms | 0.67x | 1.0% | 117 |
+| 2048 | 0.351 ms | 0.334 ms | 0.95x | 0.5% | 253 |
+| 8192 | 1.555 ms | 4.511 ms | 2.90x | 0.3% | 890 |
+| 65536 | 75.39 ms | 308.5 ms | **4.09x** | 0.2% | 1139 |
+| 131072 | 297.1 ms | not timed | | 0.1% | **1174** |
+
+The GPU overtakes the CPU at about **2200 particles** and loses below that: a
+kernel launch costs roughly 150 microseconds, and a thousand-body simulation
+should stay on the CPU.
+
+**There is no host-to-device copy**, which is demonstrated rather than asserted.
+A test writes an allocation from the host, has a kernel read and modify it
+through the same pointer value, reads it back, and never calls any copy or map
+operation; it then asks the runtime what kind of pointer it is holding and
+requires the answer to be shared, and requires an ordinary heap pointer to
+answer otherwise so the query is discriminating. The staging the solver does
+perform is host memory to host memory, costs 0.1 to 1.0 per cent of an
+evaluation, and exists only because this driver does not report
+`usm_system_allocations` (ADR-0027).
+
+Against ceilings measured on the device itself, the kernel reaches 42 per cent
+of its multiply-add limit. Unlike the CPU kernel it is **not** bound by the
+square root and division in every interaction: this GPU's divide unit is only
+4.1 times slower than its multiply-add pipelines, against 27 times on the CPU,
+so the kernel sits at 17.5 per cent of that ceiling where the CPU reaches 80.
+What takes the remainder is not yet identified, and saying so is more useful
+than guessing.
+
+Accuracy in single precision is 3.7e-6 root mean square against a compensated
+double-precision reference at 65536 particles, three orders of magnitude better
+than the tree solver's approximation at its default opening angle. Computing the
+physics in single precision costs far less accuracy than approximating it.
+
+Phase 9 also found a defect in the CPU build that had nothing to do with the
+GPU. MSVC-style release builds were compiled `/O2 /Ob1`, which inlines almost
+nothing, and that made the AVX2 kernel thirteen times slower than it should be
+and slower than the scalar kernel it exists to replace. It was caught because
+the first GPU speedup came out at 32.7x, which was too good to believe, and
+checking the CPU baseline against Phase 7's published figures settled it in one
+step. No published figure was affected, since every one was taken with Clang.
+The account is in
+[`docs/performance/sycl_direct.md`](docs/performance/sycl_direct.md).
+
 The full tables, the roofline plot, the per-worker breakdown, the error against
-cost curve and an honest account of which of these figures reproduce and which
-do not are in
+cost curve, the device ceilings and an honest account of which of these figures
+reproduce and which do not are in
 [`docs/performance/roofline.md`](docs/performance/roofline.md),
-[`docs/performance/threading.md`](docs/performance/threading.md) and
-[`docs/performance/barnes_hut.md`](docs/performance/barnes_hut.md). Reproduce
+[`docs/performance/threading.md`](docs/performance/threading.md),
+[`docs/performance/barnes_hut.md`](docs/performance/barnes_hut.md) and
+[`docs/performance/sycl_direct.md`](docs/performance/sycl_direct.md). Reproduce
 with:
 
 ```
@@ -239,6 +292,14 @@ cmake --build --preset release
 ./build/release/benchmarks/orrery_roofline 8192 21
 ./build/release/benchmarks/orrery_threading_scaling 8192 11
 ./build/release/benchmarks/orrery_tree_scaling
+```
+
+and, for the GPU, with the oneAPI compiler:
+
+```
+cmake --preset sycl-single-precision -DCMAKE_CXX_COMPILER=icx-cl
+cmake --build --preset sycl-single-precision
+./build/sycl-single-precision/benchmarks/orrery_sycl_direct
 ```
 
 ## Target hardware
@@ -284,11 +345,30 @@ The presets are:
 | `sanitise` | Address and undefined-behaviour sanitisers, optimised so the suite stays quick enough to run |
 | `thread-sanitise` | Thread sanitiser, for the scheduler. Separate because it cannot be combined with the address sanitiser |
 | `single-precision` | Release with `float` rather than `double` as the scalar type |
+| `sycl` | Release with the GPU backend. Needs the oneAPI DPC++ compiler |
+| `sycl-single-precision` | The same with `float`. The configuration the GPU figures come from |
 | `lint` | Debug with clang-tidy running alongside the compiler. Needs Clang |
 
 Every one of them is exercised by continuous integration, along with a
 clang-format check, on Linux with GCC and Clang, on macOS with Clang, and on
 Windows with MSVC.
+
+The GPU backend is off by default and a build without it is complete rather
+than degraded: the solvers above are selected at run time and the GPU is one
+more of them. Building it needs the oneAPI DPC++ compiler, which is none of the
+three the project is otherwise tested with, so the compiler has to be named:
+
+```
+cmake --preset sycl-single-precision -DCMAKE_CXX_COMPILER=icx-cl
+cmake --build --preset sycl-single-precision
+ctest --preset sycl-single-precision
+```
+
+On Windows that is `icx-cl`, the MSVC-style driver, because CMake drives a
+Windows IntelLLVM compiler with MSVC-style flags that `icpx` rejects. Elsewhere
+it is `icpx`. Run the oneAPI environment script first. On a machine with no
+device the suite still passes: the GPU cases skip and the discovery layer is
+required to report no device rather than fail.
 
 ## Repository layout
 
@@ -307,7 +387,11 @@ The source layers arrive with the phases that need them, in the structure
 described in the implementation plan: `apps/`, `sim/`, `solvers/`,
 `integrators/`, `backend/`, `initial_conditions/` and `core/`, with dependencies
 pointing downwards only. `core/`, `backend/`, `initial_conditions/`,
-`integrators/` and `solvers/` exist so far. `benchmarks/harness/` holds the
+`integrators/` and `solvers/` exist so far. `backend/` holds both execution
+backends: the CPU thread pool and its schedulers, and the SYCL device discovery
+and unified memory the GPU solver is built on. The GPU kernel itself sits in
+`solvers/` beside the CPU kernel it mirrors, because it is a summation over
+pairs of particles rather than a scheduling policy (ADR-0026). `benchmarks/harness/` holds the
 measurement infrastructure the benchmark programs share; it is not a layer of
 the simulator and nothing under `src/` depends on it.
 

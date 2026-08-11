@@ -40,17 +40,22 @@
 #ifdef ORRERY_ENABLE_SYCL
 
 #    include <algorithm>
+#    include <array>
 #    include <chrono>
 #    include <cmath>
+#    include <cstddef>
 #    include <cstdint>
 #    include <iomanip>
 #    include <memory>
 #    include <string>
 #    include <vector>
 
+#    include <sycl/sycl.hpp>
+
 #    include "harness/machine_state.hpp"
 #    include "harness/protocol.hpp"
 #    include "harness/statistics.hpp"
+#    include "orrery/backend/sycl_usm.hpp"
 #    include "orrery/backend/thread_pool.hpp"
 #    include "orrery/backend/work_stealing_executor.hpp"
 #    include "orrery/core/particle_data.hpp"
@@ -66,6 +71,7 @@
 namespace {
 
 using orrery::backend::ThreadPool;
+using orrery::backend::UsmArray;
 using orrery::backend::WorkStealingExecutor;
 using orrery::benchmark::capture_machine_state;
 using orrery::benchmark::MachineState;
@@ -140,6 +146,172 @@ const Protocol kProtocol{.cooldown = std::chrono::seconds(3)};
 
 [[nodiscard]] double milliseconds(orrery::benchmark::Duration duration) {
     return std::chrono::duration<double, std::milli>(duration).count();
+}
+
+/// This device's ceilings, measured rather than taken from a specification.
+///
+/// Phase 7 established the rule the project has followed since: a performance
+/// figure is quoted as a fraction of a limit measured on the machine in front of
+/// you, not of a manufacturer's peak. That phase measured the CPU's limits and
+/// nothing had asked the GPU for anything yet. These are the same two probes for
+/// the device, so the kernel above can be placed against its own hardware rather
+/// than against the CPU's.
+struct DeviceCeilings {
+    double fma_gflops{};
+
+    /// Square roots and divisions per second.
+    ///
+    /// The ceiling that actually binds this kernel. Phase 7 found that the CPU
+    /// direct kernel is limited by neither bandwidth nor multiply-add but by the
+    /// one square root and one division in every interaction, which retire on a
+    /// unit with a fraction of the throughput of the multiply-add pipelines. The
+    /// arithmetic here is the same arithmetic, so the same question has to be
+    /// asked of the device rather than assumed to have a different answer.
+    double div_sqrt_gops{};
+
+    double read_gbps{};
+};
+
+/// Fused multiply-add throughput, with no memory in the loop.
+///
+/// Each work-item keeps several independent accumulators in registers and
+/// hammers them. Independent because a single chain would measure the latency of
+/// an FMA rather than the throughput of the pipelines, and the accumulators are
+/// summed into memory at the end so that nothing can be discarded as dead.
+[[nodiscard]] double measure_device_fma(sycl::queue& queue, const Protocol& protocol) {
+    constexpr std::size_t kWorkItems = 1 << 20;
+    constexpr std::size_t kAccumulators = 8;
+    constexpr std::size_t kIterations = 512;
+
+    UsmArray<float> output{queue, kWorkItems};
+    float* const data = output.data();
+
+    const TrialSet trials = orrery::benchmark::run_trials(protocol, [&] {
+        queue
+            .parallel_for(sycl::range<1>{kWorkItems},
+                          [=](sycl::id<1> id) {
+                              std::array<float, kAccumulators> accumulator{};
+                              for (std::size_t a = 0; a < kAccumulators; ++a) {
+                                  accumulator[a] = static_cast<float>(a) + 1.0F;
+                              }
+
+                              const auto multiplier = static_cast<float>(id[0] & 3U) + 1.0F;
+                              constexpr float kAddend = 1.000001F;
+
+                              for (std::size_t i = 0; i < kIterations; ++i) {
+                                  for (std::size_t a = 0; a < kAccumulators; ++a) {
+                                      accumulator[a] = (accumulator[a] * kAddend) + multiplier;
+                                  }
+                              }
+
+                              float total = 0;
+                              for (std::size_t a = 0; a < kAccumulators; ++a) {
+                                  total += accumulator[a];
+                              }
+                              data[id] = total;
+                          })
+            .wait_and_throw();
+    });
+
+    // Two floating-point operations per fused multiply-add, which is the
+    // accounting the CPU probe in harness/arithmetic_probe.hpp uses, so the two
+    // ceilings are in the same units.
+    const double operations = 2.0 * static_cast<double>(kWorkItems * kAccumulators * kIterations);
+    const double seconds = milliseconds(trials.median()) * 1.0e-3;
+    return seconds > 0 ? operations / seconds * 1.0e-9 : 0;
+}
+
+/// Square root and divide throughput, the ceiling this kernel competes for.
+///
+/// One square root and one division per step, counted as two operations, which
+/// is the accounting `harness/machine_limits.hpp` uses on the CPU so that the
+/// two figures are comparable. Several accumulators again, and the square root
+/// feeds its own accumulator so the compiler cannot hoist it out of the loop.
+[[nodiscard]] double measure_device_div_sqrt(sycl::queue& queue, const Protocol& protocol) {
+    constexpr std::size_t kWorkItems = 1 << 20;
+    constexpr std::size_t kAccumulators = 4;
+    constexpr std::size_t kIterations = 128;
+
+    UsmArray<float> output{queue, kWorkItems};
+    float* const data = output.data();
+
+    const TrialSet trials = orrery::benchmark::run_trials(protocol, [&] {
+        queue
+            .parallel_for(sycl::range<1>{kWorkItems},
+                          [=](sycl::id<1> id) {
+                              std::array<float, kAccumulators> accumulator{};
+                              for (std::size_t a = 0; a < kAccumulators; ++a) {
+                                  accumulator[a] = static_cast<float>(id[0] + a) + 1.0F;
+                              }
+
+                              for (std::size_t i = 0; i < kIterations; ++i) {
+                                  for (std::size_t a = 0; a < kAccumulators; ++a) {
+                                      // The same shape the force kernel uses: a
+                                      // reciprocal of a square root of something
+                                      // that changes every step.
+                                      accumulator[a] =
+                                          1.0F + (1.0F / sycl::sqrt(accumulator[a] + 1.0F));
+                                  }
+                              }
+
+                              float total = 0;
+                              for (std::size_t a = 0; a < kAccumulators; ++a) {
+                                  total += accumulator[a];
+                              }
+                              data[id] = total;
+                          })
+            .wait_and_throw();
+    });
+
+    const double operations = 2.0 * static_cast<double>(kWorkItems * kAccumulators * kIterations);
+    const double seconds = milliseconds(trials.median()) * 1.0e-3;
+    return seconds > 0 ? operations / seconds * 1.0e-9 : 0;
+}
+
+/// Read bandwidth, from a working set far larger than any cache on the part.
+///
+/// A sum rather than a copy, because reading is what the force kernel does to
+/// the source arrays and a triad would measure a mixture this kernel never
+/// performs. The reduction is the cheapest thing that stops the reads being
+/// removed.
+[[nodiscard]] double measure_device_bandwidth(sycl::queue& queue, const Protocol& protocol) {
+    // 256 MiB, against 8 MB of L3 and whatever the GPU's own caches are, so the
+    // figure is memory rather than cache.
+    constexpr std::size_t kElements = 64U << 20U;
+    constexpr std::size_t kGroups = 4096;
+    constexpr std::size_t kGroupSize = 256;
+
+    UsmArray<float> input{queue, kElements};
+    UsmArray<float> output{queue, kGroups};
+
+    float* const data = input.data();
+    float* const sums = output.data();
+    for (std::size_t i = 0; i < kElements; ++i) {
+        data[i] = 1.0F;
+    }
+
+    const TrialSet trials = orrery::benchmark::run_trials(protocol, [&] {
+        queue
+            .parallel_for(
+                sycl::nd_range<1>{sycl::range<1>{kGroups * kGroupSize}, sycl::range<1>{kGroupSize}},
+                [=](sycl::nd_item<1> item) {
+                    const std::size_t stride = kGroups * kGroupSize;
+                    float total = 0;
+                    // Consecutive work-items read consecutive elements, so each
+                    // sub-group's reads coalesce into whole cache lines. A
+                    // blocked division would have every lane on a different line
+                    // and would measure the wrong thing entirely.
+                    for (std::size_t i = item.get_global_id(0); i < kElements; i += stride) {
+                        total += data[i];
+                    }
+                    sums[item.get_group(0)] = total;
+                })
+            .wait_and_throw();
+    });
+
+    const double bytes = static_cast<double>(kElements) * sizeof(float);
+    const double seconds = milliseconds(trials.median()) * 1.0e-3;
+    return seconds > 0 ? bytes / seconds * 1.0e-9 : 0;
 }
 
 [[nodiscard]] ParticleData sampled_sphere(Index count) {
@@ -299,10 +471,81 @@ void print_accuracy(const std::vector<AccuracyRow>& rows) {
     }
 }
 
-void print_canary(const ThermalCanary& canary) {
-    std::cout << "\nthermal canary: the machine ended the session " << std::fixed
-              << std::setprecision(1) << (canary.slowdown() * 100.0)
-              << " per cent slower than it started.\n";
+void print_ceilings(const DeviceCeilings& ceilings, const std::vector<ScalingRow>& rows,
+                    Index tile_size) {
+    std::cout << "\nmeasured device ceilings\n"
+              << "  fused multiply-add  " << std::fixed << std::setprecision(1)
+              << ceilings.fma_gflops << " Gflop/s\n"
+              << "  divide and sqrt     " << ceilings.div_sqrt_gops << " Gop/s\n"
+              << "  read bandwidth      " << ceilings.read_gbps << " GB/s\n";
+
+    // The kernel's best row against the ceiling it can actually compete for.
+    // Phase 7 found that the CPU direct kernel is bound by neither bandwidth nor
+    // multiply-add but by the square root and division in every interaction, and
+    // the same accounting applies here: the arithmetic is the same arithmetic.
+    double best = 0;
+    for (const ScalingRow& row : rows) {
+        const double kernel = milliseconds(row.timings.kernel);
+        const auto count = static_cast<double>(row.particles);
+        if (kernel > 0) {
+            best = std::max(best, count * (count - 1) / (kernel * 1.0e-3));
+        }
+    }
+
+    const double achieved = best * kFlopsPerInteraction * 1.0e-9;
+
+    // Two of these per interaction, one square root and one division, counted
+    // the way the CPU tables count them.
+    const double achieved_div_sqrt = best * 2.0 * 1.0e-9;
+
+    // Each work-group reads all N sources once per evaluation rather than each
+    // work-item reading them, which is the whole point of staging through local
+    // memory. So the global traffic is N^2/tile source records of four scalars,
+    // and the intensity carries a factor of the tile size. Leaving it out would
+    // understate it by more than two orders of magnitude and make a
+    // compute-bound kernel look bandwidth-bound.
+    const double tile = static_cast<double>(tile_size);
+    const double intensity = kFlopsPerInteraction * tile / (4.0 * sizeof(Real));
+
+    std::cout << "\nthe kernel's best row reached " << std::setprecision(1) << achieved
+              << " Gflop/s, " << std::setprecision(1)
+              << (ceilings.fma_gflops > 0 ? 100.0 * achieved / ceilings.fma_gflops : 0)
+              << " per cent of this device's multiply-add ceiling, and\n"
+              << std::setprecision(2) << achieved_div_sqrt << " Gop/s of divides and square "
+              << "roots, " << std::setprecision(1)
+              << (ceilings.div_sqrt_gops > 0 ? 100.0 * achieved_div_sqrt / ceilings.div_sqrt_gops
+                                             : 0)
+              << " per cent of that ceiling.\n"
+                 "the second is the one to read it against, for the reason Phase 7 gives: "
+                 "every\ninteraction contains one square root and one division, and they "
+                 "retire on a\nnarrower unit than the multiply-add pipelines.\n\n"
+                 "arithmetic intensity is about "
+              << std::setprecision(0) << intensity
+              << " flop per byte of source data, because each\nwork-group reads every source "
+                 "once rather than each work-item doing so. At that\nintensity the "
+              << std::setprecision(1) << ceilings.read_gbps
+              << " GB/s measured above could feed far more arithmetic than the\ndevice can "
+                 "perform, so this kernel is not bandwidth-bound.\n";
+}
+
+/// Both canary readings, and they measure different things.
+///
+/// `across_tables` brackets the scaling and accuracy rows, which are the figures
+/// this session is quoted for, and it is the one that decides whether those rows
+/// can be compared with each other.
+///
+/// `across_session` additionally includes the device ceiling probes, which run
+/// last and saturate the GPU for a sustained stretch with no cool-down between
+/// them. They heat the package on purpose, so a canary that rises here says the
+/// probes did their job rather than that the table above is untrustworthy.
+/// Reporting only the second would condemn a sound measurement; reporting only
+/// the first would hide how hard the end of the session ran.
+void print_canary(double across_tables, double across_session) {
+    std::cout << "\nthermal canary\n"
+              << "  across the rows quoted above   " << std::fixed << std::setprecision(1)
+              << (across_tables * 100.0) << " per cent slower\n"
+              << "  across the whole session       " << (across_session * 100.0)
+              << " per cent slower, ceiling probes included\n";
 }
 
 int run() {
@@ -340,8 +583,21 @@ int run() {
     }
     print_accuracy(accuracy);
 
+    // Closes the bracket on the rows above before anything else runs.
     canary.mark();
-    print_canary(canary);
+    const double across_tables = canary.slowdown();
+
+    // The device's own limits, measured last so that a failure here still leaves
+    // the tables above printed.
+    sycl::queue probe_queue{sycl::gpu_selector_v};
+    orrery::benchmark::cool_down(protocol);
+    const DeviceCeilings ceilings{.fma_gflops = measure_device_fma(probe_queue, protocol),
+                                  .div_sqrt_gops = measure_device_div_sqrt(probe_queue, protocol),
+                                  .read_gbps = measure_device_bandwidth(probe_queue, protocol)};
+    print_ceilings(ceilings, scaling, gpu->tile_size());
+
+    canary.mark();
+    print_canary(across_tables, canary.slowdown());
 
     return 0;
 }
