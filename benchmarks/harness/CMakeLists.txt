@@ -43,7 +43,12 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "^([Xx]86_64|AMD64|amd64|i[3-6]86|[Xx]86)$")
   target_sources(orrery_benchmark_harness PRIVATE arithmetic_probe_avx2.cpp)
   target_compile_definitions(orrery_benchmark_harness PRIVATE ORRERY_HAS_AVX2_PROBE)
 
-  if(MSVC)
+  # IntelLLVM is excluded from the MSVC spelling for the reason set out at
+  # length in src/solvers/CMakeLists.txt: it accepts /arch:AVX2 and then fails to
+  # enable the FMA target feature its own intrinsics need. This probe is where
+  # that showed up most starkly, since it measures nothing but fused
+  # multiply-adds and reported an eighth of the machine's real ceiling.
+  if(MSVC AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
     set_source_files_properties(arithmetic_probe_avx2.cpp PROPERTIES COMPILE_OPTIONS
                                                               "/arch:AVX2")
   else()

@@ -42,6 +42,33 @@ if(MSVC)
   if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
     target_compile_options(orrery_options INTERFACE /Zc:preprocessor)
   endif()
+
+  # Let the optimiser inline. CMake's MSVC-style RelWithDebInfo is /O2 /Ob1, and
+  # /Ob1 inlines only what is marked inline, which is not what /O2 means on any
+  # other compiler this project builds with.
+  #
+  # The cost is not the few per cent that flag usually suggests. The AVX2 kernel
+  # is built from small helper functions wrapping the intrinsics, exactly as
+  # ADR-0018 describes, and under /Ob1 each becomes a call. Measured on this
+  # machine at 8192 particles in single precision, the vector kernel went from
+  # 18.5 ms to 222 ms, which is thirteen times slower and slower than the scalar
+  # kernel it exists to replace. The harness's own FMA ceiling probe measured 47
+  # Gflop/s against the machine's real 571.
+  #
+  # Nothing warned. The build succeeded, the CPUID check passed, the solver
+  # reported that it was running the vector kernel, and every figure taken that
+  # way was wrong by an order of magnitude. It was found in Phase 9 only because
+  # a GPU speedup came out implausibly large and the CPU baseline was checked
+  # against Phase 7's published figures.
+  #
+  # Applied to every MSVC-style compiler rather than to the oneAPI one alone,
+  # because MSVC proper has the same default and the same helpers. Set as a
+  # target option rather than by editing CMAKE_CXX_FLAGS_RELWITHDEBINFO, so it
+  # reaches this project's targets and not the dependencies built beside them
+  # (ADR-0003). It comes after the /Ob1 CMake supplies, and the last of the two
+  # wins.
+  target_compile_options(orrery_options
+                         INTERFACE $<$<CONFIG:RelWithDebInfo>:/Ob2>)
 endif()
 
 # The oneAPI compiler is the one compiler here that is not IEEE by default.

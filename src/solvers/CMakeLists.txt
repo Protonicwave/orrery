@@ -49,7 +49,20 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "^([Xx]86_64|AMD64|amd64|i[3-6]86|[Xx]86)$")
   # reason.
   target_compile_definitions(orrery_solvers PUBLIC ORRERY_HAS_AVX2_KERNEL)
 
-  if(MSVC)
+  # The oneAPI compiler presents an MSVC-like command line, so it reaches the
+  # MSVC branch below and accepts /arch:AVX2 without complaint. It then produces
+  # AVX2 code an order of magnitude slower than Clang's, because underneath it is
+  # Clang and /arch:AVX2 does not turn on the target feature its FMA intrinsics
+  # need. Measured on this machine at 8192 particles in single precision: the
+  # kernel took 251 ms against Clang's 24, which made it slower than the scalar
+  # kernel it exists to replace, and the harness's own FMA ceiling probe
+  # collapsed from 532 Gflop/s to 42.
+  #
+  # Nothing warns about this. The build succeeds, the CPUID check passes, the
+  # solver reports that it is running the AVX2 kernel, and every figure taken
+  # with it is wrong. So the compiler is asked in the spelling it actually
+  # understands, which is the one the Clang branch already uses.
+  if(MSVC AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
     # MSVC has no way to enable FMA separately: /arch:AVX2 brings both, which is
     # correct for every part that implements either.
     set_source_files_properties(direct_kernel_avx2.cpp PROPERTIES COMPILE_OPTIONS
