@@ -132,10 +132,11 @@ std::unique_ptr<SyclDirectSolver> SyclDirectSolver::try_create(core::Softening s
     }
 
     // A device that cannot run this build's scalar type is not a device this
-    // solver can use. The target GPU has no fp64, so a double-precision build
-    // declines here and the caller falls back to the CPU, which is the honest
-    // outcome rather than a kernel that runs at a fiftieth of the device's
-    // single-precision rate through emulation.
+    // solver can use, and a caller told so falls back to the CPU. The target GPU
+    // does report fp64, so both configurations construct here and the choice
+    // between them is made on measured throughput rather than on capability. The
+    // check remains because the aspect is optional in SYCL 2020 and plenty of
+    // integrated parts do not have it.
     if (!description->supports_build_precision() || !description->supports_shared_usm) {
         return nullptr;
     }
@@ -229,10 +230,10 @@ void SyclDirectSolver::evaluate(Vec3Span<const Real> positions, std::span<const 
     std::copy_n(positions.z.data(), count, impl_->position_z.data());
     std::copy_n(masses.data(), count, impl_->mass.data());
 
-    // The padded tail carries zero mass, so a tail source contributes nothing to
-    // any sum. That is what lets the inner loop run over whole tiles without a
-    // bound check on the source index. Positions there are left as they were,
-    // which is harmless precisely because the mass is zero.
+    // The padded tail is zeroed rather than left as it was. The kernel masks it
+    // out of the physics by index, so these values never reach a sum, but they
+    // are still loaded into local memory on every pass and reading uninitialised
+    // memory is undefined however little the result is used.
     const Index padded = ((count + impl_->tile - 1) / impl_->tile) * impl_->tile;
     std::fill(impl_->mass.data() + count, impl_->mass.data() + padded, Real{0});
     std::fill(impl_->position_x.data() + count, impl_->position_x.data() + padded, Real{0});
@@ -294,16 +295,36 @@ void SyclDirectSolver::evaluate(Vec3Span<const Real> positions, std::span<const 
                                          const Real dy = tile_y[j] - y;
                                          const Real dz = tile_z[j] - z;
 
-                                         // The self term, masked in both factors. Selecting the
-                                         // mass to zero alone would leave a division by zero in
-                                         // an unsoftened run, and `inf * 0` is NaN rather than
-                                         // the zero contribution intended. Selecting the squared
-                                         // separation to one keeps the reciprocal finite so that
-                                         // the zero mass can do its job.
-                                         const bool self = (base + j) == target;
+                                         // Two sources contribute nothing, and both have to be
+                                         // masked in the separation as well as in the mass.
+                                         //
+                                         // A particle does not attract itself. The CPU kernel
+                                         // excludes that by splitting the source range either
+                                         // side of the target's index, which costs nothing in a
+                                         // loop; a tile is shared by a whole work-group and each
+                                         // work-item has a different index to exclude, so the
+                                         // term is masked here instead.
+                                         //
+                                         // The tail beyond the particle count is padding, which
+                                         // exists so the inner loop can run over whole tiles
+                                         // without a bound check. It carries zero mass.
+                                         //
+                                         // Zeroing the mass is not sufficient for either. The
+                                         // reciprocal distance of a zero separation is infinite
+                                         // in an unsoftened run and `inf * 0` is NaN rather than
+                                         // the zero contribution intended, so the squared
+                                         // separation is selected to one and the mass does its
+                                         // job on a finite number. Both cases reach zero
+                                         // separation: the self term always, and a padded source
+                                         // whenever a real particle sits at the origin, which is
+                                         // exactly where the central body of a Kepler
+                                         // configuration sits.
+                                         const Index source_index = base + j;
+                                         const bool masked =
+                                             source_index == target || source_index >= count;
                                          const Real separation_squared =
-                                             self ? Real{1} : (dx * dx + dy * dy + dz * dz);
-                                         const Real source_mass = self ? Real{0} : tile_mass[j];
+                                             masked ? Real{1} : (dx * dx + dy * dy + dz * dz);
+                                         const Real source_mass = masked ? Real{0} : tile_mass[j];
 
                                          // The same function the CPU kernel and the potential
                                          // energy diagnostic call, compiled for the device. That

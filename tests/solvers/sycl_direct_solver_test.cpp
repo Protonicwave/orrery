@@ -280,4 +280,47 @@ TEST_CASE("The GPU solver handles configurations with nothing in them",
     REQUIRE(acceleration.z == Real{0});
 }
 
+TEST_CASE("A particle at the origin survives the padding", "[solvers][sycl][regression]") {
+    const std::unique_ptr<SyclDirectSolver> solver = SyclDirectSolver::try_create();
+    if (solver == nullptr) {
+        SKIP("no usable SYCL GPU on this machine");
+    }
+
+    // The case that caught a real defect. The kernel runs over whole tiles, so
+    // a particle count that is not a multiple of the tile leaves padded sources
+    // carrying zero mass at position zero. Masking only their mass is not
+    // enough: a real particle sitting exactly at the origin is at zero
+    // separation from every one of them, and in an unsoftened run the
+    // reciprocal of that is infinite, so the contribution is `inf * 0` and the
+    // whole acceleration becomes NaN.
+    //
+    // It is not a contrived configuration. The central body of the Kepler
+    // two-body problem sits at the origin, and no softening is exactly what the
+    // analytic comparisons use, so this is the shape of the project's primary
+    // validation instrument.
+    ParticleData data;
+    data.add(Vec3{0, 0, 0}, Vec3{}, Real{1});
+    data.add(Vec3{1, 0, 0}, Vec3{}, Real{1});
+    data.add(Vec3{0, 2, 0}, Vec3{}, Real{1});
+
+    solver->evaluate(data.positions(), data.masses(), data.accelerations());
+
+    for (Index i = 0; i < data.size(); ++i) {
+        const Vec3 acceleration = data.accelerations().get(i);
+        INFO("particle " << i);
+        REQUIRE(std::isfinite(acceleration.x));
+        REQUIRE(std::isfinite(acceleration.y));
+        REQUIRE(std::isfinite(acceleration.z));
+    }
+
+    // And the answer is right, not merely finite. The particle at the origin is
+    // pulled by a unit mass at distance one along x and a unit mass at distance
+    // two along y, so its acceleration is (1, 1/4, 0) exactly in these units.
+    const Vec3 origin = data.accelerations().get(0);
+    const auto tolerance = static_cast<Real>(kSinglePrecision ? 1.0e-6 : 1.0e-14);
+    REQUIRE(std::abs(origin.x - Real{1}) < tolerance);
+    REQUIRE(std::abs(origin.y - Real{0.25}) < tolerance);
+    REQUIRE(std::abs(origin.z) < tolerance);
+}
+
 #endif // ORRERY_ENABLE_SYCL
