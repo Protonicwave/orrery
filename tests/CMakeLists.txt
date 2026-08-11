@@ -77,6 +77,7 @@ add_executable(
   solvers/morton_test.cpp
   solvers/octree_test.cpp
   solvers/parallel_direct_solver_test.cpp
+  solvers/sycl_direct_solver_test.cpp
   solvers/tree_walk_test.cpp)
 
 # The solver is validated by integrating configurations it did not create, so

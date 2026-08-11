@@ -9,13 +9,20 @@
 add_library(
   orrery_solvers STATIC
   barnes_hut_solver.cpp direct_kernel.cpp direct_kernel_scalar.cpp
-  direct_solver.cpp morton.cpp octree.cpp reference_kernel.cpp tree_walk.cpp)
+  direct_solver.cpp morton.cpp octree.cpp reference_kernel.cpp
+  sycl_direct_solver.cpp tree_walk.cpp)
 add_library(orrery::solvers ALIAS orrery_solvers)
 
 # All three are public: the solver interface derives from the integrators'
 # acceleration field, every function here takes spans over core's component
 # arrays, and a solver is constructed from a reference to a backend executor. A
 # consumer of this library is a consumer of all three whether it says so or not.
+#
+# The GPU solver reaches SYCL through orrery::backend, which links orrery::sycl
+# publicly, so sycl_direct_solver.cpp is compiled with -fsycl and guarded by the
+# same definition without this file repeating either. It is in the source list
+# unconditionally and compiles to nothing when the option is off, which is the
+# arrangement the discovery layer beneath it uses.
 target_link_libraries(
   orrery_solvers
   PUBLIC orrery::integrators orrery::backend orrery::core
