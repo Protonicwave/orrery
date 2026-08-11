@@ -11,7 +11,6 @@
 #include "orrery/core/types.hpp"
 #include "orrery/core/vec3.hpp"
 #include "orrery/core/vec3_span.hpp"
-#include "orrery/initial_conditions/disc_galaxy.hpp"
 #include "orrery/sim/configuration.hpp"
 
 namespace {
@@ -22,7 +21,6 @@ using orrery::core::norm;
 using orrery::core::ParticleData;
 using orrery::core::Real;
 using orrery::core::total_mass;
-using orrery::core::Vec3;
 using orrery::sim::Configuration;
 using orrery::sim::InitialConditionKind;
 using orrery::sim::make_initial_conditions;

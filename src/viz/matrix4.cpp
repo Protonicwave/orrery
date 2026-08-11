@@ -2,6 +2,7 @@
 
 #include <cmath>
 
+#include "orrery/core/types.hpp"
 #include "orrery/core/vec3.hpp"
 
 namespace orrery::viz {

@@ -8,7 +8,6 @@
 #include <ios>
 #include <span>
 #include <stdexcept>
-#include <string>
 
 #include "orrery/viz/tone_map.hpp"
 

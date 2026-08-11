@@ -209,6 +209,76 @@ void check_run(const RunSettings& run, std::vector<std::string>& problems) {
     }
 }
 
+/// The elements of a bound two-body orbit.
+void check_kepler(const InitialConditionSettings& initial, std::vector<std::string>& problems) {
+    if (!(initial.primary_mass > 0)) {
+        add(problems, "initial_conditions.primary_mass", "must be a positive number");
+    }
+    if (!(initial.secondary_mass > 0)) {
+        add(problems, "initial_conditions.secondary_mass", "must be a positive number");
+    }
+    if (!(initial.semi_major_axis > 0)) {
+        add(problems, "initial_conditions.semi_major_axis", "must be a positive number");
+    }
+    if (!(initial.eccentricity >= 0) || !(initial.eccentricity < 1)) {
+        // An eccentricity of one or more describes a parabolic or hyperbolic
+        // encounter. Those are unbound and have no period, so every analytic
+        // quantity the configuration exists to be checked against would be
+        // answering a question about an ellipse that does not exist.
+        add(problems, "initial_conditions.eccentricity", "must lie in [0, 1) for a bound orbit");
+    }
+    if (initial.count != 0) {
+        add(problems, "initial_conditions.count",
+            "is not used by the kepler configuration, which is always two bodies");
+    }
+}
+
+/// What both galaxy configurations need, which is the three lengths that give a
+/// galaxy a shape and the split of its mass between the disc and the bulge.
+void check_galaxy(const InitialConditionSettings& initial, std::vector<std::string>& problems) {
+    if (!(initial.bulge_fraction >= 0) || !(initial.bulge_fraction < 1)) {
+        // One would be a galaxy that is all bulge and no disc, which is a
+        // Plummer sphere written the long way round and has no spin axis for the
+        // inclination to mean anything about.
+        add(problems, "initial_conditions.bulge_fraction", "must lie in [0, 1)");
+    }
+    if (!(initial.scale_length > 0)) {
+        add(problems, "initial_conditions.scale_length", "must be a positive number");
+    }
+    if (!(initial.scale_height > 0)) {
+        add(problems, "initial_conditions.scale_height", "must be a positive number");
+    }
+    if (!(initial.bulge_radius > 0)) {
+        add(problems, "initial_conditions.bulge_radius", "must be a positive number");
+    }
+}
+
+/// What a collision needs beyond two galaxies: somewhere to put them and a
+/// speed to bring them together at.
+void check_collision(const InitialConditionSettings& initial, std::vector<std::string>& problems) {
+    if (!(initial.mass_ratio > 0) || !(initial.mass_ratio <= 1)) {
+        // Above one is the same encounter with the two galaxies exchanged, and
+        // allowing both spellings would mean two configuration files that
+        // describe one scenario and do not compare equal.
+        add(problems, "initial_conditions.mass_ratio", "must lie in (0, 1]");
+    }
+    if (initial.separation == 0 && initial.impact_parameter == 0) {
+        add(problems, "initial_conditions.separation",
+            "and initial_conditions.impact_parameter cannot both be zero, since the two "
+            "galaxies would start on top of one another");
+    }
+    if (!(initial.approach_speed >= 0)) {
+        add(problems, "initial_conditions.approach_speed", "must not be negative");
+    }
+    if (initial.count < 4) {
+        // Two galaxies of at least two particles each. The generator would
+        // accept fewer by rounding one galaxy down to a single particle, which
+        // is a configuration nobody means to ask for.
+        add(problems, "initial_conditions.count",
+            "must be at least four for a collision, which is two galaxies");
+    }
+}
+
 void check_initial_conditions(const InitialConditionSettings& initial,
                               std::vector<std::string>& problems) {
     if (is_sampled(initial.kind)) {
@@ -230,21 +300,7 @@ void check_initial_conditions(const InitialConditionSettings& initial,
     }
 
     if (is_galaxy(initial.kind)) {
-        if (!(initial.bulge_fraction >= 0) || !(initial.bulge_fraction < 1)) {
-            // One would be a galaxy that is all bulge and no disc, which is a
-            // Plummer sphere written the long way round and has no spin axis for
-            // the inclination to mean anything about.
-            add(problems, "initial_conditions.bulge_fraction", "must lie in [0, 1)");
-        }
-        if (!(initial.scale_length > 0)) {
-            add(problems, "initial_conditions.scale_length", "must be a positive number");
-        }
-        if (!(initial.scale_height > 0)) {
-            add(problems, "initial_conditions.scale_height", "must be a positive number");
-        }
-        if (!(initial.bulge_radius > 0)) {
-            add(problems, "initial_conditions.bulge_radius", "must be a positive number");
-        }
+        check_galaxy(initial, problems);
     }
 
     switch (initial.kind) {
@@ -260,53 +316,12 @@ void check_initial_conditions(const InitialConditionSettings& initial,
         }
         break;
     case InitialConditionKind::kKepler:
-        if (!(initial.primary_mass > 0)) {
-            add(problems, "initial_conditions.primary_mass", "must be a positive number");
-        }
-        if (!(initial.secondary_mass > 0)) {
-            add(problems, "initial_conditions.secondary_mass", "must be a positive number");
-        }
-        if (!(initial.semi_major_axis > 0)) {
-            add(problems, "initial_conditions.semi_major_axis", "must be a positive number");
-        }
-        if (!(initial.eccentricity >= 0) || !(initial.eccentricity < 1)) {
-            // An eccentricity of one or more describes a parabolic or
-            // hyperbolic encounter. Those are unbound and have no period, so
-            // every analytic quantity the configuration exists to be checked
-            // against would be answering a question about an ellipse that does
-            // not exist.
-            add(problems, "initial_conditions.eccentricity",
-                "must lie in [0, 1) for a bound orbit");
-        }
-        if (initial.count != 0) {
-            add(problems, "initial_conditions.count",
-                "is not used by the kepler configuration, which is always two bodies");
-        }
+        check_kepler(initial, problems);
         break;
     case InitialConditionKind::kDiscGalaxy:
         break;
     case InitialConditionKind::kGalaxyCollision:
-        if (!(initial.mass_ratio > 0) || !(initial.mass_ratio <= 1)) {
-            // Above one is the same encounter with the two galaxies exchanged,
-            // and allowing both spellings would mean two configuration files
-            // that describe one scenario and do not compare equal.
-            add(problems, "initial_conditions.mass_ratio", "must lie in (0, 1]");
-        }
-        if (initial.separation == 0 && initial.impact_parameter == 0) {
-            add(problems, "initial_conditions.separation",
-                "and initial_conditions.impact_parameter cannot both be zero, since the two "
-                "galaxies would start on top of one another");
-        }
-        if (!(initial.approach_speed >= 0)) {
-            add(problems, "initial_conditions.approach_speed", "must not be negative");
-        }
-        if (initial.count < 4) {
-            // Two galaxies of at least two particles each. The generator would
-            // accept fewer by rounding one galaxy down to a single particle,
-            // which is a configuration nobody means to ask for.
-            add(problems, "initial_conditions.count",
-                "must be at least four for a collision, which is two galaxies");
-        }
+        check_collision(initial, problems);
         break;
     }
 }

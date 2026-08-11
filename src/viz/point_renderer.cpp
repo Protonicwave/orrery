@@ -232,7 +232,11 @@ struct PointRenderer::State {
     GlUint colour_texture = 0;
 
     /// Allocate the accumulation target at the current size.
-    void allocate_target() {
+    ///
+    /// Const because it changes nothing this structure holds: the names were
+    /// generated in the constructor and what this writes is the storage behind
+    /// them, which lives on the device.
+    void allocate_target() const {
         gl.bind_texture(kGlTexture2d, colour_texture);
         gl.tex_image_2d(kGlTexture2d, 0, static_cast<GlInt>(kGlRgba16f),
                         static_cast<GlSizei>(width), static_cast<GlSizei>(height), 0, kGlRgba,

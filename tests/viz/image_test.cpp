@@ -28,7 +28,7 @@ using orrery::viz::ToneMapping;
 /// six lines.
 class TemporaryFile {
 public:
-    explicit TemporaryFile(std::string name)
+    explicit TemporaryFile(const std::string& name)
         : path_(std::filesystem::temp_directory_path() / name) {}
 
     ~TemporaryFile() {
@@ -54,7 +54,7 @@ TEST_CASE("a new image is black and the size it was asked for", "[unit][viz]") {
 
     REQUIRE(image.width() == 4);
     REQUIRE(image.height() == 3);
-    REQUIRE(image.pixels().size() == 4 * 3 * Image::kChannels);
+    REQUIRE(image.pixels().size() == std::size_t{4} * 3 * Image::kChannels);
 
     for (const std::uint8_t byte : image.pixels()) {
         CHECK(byte == 0);

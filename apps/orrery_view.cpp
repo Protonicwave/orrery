@@ -35,7 +35,6 @@
 #include <vector>
 
 #include "orrery/core/build_info.hpp"
-#include "orrery/core/diagnostics.hpp"
 #include "orrery/core/particle_data.hpp"
 #include "orrery/core/types.hpp"
 #include "orrery/core/vec3.hpp"
@@ -66,7 +65,6 @@ using orrery::viz::PointRenderer;
 using orrery::viz::RenderSettings;
 using orrery::viz::tone_map_into;
 using orrery::viz::ViewerWindow;
-using orrery::viz::WindowOptions;
 
 constexpr int kSuccess = 0;
 constexpr int kFailure = 1;

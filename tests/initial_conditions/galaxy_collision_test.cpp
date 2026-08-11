@@ -14,6 +14,7 @@
 #include "orrery/core/types.hpp"
 #include "orrery/core/vec3.hpp"
 #include "orrery/core/vec3_span.hpp"
+#include "orrery/initial_conditions/disc_galaxy.hpp"
 
 namespace {
 
