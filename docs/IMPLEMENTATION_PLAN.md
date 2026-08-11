@@ -503,7 +503,7 @@ and re-checked whenever kernels change.
 | 8 | Barnes-Hut tree solver | Complete |
 | 9 | SYCL backend, direct kernel | Complete |
 | 10 | SYCL backend, tree traversal | Complete |
-| 11 | Simulation driver, configuration and I/O | Not started |
+| 11 | Simulation driver, configuration and I/O | Complete |
 | 12 | Visualisation | Not started |
 | 13 | Python bindings | Not started |
 | 14 | Validation report, documentation and release | Not started |

@@ -94,6 +94,26 @@ target_link_libraries(
 
 orrery_enable_linting(orrery_solvers_test)
 
+add_executable(
+  orrery_sim_test
+  sim/checkpoint_test.cpp sim/config_file_test.cpp sim/configuration_test.cpp
+  sim/run_output_test.cpp sim/simulation_test.cpp sim/trajectory_test.cpp)
+
+# The driver assembles every layer beneath it, so its tests reach all of them.
+# They also need the test directory on the include path, for the two small
+# headers the cases here share: a self-removing temporary file, since the file
+# formats are about bytes on a disc, and the exact state comparison the resume
+# test rests on.
+target_include_directories(orrery_sim_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/sim)
+
+target_link_libraries(
+  orrery_sim_test
+  PRIVATE orrery::sim orrery::solvers orrery::integrators
+          orrery::initial_conditions orrery::backend orrery::core
+          orrery::warnings Catch2::Catch2WithMain)
+
+orrery_enable_linting(orrery_sim_test)
+
 # The measurement harness, which lives under benchmarks/ because it is not a
 # layer of the simulator. It is still code this project owns and section 5 of
 # the implementation plan asks for it to be covered, so it is tested like
@@ -123,4 +143,5 @@ catch_discover_tests(orrery_backend_test)
 catch_discover_tests(orrery_core_test)
 catch_discover_tests(orrery_initial_conditions_test)
 catch_discover_tests(orrery_integrators_test)
+catch_discover_tests(orrery_sim_test)
 catch_discover_tests(orrery_solvers_test)

@@ -53,6 +53,7 @@ include(Sycl)
 include(Dependencies)
 
 add_subdirectory(src)
+add_subdirectory(apps)
 
 # Benchmarks before tests, which is the one place in this file where the order
 # matters. Phase 7's measurement harness is a library under benchmarks/, and

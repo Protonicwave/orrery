@@ -44,3 +44,6 @@ introduces it.
 | [0028](0028-build-the-tree-on-the-host-and-walk-it-on-the-device.md) | Build the tree on the host and walk it on the device | Accepted |
 | [0029](0029-mask-the-accepted-cells-rather-than-descending-together.md) | Mask the accepted cells rather than descending together | Accepted |
 | [0030](0030-send-the-node-array-to-the-device-narrowed-rather-than-transposed.md) | Send the node array to the device narrowed rather than transposed | Accepted |
+| [0031](0031-define-a-configuration-format-rather-than-adopting-one.md) | Define a configuration format rather than adopting one | Accepted |
+| [0032](0032-store-the-whole-state-in-a-checkpoint.md) | Store the whole state in a checkpoint, accelerations included | Accepted |
+| [0033](0033-keep-the-trajectory-and-the-checkpoint-apart.md) | Keep the trajectory and the checkpoint apart | Accepted |
