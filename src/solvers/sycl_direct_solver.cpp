@@ -81,6 +81,7 @@ struct SyclDirectSolver::Impl {
     Index tile;
 
     InteractionCount count;
+    SyclEvaluationTimings timings;
 
     /// How many particles the arrays below were sized for.
     ///
@@ -174,6 +175,8 @@ const backend::DeviceDescription& SyclDirectSolver::device() const noexcept {
 
 Index SyclDirectSolver::tile_size() const noexcept { return impl_->tile; }
 
+const SyclEvaluationTimings& SyclDirectSolver::timings() const noexcept { return impl_->timings; }
+
 bool SyclDirectSolver::uses_shared_memory() const noexcept {
     if (impl_->position_x.empty()) {
         return false;
@@ -187,10 +190,13 @@ void SyclDirectSolver::evaluate(Vec3Span<const Real> positions, std::span<const 
     const Index count = positions.size();
     if (count == 0) {
         ++impl_->count.evaluations;
+        impl_->timings = {};
         return;
     }
 
     impl_->ensure_capacity(count);
+
+    const auto staging_in_began = backend::Clock::now();
 
     // Staged into the solver's own arrays rather than read from the caller's.
     //
@@ -220,6 +226,9 @@ void SyclDirectSolver::evaluate(Vec3Span<const Real> positions, std::span<const 
     std::fill(impl_->position_x.data() + count, impl_->position_x.data() + padded, Real{0});
     std::fill(impl_->position_y.data() + count, impl_->position_y.data() + padded, Real{0});
     std::fill(impl_->position_z.data() + count, impl_->position_z.data() + padded, Real{0});
+
+    const auto kernel_began = backend::Clock::now();
+    impl_->timings.staging_in = kernel_began - staging_in_began;
 
     const Index tile = impl_->tile;
     const core::Softening softening = impl_->softening;
@@ -319,9 +328,14 @@ void SyclDirectSolver::evaluate(Vec3Span<const Real> positions, std::span<const 
     // it is in flight is a data race whatever the memory is shared with.
     impl_->queue.wait_and_throw();
 
+    const auto staging_out_began = backend::Clock::now();
+    impl_->timings.kernel = staging_out_began - kernel_began;
+
     std::copy_n(impl_->acceleration_x.data(), count, accelerations.x.data());
     std::copy_n(impl_->acceleration_y.data(), count, accelerations.y.data());
     std::copy_n(impl_->acceleration_z.data(), count, accelerations.z.data());
+
+    impl_->timings.staging_out = backend::Clock::now() - staging_out_began;
 
     ++impl_->count.evaluations;
 

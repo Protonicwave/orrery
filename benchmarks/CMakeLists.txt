@@ -44,3 +44,19 @@ target_link_libraries(
           orrery::initial_conditions orrery::core orrery::warnings)
 
 orrery_enable_linting(orrery_tree_scaling)
+
+# What Phase 9 exists to establish: what the integrated GPU is worth against the
+# CPU it shares its memory with, where the staging cost of ADR-0027 goes, and
+# what the kernel's answer is worth against the compensated reference.
+#
+# Built in every configuration rather than only when the backend is on, so that
+# a reader who runs it in an ordinary build is told the backend is absent rather
+# than left wondering why the program does not exist.
+add_executable(orrery_sycl_direct sycl_direct.cpp)
+
+target_link_libraries(
+  orrery_sycl_direct
+  PRIVATE orrery::benchmark_harness orrery::solvers orrery::backend
+          orrery::initial_conditions orrery::core orrery::warnings)
+
+orrery_enable_linting(orrery_sycl_direct)

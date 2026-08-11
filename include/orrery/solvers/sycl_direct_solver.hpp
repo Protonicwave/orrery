@@ -64,6 +64,7 @@
 #include <string_view>
 
 #include "orrery/backend/sycl_device.hpp"
+#include "orrery/backend/worker_statistics.hpp"
 #include "orrery/core/softening.hpp"
 #include "orrery/core/types.hpp"
 #include "orrery/core/vec3_span.hpp"
@@ -73,6 +74,29 @@
 #ifdef ORRERY_ENABLE_SYCL
 
 namespace orrery::solvers {
+
+/// Where the last evaluation spent its time.
+///
+/// ADR-0027 argues that the staging step is O(N) against the kernel's O(N^2) and
+/// therefore stops mattering at the sizes the GPU is worth using at. That is an
+/// argument, and this is what turns it into a measurement. A reader who suspects
+/// the GPU figures are really measuring memcpy can check.
+///
+/// The same shape as `EvaluationTimings` in `solvers/barnes_hut_solver.hpp` and
+/// for the same reason: a phase that adds a step to a force evaluation should
+/// report what the step cost rather than leave it inside a total.
+struct SyclEvaluationTimings {
+    /// Copying positions and masses into the shared allocations, and zeroing the
+    /// padded tail.
+    backend::Duration staging_in{};
+
+    /// Submitting the kernel and waiting for the device. This is the figure a
+    /// GPU throughput number should be computed from.
+    backend::Duration kernel{};
+
+    /// Copying the accelerations back out.
+    backend::Duration staging_out{};
+};
 
 /// Direct summation evaluated on a SYCL device.
 ///
@@ -137,6 +161,9 @@ public:
     /// Chosen from what the device reports rather than fixed, and reported so
     /// that a benchmark states it alongside the timing it produced.
     [[nodiscard]] core::Index tile_size() const noexcept;
+
+    /// Where the last evaluation spent its time.
+    [[nodiscard]] const SyclEvaluationTimings& timings() const noexcept;
 
     /// Whether the arrays the kernel reads are shared unified memory, asked of
     /// the runtime rather than assumed.
