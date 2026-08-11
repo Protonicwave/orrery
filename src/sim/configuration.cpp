@@ -21,6 +21,13 @@ namespace {
     return kind != InitialConditionKind::kKepler;
 }
 
+/// The two configurations built from disc galaxies, which share a description
+/// of what a galaxy is and differ in how many of them there are.
+[[nodiscard]] bool is_galaxy(InitialConditionKind kind) noexcept {
+    return kind == InitialConditionKind::kDiscGalaxy ||
+           kind == InitialConditionKind::kGalaxyCollision;
+}
+
 [[nodiscard]] bool is_tree_solver(SolverKind kind) noexcept {
     return kind == SolverKind::kBarnesHut || kind == SolverKind::kSyclTree;
 }
@@ -56,9 +63,10 @@ constexpr std::array kSolverKinds{SolverKind::kDirect, SolverKind::kBarnesHut,
 constexpr std::array kIntegratorKinds{IntegratorKind::kVelocityVerlet, IntegratorKind::kYoshida4,
                                       IntegratorKind::kRungeKutta4};
 
-constexpr std::array kInitialConditionKinds{InitialConditionKind::kPlummer,
-                                            InitialConditionKind::kUniformSphere,
-                                            InitialConditionKind::kKepler};
+constexpr std::array kInitialConditionKinds{
+    InitialConditionKind::kPlummer, InitialConditionKind::kUniformSphere,
+    InitialConditionKind::kKepler, InitialConditionKind::kDiscGalaxy,
+    InitialConditionKind::kGalaxyCollision};
 
 constexpr std::array kExecutorKinds{ExecutorKind::kSerial, ExecutorKind::kStatic,
                                     ExecutorKind::kWorkStealing};
@@ -124,6 +132,10 @@ std::string_view to_string(InitialConditionKind kind) noexcept {
         return "uniform-sphere";
     case InitialConditionKind::kKepler:
         return "kepler";
+    case InitialConditionKind::kDiscGalaxy:
+        return "disc-galaxy";
+    case InitialConditionKind::kGalaxyCollision:
+        return "galaxy-collision";
     }
     return "plummer";
 }
@@ -209,14 +221,37 @@ void check_initial_conditions(const InitialConditionSettings& initial,
         }
     }
 
+    // Shared by the Plummer sphere and by the disc of a galaxy, both of which
+    // are infinite models drawn from a finite fraction of their mass.
+    if (initial.kind == InitialConditionKind::kPlummer || is_galaxy(initial.kind)) {
+        if (!(initial.mass_fraction_cutoff > 0) || !(initial.mass_fraction_cutoff < 1)) {
+            add(problems, "initial_conditions.mass_fraction_cutoff", "must lie strictly in (0, 1)");
+        }
+    }
+
+    if (is_galaxy(initial.kind)) {
+        if (!(initial.bulge_fraction >= 0) || !(initial.bulge_fraction < 1)) {
+            // One would be a galaxy that is all bulge and no disc, which is a
+            // Plummer sphere written the long way round and has no spin axis for
+            // the inclination to mean anything about.
+            add(problems, "initial_conditions.bulge_fraction", "must lie in [0, 1)");
+        }
+        if (!(initial.scale_length > 0)) {
+            add(problems, "initial_conditions.scale_length", "must be a positive number");
+        }
+        if (!(initial.scale_height > 0)) {
+            add(problems, "initial_conditions.scale_height", "must be a positive number");
+        }
+        if (!(initial.bulge_radius > 0)) {
+            add(problems, "initial_conditions.bulge_radius", "must be a positive number");
+        }
+    }
+
     switch (initial.kind) {
     case InitialConditionKind::kPlummer:
         if (initial.scale_radius < 0) {
             add(problems, "initial_conditions.scale_radius",
                 "must be positive, or zero for the standard N-body value");
-        }
-        if (!(initial.mass_fraction_cutoff > 0) || !(initial.mass_fraction_cutoff < 1)) {
-            add(problems, "initial_conditions.mass_fraction_cutoff", "must lie strictly in (0, 1)");
         }
         break;
     case InitialConditionKind::kUniformSphere:
@@ -246,6 +281,31 @@ void check_initial_conditions(const InitialConditionSettings& initial,
         if (initial.count != 0) {
             add(problems, "initial_conditions.count",
                 "is not used by the kepler configuration, which is always two bodies");
+        }
+        break;
+    case InitialConditionKind::kDiscGalaxy:
+        break;
+    case InitialConditionKind::kGalaxyCollision:
+        if (!(initial.mass_ratio > 0) || !(initial.mass_ratio <= 1)) {
+            // Above one is the same encounter with the two galaxies exchanged,
+            // and allowing both spellings would mean two configuration files
+            // that describe one scenario and do not compare equal.
+            add(problems, "initial_conditions.mass_ratio", "must lie in (0, 1]");
+        }
+        if (initial.separation == 0 && initial.impact_parameter == 0) {
+            add(problems, "initial_conditions.separation",
+                "and initial_conditions.impact_parameter cannot both be zero, since the two "
+                "galaxies would start on top of one another");
+        }
+        if (!(initial.approach_speed >= 0)) {
+            add(problems, "initial_conditions.approach_speed", "must not be negative");
+        }
+        if (initial.count < 4) {
+            // Two galaxies of at least two particles each. The generator would
+            // accept fewer by rounding one galaxy down to a single particle,
+            // which is a configuration nobody means to ask for.
+            add(problems, "initial_conditions.count",
+                "must be at least four for a collision, which is two galaxies");
         }
         break;
     }

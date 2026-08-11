@@ -1,5 +1,6 @@
 #include "orrery/sim/assembly.hpp"
 
+#include <cmath>
 #include <memory>
 #include <ostream>
 #include <stdexcept>
@@ -14,6 +15,9 @@
 #include "orrery/core/particle_data.hpp"
 #include "orrery/core/random.hpp"
 #include "orrery/core/softening.hpp"
+#include "orrery/core/types.hpp"
+#include "orrery/initial_conditions/disc_galaxy.hpp"
+#include "orrery/initial_conditions/galaxy_collision.hpp"
 #include "orrery/initial_conditions/kepler.hpp"
 #include "orrery/initial_conditions/plummer.hpp"
 #include "orrery/initial_conditions/uniform_sphere.hpp"
@@ -36,6 +40,37 @@
 
 namespace orrery::sim {
 namespace {
+
+/// One galaxy of the size and mass the caller asks for, described by the
+/// settings everything else about a galaxy comes from.
+///
+/// Takes the count and the mass rather than reading them from the settings,
+/// because a collision divides both between two galaxies and a single galaxy
+/// takes all of each. Everything that is a property of what a galaxy is, rather
+/// than of how big this one is, comes from the configuration.
+[[nodiscard]] initial_conditions::DiscGalaxyParameters
+galaxy_from(const Configuration& configuration, core::Index count, core::Real mass) {
+    const InitialConditionSettings& settings = configuration.initial_conditions;
+
+    initial_conditions::DiscGalaxyParameters parameters;
+    parameters.count = count;
+    parameters.disc_mass = mass * (1 - settings.bulge_fraction);
+    parameters.bulge_mass = mass * settings.bulge_fraction;
+    parameters.scale_length = settings.scale_length;
+    parameters.scale_height = settings.scale_height;
+    parameters.bulge_radius = settings.bulge_radius;
+    parameters.mass_fraction_cutoff = settings.mass_fraction_cutoff;
+    parameters.inclination = settings.inclination;
+    parameters.position_angle = settings.position_angle;
+
+    // The one setting that comes from another section. A disc is built at the
+    // speeds the forces it will feel can support, and those depend on the
+    // solver's softening, so a galaxy assembled without this would be in
+    // balance with a force law the run is not going to use. `disc_galaxy.hpp`
+    // sets out what that costs.
+    parameters.softening = configuration.solver.softening;
+    return parameters;
+}
 
 [[nodiscard]] solvers::TreeParameters tree_parameters(const SolverSettings& settings) noexcept {
     solvers::TreeParameters parameters;
@@ -118,6 +153,45 @@ core::ParticleData make_initial_conditions(const Configuration& configuration) {
         parameters.total_mass = settings.total_mass;
         parameters.radius = settings.radius;
         return initial_conditions::make_uniform_sphere(parameters, random);
+    }
+    case InitialConditionKind::kDiscGalaxy:
+        return initial_conditions::make_disc_galaxy(
+            galaxy_from(configuration, settings.count, settings.total_mass), random);
+    case InitialConditionKind::kGalaxyCollision: {
+        const core::Real ratio = settings.mass_ratio;
+
+        // The requested count and mass are the pair's, split between the two so
+        // that both galaxies are made of particles of the same mass. A run that
+        // asks for a million particles gets a million whatever the mass ratio
+        // is, which is the property that makes a scaling study over the count
+        // mean something.
+        const auto primary_count = static_cast<core::Index>(
+            std::llround(static_cast<double>(settings.count) / (1.0 + static_cast<double>(ratio))));
+
+        initial_conditions::GalaxyCollisionParameters encounter;
+        encounter.primary =
+            galaxy_from(configuration, primary_count, settings.total_mass / (1 + ratio));
+        encounter.secondary = galaxy_from(configuration, settings.count - primary_count,
+                                          settings.total_mass * ratio / (1 + ratio));
+
+        // The smaller galaxy is smaller in size as well as in mass, its three
+        // lengths scaled by the square root of the mass ratio so that the two
+        // have the same mean surface density. That is roughly the size-mass
+        // relation discs are observed to follow, and it matters for the picture
+        // rather than only for the realism: a secondary given the primary's
+        // scale length at half its mass is half as dense and dissolves on the
+        // first passage instead of surviving to make a second one.
+        const core::Real size = std::sqrt(ratio);
+        encounter.secondary.scale_length *= size;
+        encounter.secondary.scale_height *= size;
+        encounter.secondary.bulge_radius *= size;
+        encounter.secondary.inclination = settings.secondary_inclination;
+        encounter.secondary.position_angle = settings.secondary_position_angle;
+
+        encounter.separation = settings.separation;
+        encounter.impact_parameter = settings.impact_parameter;
+        encounter.approach_speed = settings.approach_speed;
+        return initial_conditions::make_galaxy_collision(encounter, random);
     }
     case InitialConditionKind::kKepler:
         break;

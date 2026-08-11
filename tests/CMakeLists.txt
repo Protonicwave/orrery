@@ -98,8 +98,13 @@ orrery_enable_linting(orrery_solvers_test)
 
 add_executable(
   orrery_sim_test
-  sim/checkpoint_test.cpp sim/config_file_test.cpp sim/configuration_test.cpp
-  sim/run_output_test.cpp sim/simulation_test.cpp sim/trajectory_test.cpp)
+  sim/assembly_test.cpp
+  sim/checkpoint_test.cpp
+  sim/config_file_test.cpp
+  sim/configuration_test.cpp
+  sim/run_output_test.cpp
+  sim/simulation_test.cpp
+  sim/trajectory_test.cpp)
 
 # The driver assembles every layer beneath it, so its tests reach all of them.
 # They also need the test directory on the include path, for the two small
