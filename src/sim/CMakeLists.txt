@@ -6,7 +6,14 @@
 # exist, which is why the trajectory writer and the checkpoint reader are here
 # and not in core: a particle store that could serialise itself would put
 # <fstream> on the include path of the force kernels.
-add_library(orrery_sim STATIC config_file.cpp configuration.cpp)
+add_library(
+  orrery_sim STATIC
+  binary_stream.cpp
+  checkpoint.cpp
+  config_file.cpp
+  configuration.cpp
+  diagnostics_log.cpp
+  trajectory.cpp)
 add_library(orrery::sim ALIAS orrery_sim)
 
 # All four are public. A Simulation holds a solver and an integrator by
