@@ -121,6 +121,47 @@ jobs:
           cmake --build --preset ${{ matrix.preset }} || exit /b 1
           ctest --preset ${{ matrix.preset }} || exit /b 1
 
+  sycl:
+    name: SYCL compile and no-device fallback
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Install the oneAPI DPC++ compiler and Ninja
+        run: |
+          set -o errexit
+          wget --quiet --output-document=- \
+            https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB \
+            | gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" \
+            | sudo tee /etc/apt/sources.list.d/oneAPI.list
+          sudo apt-get update
+          sudo apt-get install --yes intel-oneapi-compiler-dpcpp-cpp ninja-build
+
+      # This job cannot measure the GPU and does not try. No hosted runner has
+      # an Intel Arc part, so what is being checked is the half of Phase 9 that
+      # a machine without a device can still check, and that half is not small:
+      # that the SYCL sources compile, that the device code passes the device
+      # compiler, and that discovery reports no device rather than throwing.
+      #
+      # The last of those is the one worth having in CI. Graceful fallback is
+      # asserted by tests that skip their GPU cases and require the discovery
+      # layer to answer, so a change that made a missing device an error would
+      # fail here rather than on somebody's laptop.
+      #
+      # Configure, build and test share a step because setvars.sh sets the
+      # environment in the shell that sources it and that does not survive the
+      # end of a step, which is the same reason the Windows job above is one
+      # step.
+      - name: Configure, build and test
+        run: |
+          set -o errexit
+          source /opt/intel/oneapi/setvars.sh
+          cmake --preset sycl -DCMAKE_CXX_COMPILER=icpx
+          cmake --build --preset sycl
+          ctest --preset sycl
+
   format:
     name: clang-format
     runs-on: ubuntu-24.04

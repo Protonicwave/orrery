@@ -71,9 +71,11 @@ if(NOT ORRERY_SYCL_COMPILES)
   message(
     FATAL_ERROR
       "ORRERY_ENABLE_SYCL is on but ${CMAKE_CXX_COMPILER} cannot compile a SYCL "
-      "translation unit. Configure with the oneAPI DPC++ compiler, for example "
-      "by running the oneAPI environment script and then 'cmake --preset sycl', "
-      "or leave the option off to build the CPU backends alone.")
+      "translation unit. Run the oneAPI environment script and select the DPC++ "
+      "compiler explicitly: on Windows that is icx-cl, the MSVC-style driver, "
+      "since CMake drives a Windows IntelLLVM compiler with MSVC-style flags "
+      "that icpx rejects; elsewhere it is icpx. Or leave the option off and "
+      "build the CPU backends alone, which is a complete build.")
 endif()
 
 target_compile_options(orrery_sycl INTERFACE ${ORRERY_SYCL_FLAGS})
