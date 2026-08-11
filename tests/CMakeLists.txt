@@ -38,6 +38,8 @@ orrery_enable_linting(orrery_backend_test)
 add_executable(
   orrery_initial_conditions_test
   initial_conditions/centre_of_mass_frame_test.cpp
+  initial_conditions/disc_galaxy_test.cpp
+  initial_conditions/galaxy_collision_test.cpp
   initial_conditions/kepler_test.cpp
   initial_conditions/plummer_test.cpp
   initial_conditions/uniform_sphere_test.cpp)
