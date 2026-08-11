@@ -258,6 +258,45 @@ cmake --build --preset sycl-single-precision
 Let the machine idle for a few minutes first. A session started immediately
 after a full rebuild measures the cooling system.
 
+## A note on the sanitiser builds
+
+`barnes_hut.md` records which sanitisers this machine can run: the address
+sanitiser does build and pass here once the Microsoft container annotations are
+disabled, and the undefined-behaviour sanitiser does not build at all because
+its runtime is compiled against a different C runtime from the one this
+toolchain links.
+
+Phase 9 adds a third case, and it is a hard limit rather than a missing
+component. The address sanitiser cannot be combined with the SYCL backend at
+all:
+
+```
+icx-cl: error: ignoring '-fsanitize=address' option as it is not currently
+supported for target 'spir64-unknown-unknown'
+```
+
+`-fsycl` compiles every translation unit for the device as well as the host, so
+the device target sees the sanitiser flag and rejects it, and there is no way to
+apply the flag to only the host half from the build system. The address
+sanitiser therefore covers the whole project **except** the SYCL translation
+units, which is where it stands today.
+
+The gap is smaller than it sounds and it is worth being precise about its shape.
+`backend/sycl_device.cpp` and `backend/sycl_usm.cpp` compile in an ordinary
+build too, as the stubs that report no device, so their host halves are
+sanitised in every other configuration. What is never sanitised is the kernel in
+`solvers/sycl_direct_solver.cpp` and the USM allocation paths, which are exactly
+the parts most worth instrumenting: the kernel does index arithmetic over padded
+ranges and the allocations are raw pointers by necessity.
+
+Two things stand in for it. The padded ranges are allocated rather than merely
+tolerated, so the tail work-items read and write inside the allocation instead
+of past it, and that is the reason `ensure_capacity` sizes to the padded count
+rather than the particle count. And Intel ships a device-side sanitiser of its
+own, enabled through a runtime environment variable rather than a compiler flag,
+which was not evaluated here. A later phase that touches the kernel should
+evaluate it.
+
 ## The defect this phase found in the CPU
 
 The first benchmark session reported the GPU as 32.7 times faster than the CPU.

@@ -22,27 +22,32 @@
 /// room, and the measured values are reported on every run so that a regression
 /// shows up as a number moving rather than as a bound being crossed.
 
-#include <cmath>
-#include <cstdint>
-#include <memory>
-#include <string>
-
-#include <catch2/catch_message.hpp>
-#include <catch2/catch_test_macros.hpp>
-
-#include "orrery/backend/sycl_device.hpp"
-#include "orrery/core/particle_data.hpp"
-#include "orrery/core/random.hpp"
-#include "orrery/core/softening.hpp"
-#include "orrery/core/types.hpp"
-#include "orrery/core/vec3.hpp"
-#include "orrery/initial_conditions/plummer.hpp"
-#include "orrery/solvers/direct_solver.hpp"
-#include "orrery/solvers/reference_kernel.hpp"
+// Everything is inside the guard, including the includes. Without the backend
+// this file has no cases at all, and headers included ahead of a block that is
+// compiled out are unused by construction, which the lint job reports as
+// errors. `tests/backend/sycl_usm_test.cpp` is arranged the same way.
 
 #ifdef ORRERY_ENABLE_SYCL
 
 #    include "orrery/solvers/sycl_direct_solver.hpp"
+
+#    include <algorithm>
+#    include <cmath>
+#    include <cstdint>
+#    include <memory>
+
+#    include <catch2/catch_message.hpp>
+#    include <catch2/catch_test_macros.hpp>
+
+#    include "orrery/backend/sycl_device.hpp"
+#    include "orrery/core/particle_data.hpp"
+#    include "orrery/core/random.hpp"
+#    include "orrery/core/softening.hpp"
+#    include "orrery/core/types.hpp"
+#    include "orrery/core/vec3.hpp"
+#    include "orrery/initial_conditions/plummer.hpp"
+#    include "orrery/solvers/direct_solver.hpp"
+#    include "orrery/solvers/reference_kernel.hpp"
 
 namespace {
 

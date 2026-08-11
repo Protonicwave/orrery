@@ -31,11 +31,7 @@
 /// either is right.
 
 #include <cstdio>
-#include <cstdlib>
 #include <exception>
-#include <iostream>
-
-#include "orrery/backend/sycl_device.hpp"
 
 #ifdef ORRERY_ENABLE_SYCL
 
@@ -46,6 +42,7 @@
 #    include <cstddef>
 #    include <cstdint>
 #    include <iomanip>
+#    include <iostream>
 #    include <memory>
 #    include <string>
 #    include <vector>
@@ -609,14 +606,36 @@ int run() {
 namespace {
 
 int run() {
-    std::cout << "This build has no SYCL backend. Configure with ORRERY_ENABLE_SYCL=ON and\n"
-                 "the oneAPI DPC++ compiler to measure the GPU.\n";
+    static_cast<void>(
+        std::fputs("This build has no SYCL backend. Configure with ORRERY_ENABLE_SYCL=ON\n"
+                   "and the oneAPI DPC++ compiler to measure the GPU.\n",
+                   stdout));
     return 0;
 }
 
 } // namespace
 
 #endif // ORRERY_ENABLE_SYCL
+
+namespace {
+
+/// Report a failure with no risk of throwing while doing it.
+///
+/// The same shape `tree_scaling.cpp` uses, and for the same reason: a handler
+/// that formats through a stream may throw while reporting that something threw,
+/// and main is the one place left with nowhere to put it.
+void report_failure(const char* what) noexcept {
+    static_cast<void>(std::fputs("measurement failed", stderr));
+
+    if (what != nullptr) {
+        static_cast<void>(std::fputs(": ", stderr));
+        static_cast<void>(std::fputs(what, stderr));
+    }
+
+    static_cast<void>(std::fputs("\n", stderr));
+}
+
+} // namespace
 
 int main() {
     // Exceptions are permitted at this boundary and nowhere below it. A device
@@ -626,7 +645,10 @@ int main() {
     try {
         return run();
     } catch (const std::exception& error) {
-        std::cerr << "benchmark failed: " << error.what() << '\n';
-        return EXIT_FAILURE;
+        report_failure(error.what());
+        return 1;
+    } catch (...) {
+        report_failure(nullptr);
+        return 1;
     }
 }
