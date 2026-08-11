@@ -17,11 +17,13 @@ benchmarked entirely on a single Lunar Lake laptop.
 > assumed, a SYCL backend that runs the direct kernel on the integrated Arc
 > GPU, and the tree traversal on that GPU as well, walked one sub-group at a
 > time so that the lanes sharing an instruction pointer stop waiting for each
-> other. Orrery now simulates gravity correctly, at four fifths of the ceiling
-> that binds the direct kernel on the CPU, at a cost that grows as N log N
-> rather than N^2, with no host-to-device copy anywhere, and it does so for two
-> million particles at about 0.6 seconds per force evaluation. What is missing
-> is the simulation driver, the renderer and the bindings. Progress is tracked
+> other, and the simulation driver that puts all of it behind one command and
+> one configuration file. Orrery now simulates gravity correctly, at four fifths
+> of the ceiling that binds the direct kernel on the CPU, at a cost that grows
+> as N log N rather than N^2, with no host-to-device copy anywhere, and it does
+> so for two million particles at about 0.6 seconds per force evaluation. A run
+> can be interrupted and resumed to a state identical in every bit. What is
+> missing is the renderer and the bindings. Progress is tracked
 > in the phase table in
 > [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md), and this README
 > gains results and figures as the phases that produce them land. Nothing is
@@ -369,6 +371,75 @@ and all eight cores in turn at sizes where one evaluation is most of a second.
 It takes an optional largest particle count, so `orrery_sycl_tree 262144` runs a
 few minutes rather than half an hour.
 
+## Running one
+
+Everything above is now reachable without writing C++. A run is a configuration
+file, and the file plus a revision of this repository determines the trajectory:
+
+```
+cmake --preset release
+cmake --build --preset release
+./build/release/apps/orrery run examples/cluster.orrery
+```
+
+That is four thousand particles sampled from a Plummer sphere, integrated for a
+thousand steps with the tree solver, writing a binary trajectory, a CSV
+diagnostics stream and a checkpoint. Any setting can be overridden without
+editing the file:
+
+```
+orrery run examples/cluster.orrery --set solver.kind=direct --set run.steps=100
+orrery show examples/cluster.orrery          # every setting a run would use
+orrery inspect cluster.otj                   # what is in an output file
+```
+
+The configuration format is small, strict and specified in
+[`docs/formats/configuration.md`](docs/formats/configuration.md): an unknown
+section, a mistyped setting or a value that does not parse is an error naming the
+line it is on, because a run whose `softenning` was silently dropped is not a run
+that failed but one that answered a question nobody asked (ADR-0031).
+
+**A run can be interrupted and resumed to bitwise-identical state.** Not nearly
+identical: every bit of every position, velocity, acceleration and mass. A
+checkpoint carries the configuration inside it, so resuming needs the file and
+nothing else:
+
+```
+orrery resume cluster.ock
+orrery resume cluster.ock --set run.steps=50000   # or go further than planned
+```
+
+The test suite asserts this for all three integrators and both CPU solvers,
+through a real file on a disc, comparing for equality rather than against a
+tolerance. Getting there decided several things: the clock is the step counter
+times the timestep rather than an accumulated sum, because a million additions
+differ from one multiplication in their last bits; the checkpoint stores the
+accelerations rather than recomputing them (ADR-0032); and it is written to a
+temporary and renamed over the target, because the moment a run is killed is not
+chosen to avoid the moment its checkpoint is half written.
+
+The two binary formats are specified rather than dumped, in
+[`docs/formats/trajectory.md`](docs/formats/trajectory.md) and
+[`docs/formats/checkpoint.md`](docs/formats/checkpoint.md). A trajectory has no
+frame count in its header and a checksum on each frame, so a file from a run that
+was killed is a valid file that stops early rather than a broken one.
+
+The second example is the two-body problem, and it is worth running for what the
+diagnostics column shows:
+
+```
+orrery run examples/kepler.orrery
+orrery run examples/kepler.orrery --set integrator.kind=rk4 \
+    --set output.diagnostics_path=kepler-rk4.csv
+```
+
+Over three thousand orbits, velocity Verlet's relative energy error is 2.685e-3
+in the first twentieth of the run and 2.689e-3 in the last, unchanged to four
+digits. RK4, of higher order and costing four force evaluations a step against
+one, starts twenty times more accurate at 1.30e-4 and finishes at 2.783e-3,
+having just overtaken it and still growing. That is ADR-0011's argument, visible
+in one column of a CSV file.
+
 ## Target hardware
 
 Every performance decision in the project follows from one machine, so its
@@ -443,18 +514,23 @@ required to report no device rather than fail.
 cmake/            Build settings, dependency pins, lint integration
 include/          Public headers, under include/orrery/<layer>/
 src/              Implementation, one directory per layer
+apps/             The command-line simulator
+examples/         Configuration files that run as they are
 tests/            Catch2 test suite, one executable per layer
 benchmarks/       Measurement programs. They report numbers rather than assert them
 docs/             Implementation plan, architecture decision records
 docs/adr/         Numbered decision records, never edited after merge
+docs/formats/     Specifications of the configuration, trajectory and checkpoint files
 docs/performance/ Measured results, with the machine state that produced them
 ```
 
 The source layers arrive with the phases that need them, in the structure
 described in the implementation plan: `apps/`, `sim/`, `solvers/`,
 `integrators/`, `backend/`, `initial_conditions/` and `core/`, with dependencies
-pointing downwards only. `core/`, `backend/`, `initial_conditions/`,
-`integrators/` and `solvers/` exist so far. `backend/` holds both execution
+pointing downwards only. All of them exist now except the renderer, which is part
+of `apps/` and arrives with Phase 12. `sim/` owns a run: it holds the solver, the
+integrator and the output, and it is the only layer that knows files exist, which
+is why the checkpoint reader is there and not in `core/`. `backend/` holds both execution
 backends: the CPU thread pool and its schedulers, and the SYCL device discovery
 and unified memory the GPU solver is built on. The GPU kernel itself sits in
 `solvers/` beside the CPU kernel it mirrors, because it is a summation over
@@ -466,6 +542,9 @@ the simulator and nothing under `src/` depends on it.
 
 - [Implementation plan](docs/IMPLEMENTATION_PLAN.md): what is built, in what
   order, and what each phase has to demonstrate.
+- [File formats](docs/formats/): the configuration language, the binary
+  trajectory and the checkpoint, each specified well enough to be read by
+  something other than this program.
 - [Contributing guide](CONTRIBUTING.md): conventions, testing categories and the
   definition of done.
 - [Architecture decision records](docs/adr/): why the design is the way it is.
