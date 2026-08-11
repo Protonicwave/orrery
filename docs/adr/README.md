@@ -41,3 +41,6 @@ introduces it.
 | [0025](0025-write-the-gpu-backend-in-sycl.md) | Write the GPU backend in SYCL | Accepted |
 | [0026](0026-put-the-gpu-behind-the-solver-interface.md) | Put the GPU behind the solver interface, not behind the executor | Accepted |
 | [0027](0027-stage-particle-data-into-shared-allocations.md) | Stage particle data into the solver's own shared allocations | Accepted |
+| [0028](0028-build-the-tree-on-the-host-and-walk-it-on-the-device.md) | Build the tree on the host and walk it on the device | Accepted |
+| [0029](0029-mask-the-accepted-cells-rather-than-descending-together.md) | Mask the accepted cells rather than descending together | Accepted |
+| [0030](0030-send-the-node-array-to-the-device-narrowed-rather-than-transposed.md) | Send the node array to the device narrowed rather than transposed | Accepted |
