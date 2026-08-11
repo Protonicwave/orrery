@@ -27,12 +27,46 @@ if(ORRERY_SINGLE_PRECISION)
 endif()
 
 if(MSVC)
-  # These four are corrections rather than preferences. Without them MSVC
-  # reports C++98 in __cplusplus, reads sources in the system code page rather
-  # than UTF-8, ships a non-conforming preprocessor, and accepts constructs the
-  # other two compilers reject.
+  # These are corrections rather than preferences. Without them MSVC reports
+  # C++98 in __cplusplus, reads sources in the system code page rather than
+  # UTF-8, and accepts constructs the other two compilers reject.
   target_compile_options(orrery_options INTERFACE /permissive- /Zc:__cplusplus
-                                                  /Zc:preprocessor /utf-8)
+                                                  /utf-8)
+
+  # The fourth correction, a conforming preprocessor, is needed by MSVC alone.
+  # The oneAPI compiler of Phase 9 presents an MSVC-like command line, so it
+  # reaches this branch, but its preprocessor is Clang's and already conforms.
+  # It reports the flag as unused, and this project promotes that remark to an
+  # error, so asking for something already true would fail every translation
+  # unit in the build.
+  if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
+    target_compile_options(orrery_options INTERFACE /Zc:preprocessor)
+  endif()
+endif()
+
+# The oneAPI compiler is the one compiler here that is not IEEE by default.
+#
+# Clang, GCC and MSVC all keep strict floating-point semantics unless asked
+# otherwise, and ADR-0020 records this project's decision to leave them that
+# way: no fast-math flag anywhere, because reassociation applied silently to
+# every loop is not a trade-off anybody measured. icx and icpx default to
+# -fp-model=fast, which is precisely that relaxation, so the setting has to be
+# turned back off rather than merely not turned on.
+#
+# It is not a theoretical concern. Configured without this, the compensated
+# summation in core/diagnostics.cpp and solvers/reference_kernel.cpp is
+# algebraically a no-op, and the compiler is entitled to delete the compensation
+# term. Eight tests fail under the default, among them the two that exist to
+# assert that a compensated total keeps digits an ordinary one loses, and the
+# reference the whole project measures its approximations against stops being a
+# reference. The phase that introduced this compiler is the phase that has to
+# say so.
+if(CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
+  if(MSVC)
+    target_compile_options(orrery_options INTERFACE /fp:precise)
+  else()
+    target_compile_options(orrery_options INTERFACE -fp-model=precise)
+  endif()
 endif()
 
 add_library(orrery_warnings INTERFACE)
