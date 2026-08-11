@@ -65,6 +65,25 @@
       }
     },
     {
+      "name": "sycl",
+      "inherits": "base",
+      "displayName": "Release with the SYCL backend",
+      "description": "Release with the GPU backend built. Requires the oneAPI DPC++ compiler, which is not one of the three the project is otherwise tested with, so the compiler has to be selected explicitly: set CXX or pass -DCMAKE_CXX_COMPILER. On Windows that is icx-cl, the MSVC-style driver, because CMake drives a Windows IntelLLVM compiler with MSVC-style flags and icpx rejects them. Elsewhere it is icpx. Run the oneAPI environment script first so the compiler is on PATH.",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "ORRERY_ENABLE_SYCL": "ON"
+      }
+    },
+    {
+      "name": "sycl-single-precision",
+      "inherits": "sycl",
+      "displayName": "Release with the SYCL backend, single precision",
+      "description": "The configuration the GPU figures in docs/performance/sycl_direct.md are taken in. It exists as a preset of its own because the throughput-oriented configuration is the one a large GPU run uses, and the accuracy it costs is measured against the double-precision CPU reference rather than assumed.",
+      "cacheVariables": {
+        "ORRERY_SINGLE_PRECISION": "ON"
+      }
+    },
+    {
       "name": "lint",
       "inherits": "base",
       "displayName": "Debug with clang-tidy",
@@ -95,6 +114,14 @@
     {
       "name": "single-precision",
       "configurePreset": "single-precision"
+    },
+    {
+      "name": "sycl",
+      "configurePreset": "sycl"
+    },
+    {
+      "name": "sycl-single-precision",
+      "configurePreset": "sycl-single-precision"
     },
     {
       "name": "lint",
@@ -137,6 +164,16 @@
       "name": "single-precision",
       "inherits": "base",
       "configurePreset": "single-precision"
+    },
+    {
+      "name": "sycl",
+      "inherits": "base",
+      "configurePreset": "sycl"
+    },
+    {
+      "name": "sycl-single-precision",
+      "inherits": "base",
+      "configurePreset": "sycl-single-precision"
     }
   ]
 }

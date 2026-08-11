@@ -501,7 +501,7 @@ and re-checked whenever kernels change.
 | 6 | CPU threading for heterogeneous cores | Complete |
 | 7 | Vectorisation and benchmark methodology | Complete |
 | 8 | Barnes-Hut tree solver | Complete |
-| 9 | SYCL backend, direct kernel | Not started |
+| 9 | SYCL backend, direct kernel | Complete |
 | 10 | SYCL backend, tree traversal | Not started |
 | 11 | Simulation driver, configuration and I/O | Not started |
 | 12 | Visualisation | Not started |

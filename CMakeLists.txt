@@ -31,6 +31,12 @@ option(ORRERY_WARNINGS_AS_ERRORS "Treat compiler warnings as errors"
        ${PROJECT_IS_TOP_LEVEL})
 option(ORRERY_CLANG_TIDY "Run clang-tidy on this project's targets" OFF)
 
+# Off by default because it requires a compiler none of the three the project is
+# tested with provides. A build without it is complete rather than degraded: the
+# GPU backend is one implementation of an interface that already has others, and
+# everything above it selects between them at run time. ADR-0025.
+option(ORRERY_ENABLE_SYCL "Build the SYCL backend for the integrated GPU" OFF)
+
 # Sanitisers are a list rather than a boolean because address and thread cannot
 # be combined, and later phases will want thread on its own once the scheduler
 # in Phase 6 exists.
@@ -43,6 +49,7 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 include(BuildSettings)
 include(Linting)
+include(Sycl)
 include(Dependencies)
 
 add_subdirectory(src)

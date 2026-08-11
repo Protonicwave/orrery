@@ -38,3 +38,6 @@ introduces it.
 | [0022](0022-rebuild-the-tree-every-evaluation.md) | Rebuild the tree on every force evaluation | Accepted |
 | [0023](0023-open-cells-on-a-corrected-distance.md) | Open a cell on the distance to its centre of mass, corrected for where that is | Accepted |
 | [0024](0024-make-quadrupole-moments-an-option.md) | Make quadrupole moments an option that is off by default | Accepted |
+| [0025](0025-write-the-gpu-backend-in-sycl.md) | Write the GPU backend in SYCL | Accepted |
+| [0026](0026-put-the-gpu-behind-the-solver-interface.md) | Put the GPU behind the solver interface, not behind the executor | Accepted |
+| [0027](0027-stage-particle-data-into-shared-allocations.md) | Stage particle data into the solver's own shared allocations | Accepted |

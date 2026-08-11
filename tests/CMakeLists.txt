@@ -21,8 +21,13 @@ target_link_libraries(
 orrery_enable_linting(orrery_core_test)
 
 add_executable(
-  orrery_backend_test backend/cpu_features_test.cpp backend/cpu_topology_test.cpp
-                      backend/executor_test.cpp backend/partition_test.cpp)
+  orrery_backend_test
+  backend/cpu_features_test.cpp
+  backend/cpu_topology_test.cpp
+  backend/executor_test.cpp
+  backend/partition_test.cpp
+  backend/sycl_device_test.cpp
+  backend/sycl_usm_test.cpp)
 
 target_link_libraries(
   orrery_backend_test PRIVATE orrery::backend orrery::core orrery::warnings
@@ -72,6 +77,7 @@ add_executable(
   solvers/morton_test.cpp
   solvers/octree_test.cpp
   solvers/parallel_direct_solver_test.cpp
+  solvers/sycl_direct_solver_test.cpp
   solvers/tree_walk_test.cpp)
 
 # The solver is validated by integrating configurations it did not create, so
