@@ -134,6 +134,20 @@ try_make_gpu_solver([[maybe_unused]] SolverKind kind,
 
 } // namespace
 
+core::Index primary_galaxy_count(const Configuration& configuration) {
+    const InitialConditionSettings& settings = configuration.initial_conditions;
+    if (settings.kind != InitialConditionKind::kGalaxyCollision) {
+        return 0;
+    }
+
+    // Rounded in double precision whatever the build's scalar type is. The split
+    // decides which particle belongs to which galaxy, so a single-precision build
+    // rounding differently from a double-precision one would mean two builds
+    // reading the same configuration file and producing different systems.
+    return static_cast<core::Index>(std::llround(static_cast<double>(settings.count) /
+                                                 (1.0 + static_cast<double>(settings.mass_ratio))));
+}
+
 core::ParticleData make_initial_conditions(const Configuration& configuration) {
     const InitialConditionSettings& settings = configuration.initial_conditions;
     core::RandomSource random(configuration.run.seed);
@@ -165,8 +179,7 @@ core::ParticleData make_initial_conditions(const Configuration& configuration) {
         // asks for a million particles gets a million whatever the mass ratio
         // is, which is the property that makes a scaling study over the count
         // mean something.
-        const auto primary_count = static_cast<core::Index>(
-            std::llround(static_cast<double>(settings.count) / (1.0 + static_cast<double>(ratio))));
+        const core::Index primary_count = primary_galaxy_count(configuration);
 
         initial_conditions::GalaxyCollisionParameters encounter;
         encounter.primary =
