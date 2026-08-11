@@ -662,7 +662,27 @@ void print_canary(double across_tables, double across_session) {
               << " per cent slower\n";
 }
 
-int run(Index largest) {
+/// The largest size to measure up to, from the command line or the default.
+///
+/// Parsed here rather than in `main` because the bounds it is checked against
+/// are the constants above, which do not exist in a build without the backend.
+/// Returns zero when the arguments do not make sense, which the caller reports.
+[[nodiscard]] Index parse_largest(int argc, char** argv) {
+    if (argc <= 1) {
+        return kLargest;
+    }
+
+    const Index largest = static_cast<Index>(std::strtoull(argv[1], nullptr, 10));
+    return largest < kSmallest ? 0 : largest;
+}
+
+int run(int argc, char** argv) {
+    const Index largest = parse_largest(argc, argv);
+    if (largest == 0) {
+        static_cast<void>(std::fputs("usage: sycl_tree [largest]\n", stderr));
+        return 1;
+    }
+
     const MachineState state = capture_machine_state();
     std::cout << "Orrery GPU tree traversal measurement\n\n";
     orrery::benchmark::print(std::cout, state);
@@ -749,7 +769,12 @@ int run(Index largest) {
 
 namespace {
 
-int run(orrery::core::Index) {
+/// The same signature as the measurement above, so that `main` is one call
+/// either way and no project type is named outside the guard that includes it.
+int run(int argc, char** argv) {
+    static_cast<void>(argc);
+    static_cast<void>(argv);
+
     static_cast<void>(
         std::fputs("This build has no SYCL backend. Configure with ORRERY_ENABLE_SYCL=ON\n"
                    "and the oneAPI DPC++ compiler to measure the GPU.\n",
@@ -787,22 +812,7 @@ int main(int argc, char** argv) {
     // sycl::exception, and a benchmark that terminated on it would leave no
     // indication of which row it had reached.
     try {
-#ifdef ORRERY_ENABLE_SYCL
-        const orrery::core::Index largest =
-            argc > 1 ? static_cast<orrery::core::Index>(std::strtoull(argv[1], nullptr, 10))
-                     : kLargest;
-
-        if (largest < kSmallest) {
-            static_cast<void>(std::fputs("usage: sycl_tree [largest]\n", stderr));
-            return 1;
-        }
-#else
-        static_cast<void>(argc);
-        static_cast<void>(argv);
-        const orrery::core::Index largest = 0;
-#endif
-
-        return run(largest);
+        return run(argc, argv);
     } catch (const std::exception& error) {
         report_failure(error.what());
         return 1;

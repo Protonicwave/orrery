@@ -14,12 +14,15 @@ benchmarked entirely on a single Lunar Lake laptop.
 > harness that measures all of it against limits measured on the same machine,
 > the Barnes-Hut tree solver that replaces most of the interactions with an
 > approximation whose error is measured against the direct one rather than
-> assumed, and a SYCL backend that runs the direct kernel on the integrated Arc
-> GPU. Orrery now simulates gravity correctly, at four fifths of the ceiling
-> that binds the direct kernel on the CPU, at a cost that grows as N^1.24 rather
-> than N^2, and four times faster again on the GPU with no host-to-device copy
-> anywhere. What is missing is the tree walk on the GPU, the simulation driver,
-> the renderer and the bindings. Progress is tracked in the phase table in
+> assumed, a SYCL backend that runs the direct kernel on the integrated Arc
+> GPU, and the tree traversal on that GPU as well, walked one sub-group at a
+> time so that the lanes sharing an instruction pointer stop waiting for each
+> other. Orrery now simulates gravity correctly, at four fifths of the ceiling
+> that binds the direct kernel on the CPU, at a cost that grows as N log N
+> rather than N^2, with no host-to-device copy anywhere, and it does so for two
+> million particles at about 0.6 seconds per force evaluation. What is missing
+> is the simulation driver, the renderer and the bindings. Progress is tracked
+> in the phase table in
 > [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md), and this README
 > gains results and figures as the phases that produce them land. Nothing is
 > claimed here before it can be reproduced.
@@ -277,13 +280,71 @@ step. No published figure was affected, since every one was taken with Clang.
 The account is in
 [`docs/performance/sycl_direct.md`](docs/performance/sycl_direct.md).
 
+## Walking the tree on the GPU
+
+Direct summation suits a GPU because every work-item does identical work in
+identical order. A tree walk does not: neighbouring particles agree about most
+of the tree and disagree about the part nearest them. And a GPU does not execute
+work-items independently, it executes them in sub-groups of 32 that share one
+instruction pointer, so a walk written as though each work-item were a thread
+has every lane switched off while the others finish the nodes it did not need.
+
+So the sub-group walks together. One node index for all 32 lanes, advanced to
+the nearest node any of them still wants, with a lane that has accepted a cell
+masked out until the group leaves that subtree.
+
+| N | Independent walk | Coherent walk | Speedup | Nodes visited per lane |
+| --- | --- | --- | --- | --- |
+| 16384 | 5.309 ms | 1.529 ms | **3.47x** | 1.25x more |
+| 131072 | 43.12 ms | 13.06 ms | **3.30x** | 1.24x more |
+| 1048576 | 343.6 ms | 116.9 ms | **2.94x** | 1.19x more |
+
+The coherent walk steps through about 25 per cent *more* nodes and takes under a
+third of the time, because the nodes it adds are ones the hardware was already
+executing under a divergence mask. A second session gives 3.96x, 2.92x and
+2.51x, so the honest claim is about three times rather than any one of those
+figures.
+
+It computes the same answer, and that is asserted rather than hoped for. The
+published warp-coherent traversals let a lane that would have accepted a cell
+descend with the rest of its warp, which makes a particle's acceleration depend
+on which other particles shared its warp; this one masks instead, so the test
+suite can require the GPU and CPU solvers' **interaction counters to be equal**,
+which says the device opened the same cells rather than that it landed somewhere
+nearby (ADR-0029).
+
+Against the solvers it has to beat, in single precision:
+
+| N | GPU tree | CPU tree | GPU direct | vs CPU tree | vs GPU direct |
+| --- | --- | --- | --- | --- | --- |
+| 16384 | 2.921 ms | 25.92 ms | 7.073 ms | 8.87x | 2.42x |
+| 65536 | 13.88 ms | 145.8 ms | 79.18 ms | 10.51x | **5.71x** |
+| 262144 | 59.80 ms | 732.0 ms | not timed | **12.24x** | |
+| 2097152 | 603.5 ms | not timed | not timed | | |
+
+The tree overtakes direct summation on the GPU at about **9000 particles**,
+against 6100 on the CPU: a tree has to reach half again the size to be worth
+using on the hardware direct summation suits best. The full picture is now the
+CPU direct kernel below about 2200 particles, the GPU direct kernel to about
+9000, and the GPU tree solver above that.
+
+**The largest tractable configuration is about 2.1 million particles**, at 603
+ms per evaluation and 87.5 MiB of shared memory, and nothing about the device
+stopped it there. The limit is on the host: **the Morton sort is 40 to 46 per
+cent of every evaluation**, roughly level with the device traversal above 262144
+particles and more than ten times the tree build it exists to enable. A phase
+spent making the traversal three times faster has made the sort the bottleneck,
+which is the most useful thing the measurement says and the first thing to fix
+next (ADR-0028).
+
 The full tables, the roofline plot, the per-worker breakdown, the error against
-cost curve, the device ceilings and an honest account of which of these figures
-reproduce and which do not are in
+cost curve, the device ceilings, the sub-group width sweep and an honest account
+of which of these figures reproduce and which do not are in
 [`docs/performance/roofline.md`](docs/performance/roofline.md),
 [`docs/performance/threading.md`](docs/performance/threading.md),
-[`docs/performance/barnes_hut.md`](docs/performance/barnes_hut.md) and
-[`docs/performance/sycl_direct.md`](docs/performance/sycl_direct.md). Reproduce
+[`docs/performance/barnes_hut.md`](docs/performance/barnes_hut.md),
+[`docs/performance/sycl_direct.md`](docs/performance/sycl_direct.md) and
+[`docs/performance/sycl_tree.md`](docs/performance/sycl_tree.md). Reproduce
 with:
 
 ```
@@ -300,7 +361,13 @@ and, for the GPU, with the oneAPI compiler:
 cmake --preset sycl-single-precision -DCMAKE_CXX_COMPILER=icx-cl
 cmake --build --preset sycl-single-precision
 ./build/sycl-single-precision/benchmarks/orrery_sycl_direct
+./build/sycl-single-precision/benchmarks/orrery_sycl_tree
 ```
+
+The last of those is the longest session in the project, since it drives the GPU
+and all eight cores in turn at sizes where one evaluation is most of a second.
+It takes an optional largest particle count, so `orrery_sycl_tree 262144` runs a
+few minutes rather than half an hour.
 
 ## Target hardware
 
