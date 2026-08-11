@@ -58,6 +58,21 @@
 /// only place a target can meet itself is the leaf it lives in, and there it is
 /// skipped by summing the ranges either side of it. That is the same device the
 /// direct solver uses, for the same reason: no branch in the innermost loop.
+///
+/// ## Why the two multipole terms are defined here rather than compiled away
+///
+/// `monopole_acceleration` and `quadrupole_acceleration` are `inline` in this
+/// header rather than out of line beside `walk_tree`, and that is deliberate
+/// rather than a matter of where the compiler can see them. The GPU traversal of
+/// Phase 10 (`solvers/sycl_tree_solver.hpp`) runs a different loop over the same
+/// tree, and it calls exactly these two functions, compiled for the device. That
+/// is the property single-source SYCL buys and the reason ADR-0025 weighs it
+/// above the alternatives: the multipole expansion of a cell is written once in
+/// this project, not once per backend.
+///
+/// What the two traversals do not share is the loop, because the loop is the
+/// whole subject of Phase 10. ADR-0029 records the shape the device needs and
+/// why it cannot be the shape below.
 
 #include <cstdint>
 #include <span>
@@ -110,8 +125,17 @@ struct WalkCounts {
 /// the cell's centre of mass: a cell holding one particle must produce exactly
 /// what the direct kernel produces for that particle, or the tree and the
 /// reference are not computing the same physics.
-[[nodiscard]] core::Vec3 monopole_acceleration(core::Vec3 offset, core::Real mass,
-                                               core::Softening softening) noexcept;
+[[nodiscard]] inline core::Vec3 monopole_acceleration(core::Vec3 offset, core::Real mass,
+                                                      core::Softening softening) noexcept {
+    // The same expression as one iteration of the direct kernel, with the
+    // cell's total mass in place of a particle's and its centre of mass in
+    // place of a position. That is what a monopole is, and writing it as
+    // anything else would put a second copy of the force law in the project.
+    const core::Real factor =
+        mass * core::softened_inverse_distance_cubed(core::squared_norm(offset), softening);
+
+    return offset * factor;
+}
 
 /// The correction the quadrupole moment adds to the term above.
 ///
@@ -128,7 +152,30 @@ struct WalkCounts {
 /// the monopole and an approximation here. The approximation costs nothing that
 /// can be measured: a cell is only accepted when the target is many cell widths
 /// away, and the softening length is a fraction of the smallest cell.
-[[nodiscard]] core::Vec3 quadrupole_acceleration(core::Vec3 offset, const Quadrupole& moment,
-                                                 core::Softening softening) noexcept;
+[[nodiscard]] inline core::Vec3 quadrupole_acceleration(core::Vec3 offset, const Quadrupole& moment,
+                                                        core::Softening softening) noexcept {
+    const core::Real inverse =
+        core::softened_inverse_distance(core::squared_norm(offset), softening);
+
+    // Formed from the fifth and seventh powers of one reciprocal square root
+    // rather than from two further calls, because the divide and square root
+    // unit is the bottleneck this project measured in Phase 7 and these are
+    // multiplications.
+    const core::Real inverse_squared = inverse * inverse;
+    const core::Real inverse_fifth = inverse_squared * inverse_squared * inverse;
+    const core::Real inverse_seventh = inverse_fifth * inverse_squared;
+
+    // Q d, with the tensor's symmetry spent: six stored components describe
+    // nine, and the three off-diagonal ones appear twice each.
+    const core::Vec3 contracted{
+        (moment.xx * offset.x) + (moment.xy * offset.y) + (moment.xz * offset.z),
+        (moment.xy * offset.x) + (moment.yy * offset.y) + (moment.yz * offset.z),
+        (moment.xz * offset.x) + (moment.yz * offset.y) + (moment.zz * offset.z)};
+
+    const core::Real quadratic = core::dot(offset, contracted);
+
+    return (contracted * -inverse_fifth) +
+           (offset * (static_cast<core::Real>(2.5) * quadratic * inverse_seventh));
+}
 
 } // namespace orrery::solvers
