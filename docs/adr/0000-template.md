@@ -1,6 +1,6 @@
 # ADR-0000: Title in the imperative
 
-- **Status:** Proposed | Accepted | Superseded by [ADR-NNNN](NNNN-title.md)
+- **Status:** Proposed | Accepted | Superseded by ADR-NNNN, linked to its file
 - **Date:** YYYY-MM-DD
 
 ## Context

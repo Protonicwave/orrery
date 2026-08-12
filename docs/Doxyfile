@@ -1,0 +1,126 @@
+# The documentation site and the API reference, from one tool and one run.
+#
+# Doxygen generates both because they are the same document: the prose pages
+# explain what was decided and the header pages say what the decision produced,
+# and a reader following a claim from the validation report into the class that
+# implements it should not have to change site. ADR-0043 records the choice and
+# the site generators it was made against.
+#
+# Run from the repository root, which is what every relative path below assumes:
+#
+#     doxygen docs/Doxyfile
+#
+# The output is build/html/index.html. Continuous integration runs the same
+# command and publishes what it produces.
+
+PROJECT_NAME           = "Orrery"
+PROJECT_BRIEF          = "A GPU-accelerated N-body gravitational simulator"
+
+# No PROJECT_NUMBER. The version has one home, the project() call in
+# CMakeLists.txt, which is also what core::version() reports and what the wheel
+# is tagged with. A second copy here would eventually disagree with it, and the
+# one a reader believed would depend on which page they were on.
+
+# One level deep, and deliberately. Doxygen creates the last component of this
+# path and no more, so build/docs would fail in a fresh clone where build/ does
+# not exist yet, and it fails by exiting without saying anything.
+OUTPUT_DIRECTORY       = build
+HTML_OUTPUT            = html
+GENERATE_LATEX         = NO
+CREATE_SUBDIRS         = NO
+
+# UK English throughout, as everything else in this project is.
+OUTPUT_LANGUAGE        = English
+
+# The public headers, and the prose. src/ is deliberately absent: the interface
+# is what a reader of this site needs, and the reasoning inside an
+# implementation file is for somebody who already has it open.
+INPUT                  = include \
+                         docs/index.md \
+                         docs/validation.md \
+                         docs/performance.md \
+                         docs/python.md \
+                         docs/visualisation.md \
+                         docs/IMPLEMENTATION_PLAN.md \
+                         docs/adr \
+                         docs/formats \
+                         docs/performance
+
+RECURSIVE              = YES
+FILE_PATTERNS          = *.hpp *.ipp *.md
+IMAGE_PATH             = docs/performance
+USE_MDFILE_AS_MAINPAGE = docs/index.md
+
+# So that a header is named as the project's own consumers name it, for example
+# orrery/solvers/barnes_hut_solver.hpp rather than the checkout path in front of
+# whoever generated the site. The repository root is stripped as well as the
+# include directory, because a page's file name becomes its URL and a URL
+# containing somebody's home directory would change between the machine that
+# built the site and the one that publishes it.
+FULL_PATH_NAMES        = YES
+STRIP_FROM_PATH        = . include
+STRIP_FROM_INC_PATH    = include
+
+# The project documents with /// blocks whose first sentence is the summary, so
+# the brief is taken from that sentence rather than requiring a \brief command.
+JAVADOC_AUTOBRIEF      = YES
+QT_AUTOBRIEF           = YES
+MARKDOWN_SUPPORT       = YES
+AUTOLINK_SUPPORT       = YES
+
+# Heading anchors spelled the way a code host spells them, so that a link to
+# `#how-much-of-this-is-reproducible` written for GitHub resolves here too. The
+# same Markdown is read in both places and it should not have to know which.
+MARKDOWN_ID_STYLE      = GITHUB
+TAB_SIZE               = 4
+
+# Only what a consumer can reach. A private member's rationale belongs beside it
+# in the header, where the next person to change it will be looking, rather than
+# on a page addressed to somebody using the class from outside.
+EXTRACT_ALL            = NO
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = NO
+EXTRACT_LOCAL_CLASSES  = NO
+HIDE_UNDOC_MEMBERS     = NO
+HIDE_UNDOC_CLASSES     = NO
+
+# Declaration order rather than alphabetical, because the headers are written to
+# be read from the top and a sorted page discards that.
+SORT_MEMBER_DOCS       = NO
+SORT_BRIEF_DOCS        = NO
+
+GENERATE_TREEVIEW      = YES
+FULL_SIDEBAR           = NO
+HTML_DYNAMIC_SECTIONS  = NO
+SEARCHENGINE           = YES
+DISABLE_INDEX          = NO
+
+# No graphs. They need Graphviz, which would put a second tool between a change
+# and the site it produces, and a project of nine layers with dependencies
+# pointing one way has an architecture diagram in one paragraph of prose already.
+HAVE_DOT               = NO
+
+# A missing documentation comment is not reported, and a broken one is. The
+# first would be a warning on every getter in the project; the second is a link
+# that will be dead on the published site, which is the class of mistake this
+# check exists for. Warnings fail the run so that continuous integration cannot
+# publish a site with dead references in it, and they are all printed before it
+# fails rather than one at a time.
+QUIET                  = YES
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = NO
+WARN_IF_DOC_ERROR      = YES
+WARN_IF_INCOMPLETE_DOC = YES
+WARN_NO_PARAMDOC       = NO
+WARN_AS_ERROR          = FAIL_ON_WARNINGS_PRINT
+
+# The SYCL and renderer sources are guarded by build options, and this
+# configuration is not a build: nothing here defines ORRERY_ENABLE_SYCL, so a
+# header behind it would be parsed with its declarations switched off. Defining
+# both makes the reference describe the whole project rather than the subset a
+# default build produces.
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = NO
+PREDEFINED             = ORRERY_ENABLE_SYCL=1 \
+                         ORRERY_ENABLE_RENDERER=1
