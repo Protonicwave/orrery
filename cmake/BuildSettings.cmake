@@ -96,6 +96,30 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
   endif()
 endif()
 
+# Position-independent code, but only when something will link these libraries
+# into a shared object.
+#
+# The Python extension is a shared library and every layer it links is a static
+# one. On ELF a static library linked into a shared object has to have been
+# compiled position-independent, or the link fails on a relocation that cannot
+# appear in a shared object. Windows draws no such distinction, so this is the
+# one setting in the project that cannot be discovered by building it there,
+# and it was found by continuous integration rather than by the machine this
+# project is developed on.
+#
+# Carried as an interface property rather than through the global
+# CMAKE_POSITION_INDEPENDENT_CODE, which would reach the dependencies built
+# beside this project as well (ADR-0003). CMake propagates a compatible
+# interface property to every target that links the one carrying it, and every
+# target here links orrery::options either directly or through orrery::core.
+#
+# Conditional because position-independent code is not free: on x86-64 it costs
+# a register and an indirection on every access to a global, and a build that
+# produces no shared object should not pay for either.
+if(ORRERY_BUILD_PYTHON)
+  set_property(TARGET orrery_options PROPERTY INTERFACE_POSITION_INDEPENDENT_CODE ON)
+endif()
+
 add_library(orrery_warnings INTERFACE)
 add_library(orrery::warnings ALIAS orrery_warnings)
 
