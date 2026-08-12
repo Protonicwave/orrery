@@ -67,9 +67,10 @@ TEST_CASE("every enumeration value has a spelling that reads back", "[sim][confi
     }
 
     SECTION("initial conditions") {
-        constexpr std::array kKinds{InitialConditionKind::kPlummer,
-                                    InitialConditionKind::kUniformSphere,
-                                    InitialConditionKind::kKepler};
+        constexpr std::array kKinds{
+            InitialConditionKind::kPlummer, InitialConditionKind::kUniformSphere,
+            InitialConditionKind::kKepler, InitialConditionKind::kDiscGalaxy,
+            InitialConditionKind::kGalaxyCollision};
         for (const InitialConditionKind kind : kKinds) {
             CHECK(orrery::sim::parse_initial_condition_kind(orrery::sim::to_string(kind)) == kind);
         }
@@ -163,6 +164,65 @@ TEST_CASE("a sampled configuration needs particles to sample", "[sim][configurat
         Configuration configuration = valid_configuration();
         configuration.initial_conditions.mass_fraction_cutoff = 1;
         CHECK(complains_about(configuration, "initial_conditions.mass_fraction_cutoff"));
+    }
+}
+
+TEST_CASE("a galaxy needs the lengths that give it a shape", "[sim][configuration]") {
+    Configuration configuration = valid_configuration();
+    configuration.initial_conditions.kind = InitialConditionKind::kDiscGalaxy;
+
+    SECTION("the defaults describe a galaxy") {
+        CHECK(orrery::sim::problems_with(configuration).empty());
+    }
+
+    SECTION("a galaxy that is all bulge has no disc to orient") {
+        configuration.initial_conditions.bulge_fraction = 1;
+        CHECK(complains_about(configuration, "initial_conditions.bulge_fraction"));
+    }
+
+    SECTION("a disc of no extent") {
+        configuration.initial_conditions.scale_length = 0;
+        CHECK(complains_about(configuration, "initial_conditions.scale_length"));
+    }
+
+    SECTION("a disc of no thickness") {
+        configuration.initial_conditions.scale_height = 0;
+        CHECK(complains_about(configuration, "initial_conditions.scale_height"));
+    }
+
+    SECTION("a bulge of no extent") {
+        configuration.initial_conditions.bulge_radius = 0;
+        CHECK(complains_about(configuration, "initial_conditions.bulge_radius"));
+    }
+}
+
+TEST_CASE("a collision needs two galaxies and somewhere to put them", "[sim][configuration]") {
+    Configuration configuration = valid_configuration();
+    configuration.initial_conditions.kind = InitialConditionKind::kGalaxyCollision;
+
+    SECTION("the defaults describe an encounter") {
+        CHECK(orrery::sim::problems_with(configuration).empty());
+    }
+
+    SECTION("a mass ratio above one is the same encounter written backwards") {
+        configuration.initial_conditions.mass_ratio = 2;
+        CHECK(complains_about(configuration, "initial_conditions.mass_ratio"));
+    }
+
+    SECTION("two galaxies in the same place have no encounter") {
+        configuration.initial_conditions.separation = 0;
+        configuration.initial_conditions.impact_parameter = 0;
+        CHECK(complains_about(configuration, "initial_conditions.separation"));
+    }
+
+    SECTION("a receding pair is not a collision") {
+        configuration.initial_conditions.approach_speed = -1;
+        CHECK(complains_about(configuration, "initial_conditions.approach_speed"));
+    }
+
+    SECTION("four particles is the fewest that is two galaxies") {
+        configuration.initial_conditions.count = 3;
+        CHECK(complains_about(configuration, "initial_conditions.count"));
     }
 }
 

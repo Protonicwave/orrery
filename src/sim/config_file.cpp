@@ -319,6 +319,30 @@ void Parser::assign_initial_conditions(std::string_view key, std::string_view va
         initial.semi_major_axis = real(key, value);
     } else if (key == "eccentricity") {
         initial.eccentricity = real(key, value);
+    } else if (key == "bulge_fraction") {
+        initial.bulge_fraction = real(key, value);
+    } else if (key == "scale_length") {
+        initial.scale_length = real(key, value);
+    } else if (key == "scale_height") {
+        initial.scale_height = real(key, value);
+    } else if (key == "bulge_radius") {
+        initial.bulge_radius = real(key, value);
+    } else if (key == "inclination") {
+        initial.inclination = real(key, value);
+    } else if (key == "position_angle") {
+        initial.position_angle = real(key, value);
+    } else if (key == "mass_ratio") {
+        initial.mass_ratio = real(key, value);
+    } else if (key == "secondary_inclination") {
+        initial.secondary_inclination = real(key, value);
+    } else if (key == "secondary_position_angle") {
+        initial.secondary_position_angle = real(key, value);
+    } else if (key == "separation") {
+        initial.separation = real(key, value);
+    } else if (key == "impact_parameter") {
+        initial.impact_parameter = real(key, value);
+    } else if (key == "approach_speed") {
+        initial.approach_speed = real(key, value);
     } else {
         fail("unknown setting 'initial_conditions." + std::string{key} + "'");
     }
@@ -461,7 +485,19 @@ void write_configuration(std::ostream& out, const Configuration& configuration) 
         << "primary_mass = " << initial.primary_mass << '\n'
         << "secondary_mass = " << initial.secondary_mass << '\n'
         << "semi_major_axis = " << initial.semi_major_axis << '\n'
-        << "eccentricity = " << initial.eccentricity << "\n\n";
+        << "eccentricity = " << initial.eccentricity << '\n'
+        << "bulge_fraction = " << initial.bulge_fraction << '\n'
+        << "scale_length = " << initial.scale_length << '\n'
+        << "scale_height = " << initial.scale_height << '\n'
+        << "bulge_radius = " << initial.bulge_radius << '\n'
+        << "inclination = " << initial.inclination << '\n'
+        << "position_angle = " << initial.position_angle << '\n'
+        << "mass_ratio = " << initial.mass_ratio << '\n'
+        << "secondary_inclination = " << initial.secondary_inclination << '\n'
+        << "secondary_position_angle = " << initial.secondary_position_angle << '\n'
+        << "separation = " << initial.separation << '\n'
+        << "impact_parameter = " << initial.impact_parameter << '\n'
+        << "approach_speed = " << initial.approach_speed << "\n\n";
 
     out << "[solver]\n"
         << "kind = " << to_string(solver.kind) << '\n'

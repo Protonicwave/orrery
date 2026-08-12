@@ -162,6 +162,44 @@ jobs:
           cmake --build --preset sycl
           ctest --preset sycl
 
+  renderer:
+    name: Renderer compile
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      # GLFW builds against the window system's development headers, which a
+      # server image does not carry. These are the X11 packages its own
+      # documentation lists; Wayland would need a different set and is not built
+      # here, since what this job checks is that the code compiles rather than
+      # that it runs on any particular display server.
+      - name: Install the window system headers and Ninja
+        run: |
+          set -o errexit
+          sudo apt-get update
+          sudo apt-get install --yes ninja-build libxinerama-dev libxcursor-dev \
+            libxi-dev libxrandr-dev libxkbcommon-dev
+
+      # This job cannot open a window and does not try. No hosted runner has a
+      # display or an OpenGL 3.3 driver, so what is checked is what a machine
+      # without either can still check: that the renderer, the loader and the
+      # viewer compile under the project's warning set, and that the test suite
+      # passes in a configuration where they exist.
+      #
+      # The suite is worth running here rather than only building. Every case in
+      # tests/viz runs without a device by construction, and this is the job that
+      # proves that claim on a machine that has none.
+      - name: Configure, build and test
+        env:
+          CC: clang
+          CXX: clang++
+        run: |
+          set -o errexit
+          cmake --preset renderer
+          cmake --build --preset renderer
+          ctest --preset renderer
+
   format:
     name: clang-format
     runs-on: ubuntu-24.04

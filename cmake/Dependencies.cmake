@@ -11,6 +11,42 @@
 
 include(FetchContent)
 
+if(ORRERY_ENABLE_RENDERER)
+  set(ORRERY_GLFW_VERSION 3.4)
+  set(ORRERY_GLFW_COMMIT 7b6aead9fb88b3623e3b3725ebb42670cbe4c579)
+
+  # GLFW creates the window and the OpenGL context and reports the mouse and the
+  # keyboard. It is the only dependency the renderer has: the entry points of
+  # the API itself are resolved by hand in src/viz/gl_api.cpp rather than by a
+  # generated loader, for the reason ADR-0035 gives.
+  #
+  # Its own tests, examples and documentation are switched off. They are a
+  # dozen programs that open windows, and building them would treble the time
+  # this dependency costs and produce nothing this project runs.
+  set(GLFW_BUILD_DOCS
+      OFF
+      CACHE BOOL "" FORCE)
+  set(GLFW_BUILD_TESTS
+      OFF
+      CACHE BOOL "" FORCE)
+  set(GLFW_BUILD_EXAMPLES
+      OFF
+      CACHE BOOL "" FORCE)
+  set(GLFW_INSTALL
+      OFF
+      CACHE BOOL "" FORCE)
+
+  FetchContent_Declare(
+    glfw
+    GIT_REPOSITORY https://github.com/glfw/glfw.git
+    GIT_TAG ${ORRERY_GLFW_COMMIT}
+    GIT_SHALLOW FALSE
+    SYSTEM
+    FIND_PACKAGE_ARGS ${ORRERY_GLFW_VERSION} NAMES glfw3)
+
+  FetchContent_MakeAvailable(glfw)
+endif()
+
 if(ORRERY_BUILD_TESTS)
   set(ORRERY_CATCH2_VERSION 3.15.3)
   set(ORRERY_CATCH2_COMMIT 8b08d4d79514f45f7e4ce2a607ac9c94e920d1bb)

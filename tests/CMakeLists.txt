@@ -38,6 +38,8 @@ orrery_enable_linting(orrery_backend_test)
 add_executable(
   orrery_initial_conditions_test
   initial_conditions/centre_of_mass_frame_test.cpp
+  initial_conditions/disc_galaxy_test.cpp
+  initial_conditions/galaxy_collision_test.cpp
   initial_conditions/kepler_test.cpp
   initial_conditions/plummer_test.cpp
   initial_conditions/uniform_sphere_test.cpp)
@@ -96,8 +98,13 @@ orrery_enable_linting(orrery_solvers_test)
 
 add_executable(
   orrery_sim_test
-  sim/checkpoint_test.cpp sim/config_file_test.cpp sim/configuration_test.cpp
-  sim/run_output_test.cpp sim/simulation_test.cpp sim/trajectory_test.cpp)
+  sim/assembly_test.cpp
+  sim/checkpoint_test.cpp
+  sim/config_file_test.cpp
+  sim/configuration_test.cpp
+  sim/run_output_test.cpp
+  sim/simulation_test.cpp
+  sim/trajectory_test.cpp)
 
 # The driver assembles every layer beneath it, so its tests reach all of them.
 # They also need the test directory on the include path, for the two small
@@ -113,6 +120,23 @@ target_link_libraries(
           orrery::warnings Catch2::Catch2WithMain)
 
 orrery_enable_linting(orrery_sim_test)
+
+add_executable(orrery_viz_test viz/camera_test.cpp viz/image_test.cpp
+                               viz/tone_map_test.cpp)
+
+# Every case here runs in a build with no renderer and on a machine with no
+# display, which is the point of the split in src/viz/CMakeLists.txt. The camera,
+# the projection and the tone curve are arithmetic; a mistake in any of them
+# appears on screen as a black window or a white blob, which is the least
+# informative failure a program can produce, so they are held to numbers here
+# instead.
+target_link_libraries(orrery_viz_test PRIVATE orrery::viz orrery::core
+                                              orrery::warnings
+                                              Catch2::Catch2WithMain)
+
+orrery_enable_linting(orrery_viz_test)
+
+catch_discover_tests(orrery_viz_test)
 
 # The measurement harness, which lives under benchmarks/ because it is not a
 # layer of the simulator. It is still code this project owns and section 5 of

@@ -46,6 +46,19 @@ namespace orrery::sim {
 /// those means a caller assembled a configuration it had not checked.
 [[nodiscard]] core::ParticleData make_initial_conditions(const Configuration& configuration);
 
+/// How many of the particles belong to the first of a collision's two galaxies.
+///
+/// Zero for every other configuration, which is the answer to "where does the
+/// first group end" for a configuration that has only one group.
+///
+/// It is here rather than in `initial_conditions/` because the split is a
+/// property of how this layer divides a requested count between two galaxies,
+/// not of what a galaxy is. The renderer uses it to tint the two apart, which is
+/// what makes it possible to see which material in a merged remnant came from
+/// where, and `make_initial_conditions` uses it so that the two answers cannot
+/// differ.
+[[nodiscard]] core::Index primary_galaxy_count(const Configuration& configuration);
+
 [[nodiscard]] std::unique_ptr<integrators::Integrator>
 make_integrator(const Configuration& configuration);
 

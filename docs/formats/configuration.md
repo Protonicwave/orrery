@@ -70,7 +70,7 @@ run took the same number of steps as an uninterrupted one.
 
 | Setting | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `kind` | text | `plummer` | One of `plummer`, `uniform-sphere`, `kepler` |
+| `kind` | text | `plummer` | One of `plummer`, `uniform-sphere`, `kepler`, `disc-galaxy`, `galaxy-collision` |
 | `count` | whole number | 0 | Particles, for the two sampled models. At least two. Not used by `kepler`, which is two bodies by definition |
 | `total_mass` | number | 1 | Shared equally among the particles of a sampled model |
 | `scale_radius` | number | 0 | The Plummer scale radius. Zero means `3 pi / 16`, the value that puts a unit-mass sphere into standard N-body units |
@@ -80,9 +80,35 @@ run took the same number of steps as an uninterrupted one.
 | `secondary_mass` | number | 1 | Its second |
 | `semi_major_axis` | number | 1 | Of the relative orbit |
 | `eccentricity` | number | 0 | In `[0, 1)`. One or more is an unbound encounter with no period |
+| `bulge_fraction` | number | 0.2 | The share of a galaxy's mass held by its bulge rather than its disc. In `[0, 1)` |
+| `scale_length` | number | 1 | The exponential scale length of a galaxy's disc |
+| `scale_height` | number | 0.1 | Its exponential scale height |
+| `bulge_radius` | number | 0.2 | The Plummer scale radius of its bulge |
+| `inclination` | number | 0 | The tilt of the disc's spin axis away from the z axis, in radians. Pi is the same disc turning the other way |
+| `position_angle` | number | 0 | The angle the tilted disc is then turned by about the z axis, in radians |
+| `mass_ratio` | number | 0.5 | The second galaxy of a collision as a fraction of the first. In `(0, 1]` |
+| `secondary_inclination` | number | 1 | The second galaxy's tilt, in radians |
+| `secondary_position_angle` | number | 0 | And its position angle |
+| `separation` | number | 20 | The initial separation of the two galaxies along x |
+| `impact_parameter` | number | 2 | The offset along y, which is what makes the encounter grazing rather than head on |
+| `approach_speed` | number | 0.8 | The relative speed as a multiple of the escape speed at that separation. Below one the pair is bound and merges, at one the orbit is parabolic, above one they separate for ever |
 
 A setting the chosen `kind` does not use is ignored, so one file may describe
 several configurations and select between them.
+
+For both galaxy configurations, `count` and `total_mass` mean what they mean for
+the two spheres: the particles the run has and the mass they share. A collision
+divides both between its two galaxies in proportion to `mass_ratio`, so that
+every particle in the pair carries the same mass whatever the ratio is, and
+scales the smaller galaxy's three lengths by the square root of the ratio so
+that both have the same mean surface density.
+
+A galaxy also reads `solver.softening`, which is the one place in this format
+where a setting crosses between sections. A disc is built at the speeds the
+forces it will feel can support, and those depend on the softening, so a galaxy
+assembled without it would start out of balance with the run about to be taken.
+`include/orrery/initial_conditions/disc_galaxy.hpp` sets out what the model
+does and does not claim to be.
 
 ### `[solver]`
 

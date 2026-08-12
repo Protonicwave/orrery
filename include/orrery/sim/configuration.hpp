@@ -72,6 +72,8 @@ enum class InitialConditionKind : std::uint8_t {
     kPlummer,
     kUniformSphere,
     kKepler,
+    kDiscGalaxy,
+    kGalaxyCollision,
 };
 
 /// How the CPU solvers divide their loop over target particles.
@@ -179,6 +181,52 @@ struct InitialConditionSettings {
 
     core::Real semi_major_axis = 1;
     core::Real eccentricity = 0;
+
+    /// The share of a galaxy's mass held by its bulge rather than its disc.
+    ///
+    /// The two galaxy configurations describe a galaxy's mass through
+    /// `total_mass` and this, rather than through a disc mass and a bulge mass,
+    /// so that `count` and `total_mass` mean for a galaxy exactly what they mean
+    /// for the two spheres: the particles the run has and the mass they share.
+    core::Real bulge_fraction = static_cast<core::Real>(0.2);
+
+    /// The exponential scale length of the disc.
+    core::Real scale_length = 1;
+
+    core::Real scale_height = static_cast<core::Real>(0.1);
+
+    /// The Plummer scale radius of the bulge.
+    core::Real bulge_radius = static_cast<core::Real>(0.2);
+
+    /// The tilt of the disc's spin axis away from the z axis, in radians, and
+    /// the angle it is then turned by about that axis.
+    core::Real inclination = 0;
+    core::Real position_angle = 0;
+
+    /// The mass of the second galaxy of a collision as a fraction of the first.
+    ///
+    /// One is a pair of equals, which is the classic major merger. A half, the
+    /// default, is still a major merger by the usual definition and produces the
+    /// more legible picture: the larger disc survives long enough to be
+    /// recognisable while the smaller one is visibly torn apart.
+    core::Real mass_ratio = static_cast<core::Real>(0.5);
+
+    /// The orientation of the second galaxy's disc.
+    ///
+    /// Separate from the first galaxy's, because an encounter between two discs
+    /// tilted the same way is the one case where the picture is symmetric and
+    /// so the least informative one to look at.
+    core::Real secondary_inclination = 1;
+    core::Real secondary_position_angle = 0;
+
+    /// The initial separation of the two galaxies along the x axis, and the
+    /// offset along y that makes the encounter grazing rather than head on.
+    core::Real separation = 20;
+    core::Real impact_parameter = 2;
+
+    /// The relative speed of the two galaxies, as a multiple of the escape speed
+    /// at their initial separation. Below one they are bound and merge.
+    core::Real approach_speed = static_cast<core::Real>(0.8);
 
     [[nodiscard]] friend bool operator==(const InitialConditionSettings&,
                                          const InitialConditionSettings&) = default;

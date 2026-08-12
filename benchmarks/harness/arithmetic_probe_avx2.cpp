@@ -1,4 +1,3 @@
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <type_traits>
@@ -80,17 +79,33 @@ template<typename Vector> [[nodiscard]] auto reduce(Vector value) noexcept {
     }
 }
 
-[[nodiscard]] std::array<Wide, kChains> starting_values() noexcept {
-    std::array<Wide, kChains> chains{};
+/// The chains a probe accumulates into.
+///
+/// A plain array rather than a `std::array`, because the two do not agree about
+/// alignment under the Microsoft ABI: `alignof(Wide)` and `alignof(Wide[12])`
+/// are both 32, but `alignof(std::array<Wide, 12>)` is 8, since Clang does not
+/// propagate a vector member's over-alignment through a class there. The
+/// compiler is then free to place the object on any 8-byte boundary, it lands
+/// on a 16-byte one in practice, and every access to an element binds a
+/// reference to a misaligned address. That is undefined behaviour, the
+/// sanitiser reports it as such, and a plain array simply does not have the
+/// problem: the alignment is part of the array type.
+///
+/// This is the one place in the project where the usual advice to prefer
+/// `std::array` is wrong, so the check that gives it is silenced here alone.
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
+using Chains = Wide[kChains];
+
+/// Filled in place rather than returned, since a plain array is not copyable.
+void set_starting_values(Chains& chains) noexcept {
     for (int chain = 0; chain < kChains; ++chain) {
         chains[static_cast<std::size_t>(chain)] = broadcast(static_cast<Real>(chain + 1));
     }
-    return chains;
 }
 
-[[nodiscard]] Real total_of(const std::array<Wide, kChains>& chains) noexcept {
+[[nodiscard]] Real total_of(const Chains& chains) noexcept {
     Wide total = chains[0];
-    for (std::size_t chain = 1; chain < chains.size(); ++chain) {
+    for (std::size_t chain = 1; chain < kChains; ++chain) {
         total = add(total, chains[chain]);
     }
     return reduce(total);
@@ -102,7 +117,8 @@ double fused_multiply_add_block_avx2(std::uint64_t rounds, Real* sink) noexcept 
     const Wide decay = broadcast(static_cast<Real>(1) - static_cast<Real>(1e-7));
     const Wide offset = broadcast(static_cast<Real>(1e-7));
 
-    std::array<Wide, kChains> accumulators = starting_values();
+    Chains accumulators{};
+    set_starting_values(accumulators);
 
     // The inner loop has a constant trip count, so the compiler unrolls it and
     // what reaches the processor is kChains independent fused multiply-adds per
@@ -125,7 +141,8 @@ double fused_multiply_add_block_avx2(std::uint64_t rounds, Real* sink) noexcept 
 double divide_and_sqrt_block_avx2(std::uint64_t rounds, Real* sink) noexcept {
     const Wide one = broadcast(static_cast<Real>(1));
 
-    std::array<Wide, kChains> accumulators = starting_values();
+    Chains accumulators{};
+    set_starting_values(accumulators);
 
     for (std::uint64_t round = 0; round < rounds; ++round) {
         for (Wide& accumulator : accumulators) {

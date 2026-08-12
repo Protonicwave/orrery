@@ -47,3 +47,8 @@ introduces it.
 | [0031](0031-define-a-configuration-format-rather-than-adopting-one.md) | Define a configuration format rather than adopting one | Accepted |
 | [0032](0032-store-the-whole-state-in-a-checkpoint.md) | Store the whole state in a checkpoint, accelerations included | Accepted |
 | [0033](0033-keep-the-trajectory-and-the-checkpoint-apart.md) | Keep the trajectory and the checkpoint apart | Accepted |
+| [0034](0034-draw-with-opengl-through-glfw.md) | Draw with OpenGL 3.3 through GLFW | Accepted |
+| [0035](0035-resolve-the-opengl-entry-points-by-hand.md) | Resolve the OpenGL entry points by hand | Accepted |
+| [0036](0036-tone-map-exported-frames-on-the-host.md) | Tone map exported frames on the host | Accepted |
+| [0037](0037-write-frames-as-ppm-and-encode-elsewhere.md) | Write frames as PPM and leave the encoding to an external tool | Accepted |
+| [0038](0038-sample-the-galaxy-as-a-scenario.md) | Sample the galaxy as a scenario rather than as an equilibrium model | Accepted |
