@@ -48,15 +48,23 @@ Dependencies point downwards only, and no layer may include a header from a
 layer above it:
 
 ```
-apps/          Command-line simulator, interactive renderer
-sim/           Simulation driver: owns solver, integrator, output, checkpoints
-solvers/       Direct O(N^2), Barnes-Hut O(N log N)
-integrators/   Velocity Verlet, Yoshida 4th order, RK4
-backend/       CPU (work-stealing, AVX2) and SYCL (Arc iGPU, unified memory)
-core/          Particle storage, vector maths, diagnostics, memory
+apps/                Command-line simulator, viewer
+viz/                 Camera, tone mapping, point renderer, window
+sim/                 Simulation driver: owns solver, integrator, output, checkpoints
+solvers/             Direct O(N^2), Barnes-Hut O(N log N)
+integrators/         Velocity Verlet, Yoshida 4th order, RK4
+backend/             CPU (work-stealing, AVX2) and SYCL (Arc iGPU, unified memory)
+initial_conditions/  Sampled models and analytic configurations
+core/                Particle storage, vector maths, diagnostics, memory
 ```
 
 This is checked at every pull request.
+
+Two directories sit outside that list. `viz/` is a layer, but it sits beside
+`sim/` rather than under it: it depends on `core/` alone and `sim/` does not know
+it exists, so `apps/` is the one place that names both. `python/` is not a layer
+at all. It depends on everything and nothing depends on it, and no C++ target
+links it.
 
 ### Comments
 
@@ -129,6 +137,9 @@ A pull request merges only when all of the following hold:
   by the benchmark methodology established in Phase 7 once that exists.
 - The README reflects reality. No claim appears there that is not reproducible
   by running a documented command.
+- The documentation site builds with no warnings: `doxygen docs/Doxyfile`. A
+  cross-reference that has gone dead is a failed build rather than a dead link on
+  the published site.
 - No AI attribution anywhere in the diff.
 
 ## Reporting a problem
