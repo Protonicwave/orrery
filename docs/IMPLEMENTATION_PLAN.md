@@ -526,6 +526,6 @@ and re-checked whenever kernels change.
 | 11 | Simulation driver, configuration and I/O | Complete |
 | 12 | Visualisation | Complete |
 | 13 | Python bindings | Complete |
-| 14 | Validation report, documentation and release | Not started |
+| 14 | Validation report, documentation and release | Complete |
 
 Update this table in the pull request that completes each phase.

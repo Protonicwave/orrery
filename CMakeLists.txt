@@ -10,7 +10,7 @@ cmake_minimum_required(VERSION 3.25)
 
 project(
   Orrery
-  VERSION 0.1.0
+  VERSION 1.0.0
   DESCRIPTION "GPU-accelerated N-body gravitational simulator"
   HOMEPAGE_URL "https://github.com/Protonicwave/orrery"
   LANGUAGES CXX)
