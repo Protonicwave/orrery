@@ -180,13 +180,19 @@ jobs:
       # alone. It is not taken because most Linux desktops now run Wayland, so a
       # job that checked only the X11 backend would be checking the display
       # server fewer of this project's users have.
+      #
+      # mesa-common-dev is separate from all of that and is needed by this
+      # project rather than by GLFW: GLFW's own header includes GL/gl.h, and a
+      # server image carries no OpenGL headers at all. It is the declarations
+      # that are wanted here and not a driver, which is the whole reason a job
+      # with no GPU can compile a renderer.
       - name: Install the window system headers and Ninja
         run: |
           set -o errexit
           sudo apt-get update
           sudo apt-get install --yes ninja-build libxinerama-dev libxcursor-dev \
             libxi-dev libxrandr-dev libxkbcommon-dev libwayland-dev \
-            libwayland-bin wayland-protocols
+            libwayland-bin wayland-protocols mesa-common-dev
 
       # This job cannot open a window and does not try. No hosted runner has a
       # display or an OpenGL 3.3 driver, so what is checked is what a machine
