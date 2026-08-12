@@ -77,6 +77,7 @@ Layers depend downwards only. No layer may include a header from a layer above
 it. This is enforced by directory structure and reviewed at every PR.
 
 ```
+python/              Extension module and the package around it
 apps/                Command-line simulator, viewer
 viz/                 Camera, tone mapping, point renderer, window
 sim/                 Simulation driver: owns solver, integrator, output, checkpoints
@@ -91,6 +92,15 @@ core/                Particle storage, vector maths, diagnostics, memory
 layers above may use it, which is why it sits between them rather than inside
 `core`: a Plummer model on the include path of every force kernel is not a
 foundational utility. ADR-0010 records the alternatives.
+
+`python/` was added in Phase 13. It is not a layer and the arrow-pointing-down
+rule does not apply to it: it depends on `sim/` and everything under it, nothing
+depends on it, and no C++ target links it. It sits above `apps/` in this list
+because it is the same kind of thing, a front door onto the library rather than
+a part of it, and it is a directory of its own rather than a subdirectory of
+`apps/` because it produces a library that an interpreter loads rather than a
+program that a shell runs. ADR-0039 records the choice of binding tool and
+ADR-0042 the packaging.
 
 `viz/` was added in Phase 12, where this list previously said the renderer was
 part of `apps/`. It sits beside `sim/` rather than under it: it depends on `core`
@@ -515,7 +525,7 @@ and re-checked whenever kernels change.
 | 10 | SYCL backend, tree traversal | Complete |
 | 11 | Simulation driver, configuration and I/O | Complete |
 | 12 | Visualisation | Complete |
-| 13 | Python bindings | Not started |
+| 13 | Python bindings | Complete |
 | 14 | Validation report, documentation and release | Not started |
 
 Update this table in the pull request that completes each phase.

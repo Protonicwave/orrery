@@ -22,11 +22,12 @@ benchmarked entirely on a single Lunar Lake laptop.
 > of the ceiling that binds the direct kernel on the CPU, at a cost that grows
 > as N log N rather than N^2, with no host-to-device copy anywhere, and it does
 > so for two million particles at about 0.6 seconds per force evaluation. A run
-> can be interrupted and resumed to a state identical in every bit, and there is
-> now a real-time renderer to watch one in, a pair of disc galaxies to point it
-> at, and a documented path from a run to an encoded video. What is missing is
-> the Python bindings. Progress is tracked
-> in the phase table in
+> can be interrupted and resumed to a state identical in every bit, there is a
+> real-time renderer to watch one in, a pair of disc galaxies to point it at, a
+> documented path from a run to an encoded video, and now Python bindings that
+> hand the particle state to NumPy without copying it. What is missing is the
+> validation report and the release that gathers all of it together. Progress is
+> tracked in the phase table in
 > [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md), and this README
 > gains results and figures as the phases that produce them land. Nothing is
 > claimed here before it can be reproduced.
@@ -503,6 +504,63 @@ the start: the merger virialising. The controls, the measurements, the
 demonstration and what the galaxy model does and does not claim to be are in
 [`docs/visualisation.md`](docs/visualisation.md) and ADR-0038.
 
+## Driving one from Python
+
+The same simulator, from a notebook, with the particle state as NumPy arrays
+that share memory with the run rather than copies of it:
+
+```
+pip install .
+```
+
+```python
+import orrery
+
+configuration = orrery.Configuration()
+configuration.initial_conditions.kind = orrery.InitialConditionKind.plummer
+configuration.initial_conditions.count = 4096
+configuration.run.timestep = 1.0 / 64.0
+configuration.run.steps = 1000
+configuration.solver.kind = orrery.SolverKind.barnes_hut
+configuration.solver.softening = 0.02
+
+simulation = orrery.assemble(configuration)
+before = simulation.measure()
+simulation.run(configuration.run.steps)
+
+x = simulation.particles.position_x   # a view of the solver's own memory
+```
+
+**Nothing is copied to read a state.** `x` is a NumPy array pointing into the
+array the force kernel writes into, so watching a million-particle run costs
+nothing per frame rather than eighty megabytes. That is asserted rather than
+claimed: the test suite writes through a view and requires the C++ side to
+report the change, then changes the state in C++ and requires the array to
+report that.
+
+Positions are held as three contiguous arrays rather than as one array of
+triples, because that is what makes the force kernel fast, so the interface
+offers the components and names the copy when you want one:
+`orrery.components(state)` gives three views and `orrery.stacked(state)` gives an
+`(N, 3)` array and says in its first line that it copies (ADR-0040). A running
+simulation's state is read-only, because the integrators require the
+accelerations to belong to the current positions and writing into a live run
+would break that silently (ADR-0041).
+
+A `Configuration` is the same record the configuration file parses into, so a
+run set up in Python is the run `orrery run` would perform, and
+`orrery.write_configuration` turns one into the other.
+
+Three example notebooks are in [`python/notebooks/`](python/notebooks). Every
+claim in them is asserted before it is plotted, so executing one is a check
+rather than a rendering, and continuous integration executes all three. They
+reproduce the project's validation results by a different route: the measured
+convergence orders come out at 1.9998, 4.0006 and 4.1659 against stated orders
+of 2, 4 and 4, which are the figures in the integrator table above.
+
+The interface, the lifetime rules and what is deliberately not bound are in
+[`docs/python.md`](docs/python.md).
+
 ## Target hardware
 
 Every performance decision in the project follows from one machine, so its
@@ -549,6 +607,7 @@ The presets are:
 | `sycl` | Release with the GPU backend. Needs the oneAPI DPC++ compiler |
 | `sycl-single-precision` | The same with `float`. The configuration the GPU figures come from |
 | `renderer` | Release with the viewer. Fetches GLFW and needs an OpenGL 3.3 driver |
+| `python` | Release with the extension module, importable from the build tree |
 | `lint` | Debug with clang-tidy running alongside the compiler. Needs Clang |
 
 Every one of them is exercised by continuous integration, along with a
@@ -579,6 +638,7 @@ cmake/            Build settings, dependency pins, lint integration
 include/          Public headers, under include/orrery/<layer>/
 src/              Implementation, one directory per layer
 apps/             The command-line simulator and the viewer
+python/           The extension module, the package, its tests and its notebooks
 examples/         Configuration files that run as they are
 tests/            Catch2 test suite, one executable per layer
 benchmarks/       Measurement programs. They report numbers rather than assert them
@@ -610,6 +670,8 @@ the simulator and nothing under `src/` depends on it.
   order, and what each phase has to demonstrate.
 - [Visualisation](docs/visualisation.md): the viewer's controls, what it costs,
   the demonstration scenario and the path from a run to a video.
+- [Python bindings](docs/python.md): installing, the zero-copy array interface,
+  the lifetime rules, and the example notebooks.
 - [File formats](docs/formats/): the configuration language, the binary
   trajectory and the checkpoint, each specified well enough to be read by
   something other than this program.
