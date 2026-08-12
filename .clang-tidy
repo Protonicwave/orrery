@@ -219,6 +219,18 @@ CheckOptions:
   # so the threshold is set above its size rather than at the default.
   - key: performance-unnecessary-value-param.AllowedTypes
     value: 'Vec3'
+  # Both of these libraries are included through one umbrella header that is the
+  # only header their documentation ever names, and both declare their symbols
+  # in private sub-headers underneath it. The include cleaner sees the sub-header
+  # a symbol came from and asks for it by name, which would mean writing
+  # <pybind11/detail/...> in this project's sources: an include of something the
+  # library does not consider part of its interface and is free to move. The
+  # exemption is per library rather than a disabled check, so every other
+  # include in the project is still checked.
+  #
+  # The pybind11 pattern carries both separators, for the reason
+  # HeaderFilterRegex above gives: a path on Windows arrives with backslashes,
+  # and a pattern written only with forward slashes matches none of them.
   - key: misc-include-cleaner.IgnoreHeaders
-    value: 'catch2/.*'
+    value: 'catch2/.*;.*[\\/]pybind11[\\/].*'
 ...
