@@ -94,6 +94,16 @@
       }
     },
     {
+      "name": "python",
+      "inherits": "base",
+      "displayName": "Release with the Python bindings",
+      "description": "Release with the extension module built into build/python/python/orrery, which is a directory that can be put on PYTHONPATH and imported without installing anything. Needs a Python interpreter with its development headers, and NumPy and pytest for the suite. Building a wheel does not use this preset: pip drives CMake itself through scikit-build-core.",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "ORRERY_BUILD_PYTHON": "ON"
+      }
+    },
+    {
       "name": "lint",
       "inherits": "base",
       "displayName": "Debug with clang-tidy",
@@ -136,6 +146,10 @@
     {
       "name": "renderer",
       "configurePreset": "renderer"
+    },
+    {
+      "name": "python",
+      "configurePreset": "python"
     },
     {
       "name": "lint",
@@ -193,6 +207,11 @@
       "name": "renderer",
       "inherits": "base",
       "configurePreset": "renderer"
+    },
+    {
+      "name": "python",
+      "inherits": "base",
+      "configurePreset": "python"
     }
   ]
 }

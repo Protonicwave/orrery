@@ -46,6 +46,13 @@ option(ORRERY_ENABLE_SYCL "Build the SYCL backend for the integrated GPU" OFF)
 # that show up as a black window live.
 option(ORRERY_ENABLE_RENDERER "Build the real-time renderer and the viewer" OFF)
 
+# Off by default for a third reason again: it needs a Python interpreter with
+# its development headers, and it produces an extension module rather than
+# anything the C++ side of the project links. It is switched on by the python
+# preset, by continuous integration, and by the wheel build, which configures
+# this project through scikit-build-core and needs nothing else from it.
+option(ORRERY_BUILD_PYTHON "Build the Python extension module" OFF)
+
 # Sanitisers are a list rather than a boolean because address and thread cannot
 # be combined, and later phases will want thread on its own once the scheduler
 # in Phase 6 exists.
@@ -61,8 +68,22 @@ include(Linting)
 include(Sycl)
 include(Dependencies)
 
+# Before any directory that registers a test. add_test only records a test in a
+# directory added after testing was enabled, so a call further down would leave
+# the bindings' suite silently unregistered: it would build, it would pass when
+# run by hand, and ctest would report that it did not exist.
+if(ORRERY_BUILD_TESTS)
+  enable_testing()
+endif()
+
 add_subdirectory(src)
 add_subdirectory(apps)
+
+# The bindings are a consumer of the library rather than a layer of it, so they
+# sit beside apps/ and are added after the layers they bind.
+if(ORRERY_BUILD_PYTHON)
+  add_subdirectory(python)
+endif()
 
 # Benchmarks before tests, which is the one place in this file where the order
 # matters. Phase 7's measurement harness is a library under benchmarks/, and
@@ -76,6 +97,5 @@ if(ORRERY_BUILD_BENCHMARKS)
 endif()
 
 if(ORRERY_BUILD_TESTS)
-  enable_testing()
   add_subdirectory(tests)
 endif()

@@ -170,16 +170,29 @@ jobs:
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       # GLFW builds against the window system's development headers, which a
-      # server image does not carry. These are the X11 packages its own
-      # documentation lists; Wayland would need a different set and is not built
-      # here, since what this job checks is that the code compiles rather than
-      # that it runs on any particular display server.
+      # server image does not carry. Both sets are installed, because GLFW 3.4
+      # on Linux enables X11 and Wayland together by default and stops at
+      # configure time if either is missing: wayland-scanner is a build tool
+      # rather than a library and lives in its own package, which is the piece
+      # that is easy to leave out.
+      #
+      # The alternative is to switch Wayland off and build the X11 backend
+      # alone. It is not taken because most Linux desktops now run Wayland, so a
+      # job that checked only the X11 backend would be checking the display
+      # server fewer of this project's users have.
+      #
+      # mesa-common-dev is separate from all of that and is needed by this
+      # project rather than by GLFW: GLFW's own header includes GL/gl.h, and a
+      # server image carries no OpenGL headers at all. It is the declarations
+      # that are wanted here and not a driver, which is the whole reason a job
+      # with no GPU can compile a renderer.
       - name: Install the window system headers and Ninja
         run: |
           set -o errexit
           sudo apt-get update
           sudo apt-get install --yes ninja-build libxinerama-dev libxcursor-dev \
-            libxi-dev libxrandr-dev libxkbcommon-dev
+            libxi-dev libxrandr-dev libxkbcommon-dev libwayland-dev \
+            libwayland-bin wayland-protocols mesa-common-dev
 
       # This job cannot open a window and does not try. No hosted runner has a
       # display or an OpenGL 3.3 driver, so what is checked is what a machine
@@ -199,6 +212,72 @@ jobs:
           cmake --preset renderer
           cmake --build --preset renderer
           ctest --preset renderer
+
+  python:
+    name: Python bindings ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # The bindings are built and tested on the three platforms the C++ library
+      # is, because an extension module is where the differences between them
+      # show up: the shared library it produces, the interpreter it has to link
+      # against and the way a wheel is tagged all differ.
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux
+            os: ubuntu-24.04
+          - name: macOS
+            os: macos-latest
+          - name: Windows
+            os: windows-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      # Installed as a wheel rather than built with the preset, because what a
+      # user of these bindings does is pip install, and that path exercises the
+      # packaging configuration as well as the code. The preset is the developer
+      # route and is covered by the pytest suite that ctest runs in the build
+      # matrix above.
+      #
+      # No Ninja and no compiler is named. scikit-build-core picks the platform
+      # default, which is one more compiler than the matrix above covers on
+      # macOS and Windows and the same one on Linux.
+      - name: Build and install the wheel
+        run: python -m pip install --verbose ".[notebooks,test]"
+
+      # From a directory that is not the repository root, so that the tests
+      # import the installed package rather than the source tree beside them.
+      # An import that only worked from the checkout is a package that does not
+      # work.
+      - name: Test the installed package
+        run: |
+          cd "${{ runner.temp }}"
+          python -m pytest -q "${{ github.workspace }}/python/tests"
+
+      # The definition of done for this phase is that the notebooks run from a
+      # clean environment and reproduce the figures the test suite asserts. Every
+      # claim in them is an assertion, so executing them is a check rather than a
+      # rendering: a figure that stopped matching would fail here.
+      #
+      # Agg because a hosted runner has no display, and --stdout so that no
+      # executed copy is written beside the committed one.
+      - name: Execute the example notebooks
+        env:
+          MPLBACKEND: Agg
+        run: |
+          python -m jupyter nbconvert --to notebook --execute --stdout \
+            python/notebooks/01_validation.ipynb > /dev/null
+          python -m jupyter nbconvert --to notebook --execute --stdout \
+            python/notebooks/02_solver_accuracy.ipynb > /dev/null
+          python -m jupyter nbconvert --to notebook --execute --stdout \
+            python/notebooks/03_galaxy_collision.ipynb > /dev/null
+        shell: bash
 
   format:
     name: clang-format

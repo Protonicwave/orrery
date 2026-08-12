@@ -47,6 +47,35 @@ if(ORRERY_ENABLE_RENDERER)
   FetchContent_MakeAvailable(glfw)
 endif()
 
+if(ORRERY_BUILD_PYTHON)
+  set(ORRERY_PYBIND11_VERSION 3.1.0)
+  set(ORRERY_PYBIND11_COMMIT 97bf890db679505a14dfe547a5e77bb2bd05dc90)
+
+  # The interpreter is found before pybind11 so that the choice of Python is
+  # this file's rather than a side effect of pybind11's own search. Development
+  # components are required rather than optional: a build configured with
+  # ORRERY_BUILD_PYTHON and no headers should fail here, naming what is
+  # missing, instead of failing later on an include of Python.h.
+  find_package(Python 3.9 REQUIRED COMPONENTS Interpreter Development.Module)
+
+  # FIND_PACKAGE_ARGS first, and it is the path that matters here rather than a
+  # convenience. Building a wheel runs CMake inside an isolated environment
+  # that already holds a pybind11 the build backend installed from
+  # pyproject.toml, and fetching a second copy over the network would make an
+  # offline wheel build impossible and let the two copies differ. The pin below
+  # is what a developer building the extension in the source tree gets, and it
+  # names the same release the packaging configuration asks pip for.
+  FetchContent_Declare(
+    pybind11
+    GIT_REPOSITORY https://github.com/pybind/pybind11.git
+    GIT_TAG ${ORRERY_PYBIND11_COMMIT}
+    GIT_SHALLOW FALSE
+    SYSTEM
+    FIND_PACKAGE_ARGS ${ORRERY_PYBIND11_VERSION} NAMES pybind11)
+
+  FetchContent_MakeAvailable(pybind11)
+endif()
+
 if(ORRERY_BUILD_TESTS)
   set(ORRERY_CATCH2_VERSION 3.15.3)
   set(ORRERY_CATCH2_COMMIT 8b08d4d79514f45f7e4ce2a607ac9c94e920d1bb)

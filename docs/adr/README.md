@@ -52,3 +52,7 @@ introduces it.
 | [0036](0036-tone-map-exported-frames-on-the-host.md) | Tone map exported frames on the host | Accepted |
 | [0037](0037-write-frames-as-ppm-and-encode-elsewhere.md) | Write frames as PPM and leave the encoding to an external tool | Accepted |
 | [0038](0038-sample-the-galaxy-as-a-scenario.md) | Sample the galaxy as a scenario rather than as an equilibrium model | Accepted |
+| [0039](0039-bind-to-python-with-pybind11.md) | Bind to Python with pybind11 | Accepted |
+| [0040](0040-expose-the-component-arrays-rather-than-triples.md) | Expose the component arrays rather than arrays of triples | Accepted |
+| [0041](0041-give-a-running-simulation-a-read-only-state-type.md) | Give a running simulation's state a read-only type of its own | Accepted |
+| [0042](0042-package-the-whole-project-from-the-repository-root.md) | Package the whole project from the repository root | Accepted |
