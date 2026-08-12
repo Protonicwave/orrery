@@ -1,0 +1,89 @@
+# Packaging for the Python bindings.
+#
+# This file sits at the root rather than beside the bindings because pip builds
+# a package from the directory holding pyproject.toml, and what has to be built
+# here is the whole C++ project: the extension links every layer of it. A
+# pyproject.toml under python/ would describe a package whose sources were all
+# above it, which is a thing sdists cannot express.
+#
+# scikit-build-core is the build backend, so `pip install .` runs CMake with the
+# settings below and packages what it installs. Nothing about the C++ build is
+# duplicated here; the four definitions are the ones a wheel needs to differ on.
+
+[build-system]
+requires = ["scikit-build-core>=0.10", "pybind11>=3.0"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "orrery"
+dynamic = ["version"]
+description = "A GPU-accelerated N-body gravitational simulator"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENCE" }
+keywords = ["n-body", "gravity", "simulation", "astrophysics", "barnes-hut"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: C++",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering :: Astronomy",
+  "Topic :: Scientific/Engineering :: Physics",
+]
+
+# NumPy is a hard requirement rather than an extra. The arrays this package
+# hands out are NumPy arrays, so a build of it without NumPy is not a smaller
+# installation but a broken one.
+dependencies = ["numpy>=1.23"]
+
+[project.optional-dependencies]
+# What the example notebooks need beyond the package itself. They are an extra
+# rather than a dependency because a program using the bindings needs none of
+# it, and jupyter is a large thing to install for somebody who wanted a solver.
+notebooks = ["jupyter>=1.0", "matplotlib>=3.6"]
+test = ["pytest>=7.0"]
+
+[project.urls]
+Homepage = "https://github.com/Protonicwave/orrery"
+Documentation = "https://github.com/Protonicwave/orrery/blob/main/docs/python.md"
+Source = "https://github.com/Protonicwave/orrery"
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+cmake.version = ">=3.25"
+build-dir = "build/wheel/{wheel_tag}"
+
+# The package sources come from the source tree and the extension from the
+# install step, and they meet inside the wheel's orrery directory. That is the
+# same arrangement python/CMakeLists.txt produces in a build tree, by a
+# different route, because it is the only one the package's own import can read.
+wheel.packages = ["python/orrery"]
+install.components = ["orrery_python"]
+
+[tool.scikit-build.cmake.define]
+ORRERY_BUILD_PYTHON = "ON"
+
+# The test suite and the measurement programs are not part of a wheel, and
+# building them would make an installation fetch Catch2 and compile several
+# hundred cases nobody is going to run.
+ORRERY_BUILD_TESTS = "OFF"
+ORRERY_BUILD_BENCHMARKS = "OFF"
+
+# A wheel may be built by a compiler this project has never been tested with,
+# on a machine whose owner wants a working install rather than a report on our
+# warning set. Continuous integration is where warnings are errors; here they
+# are warnings.
+ORRERY_WARNINGS_AS_ERRORS = "OFF"
+
+# One statement of the version, in the CMakeLists.txt that the C++ library also
+# reports through core::version(). Two would eventually differ, and the one a
+# result was filed against would depend on which half of the project reported
+# it.
+[tool.scikit-build.metadata.version]
+provider = "scikit_build_core.metadata.regex"
+input = "CMakeLists.txt"
+regex = '(?sm)project\s*\([^)]*VERSION\s+(?P<value>[0-9]+(\.[0-9]+)*)'
+
+[tool.pytest.ini_options]
+testpaths = ["python/tests"]
