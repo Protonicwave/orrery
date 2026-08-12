@@ -56,3 +56,5 @@ introduces it.
 | [0040](0040-expose-the-component-arrays-rather-than-triples.md) | Expose the component arrays rather than arrays of triples | Accepted |
 | [0041](0041-give-a-running-simulation-a-read-only-state-type.md) | Give a running simulation's state a read-only type of its own | Accepted |
 | [0042](0042-package-the-whole-project-from-the-repository-root.md) | Package the whole project from the repository root | Accepted |
+| [0043](0043-generate-the-site-with-the-tool-that-generates-the-reference.md) | Generate the site with the tool that generates the reference | Accepted |
+| [0044](0044-write-the-validation-report-rather-than-generating-it.md) | Write the validation report rather than generating it | Accepted |

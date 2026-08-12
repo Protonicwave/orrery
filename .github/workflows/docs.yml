@@ -1,0 +1,89 @@
+# The documentation site: built on every pull request, published from main.
+#
+# A workflow of its own rather than a job in ci.yml, because publishing needs
+# `pages: write` and `id-token: write`, and the checks that decide whether a
+# change is correct have no business holding permissions that can rewrite a
+# published site.
+#
+# The build half is a check like any other. Doxygen is configured to fail on a
+# warning (docs/Doxyfile), so a link that has gone dead or a reference that no
+# longer resolves fails a pull request here rather than appearing on the site.
+#
+# Actions are pinned to a commit rather than a tag, for the same reason the C++
+# dependencies are: a tag can be moved onto different code without anything in
+# this repository changing. ADR-0002.
+
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  # Pinned by version and checked by hash, so that the site a pull request
+  # builds is the site main publishes. The version matters here rather than
+  # being a formality: the Doxyfile uses GitHub-style heading anchors, which
+  # arrived in 1.10, and the version Ubuntu packages is older than that.
+  DOXYGEN_VERSION: "1.17.0"
+  DOXYGEN_SHA256: "75419ef4f446fc1c24ef12514b574e66e898ee6f527c6ae2ad84f91a905823c2"
+
+jobs:
+  build:
+    name: Build the site
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Install Doxygen
+        run: |
+          set -o errexit
+          archive="doxygen-${DOXYGEN_VERSION}.linux.bin.tar.gz"
+          curl --silent --show-error --location --output "${archive}" \
+            "https://github.com/doxygen/doxygen/releases/download/Release_${DOXYGEN_VERSION//./_}/${archive}"
+          echo "${DOXYGEN_SHA256}  ${archive}" | sha256sum --check --strict
+          tar --extract --file "${archive}"
+          echo "${PWD}/doxygen-${DOXYGEN_VERSION}/bin" >> "${GITHUB_PATH}"
+
+      # From the repository root, which is what every path in the Doxyfile
+      # assumes and what a reader running it by hand will be sitting in.
+      - name: Build
+        run: |
+          set -o errexit
+          doxygen --version
+          doxygen docs/Doxyfile
+
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
+        with:
+          path: build/html
+
+  deploy:
+    name: Publish to GitHub Pages
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    # One deployment at a time, and a deployment in flight is allowed to finish.
+    # Cancelling it would leave the site as whatever half of it had been served,
+    # which is the one state worse than being briefly out of date.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5
