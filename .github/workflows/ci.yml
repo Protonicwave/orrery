@@ -170,16 +170,23 @@ jobs:
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       # GLFW builds against the window system's development headers, which a
-      # server image does not carry. These are the X11 packages its own
-      # documentation lists; Wayland would need a different set and is not built
-      # here, since what this job checks is that the code compiles rather than
-      # that it runs on any particular display server.
+      # server image does not carry. Both sets are installed, because GLFW 3.4
+      # on Linux enables X11 and Wayland together by default and stops at
+      # configure time if either is missing: wayland-scanner is a build tool
+      # rather than a library and lives in its own package, which is the piece
+      # that is easy to leave out.
+      #
+      # The alternative is to switch Wayland off and build the X11 backend
+      # alone. It is not taken because most Linux desktops now run Wayland, so a
+      # job that checked only the X11 backend would be checking the display
+      # server fewer of this project's users have.
       - name: Install the window system headers and Ninja
         run: |
           set -o errexit
           sudo apt-get update
           sudo apt-get install --yes ninja-build libxinerama-dev libxcursor-dev \
-            libxi-dev libxrandr-dev libxkbcommon-dev
+            libxi-dev libxrandr-dev libxkbcommon-dev libwayland-dev \
+            libwayland-bin wayland-protocols
 
       # This job cannot open a window and does not try. No hosted runner has a
       # display or an OpenGL 3.3 driver, so what is checked is what a machine
