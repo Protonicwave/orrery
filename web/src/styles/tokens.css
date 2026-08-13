@@ -65,9 +65,16 @@
   /* ── The reading half ─────────────────────────────────────────────────
    * You observe in the dome and you read in the library. Same type system,
    * same hairlines, opposite value.
+   *
+   * The ramp is the instrument's inverted rather than a second palette: a
+   * heading, the running prose under it, and the matter beside the prose. All
+   * three are measured against --paper the way the ink ramp is measured against
+   * --chrome: paper-ink 16.7:1, paper-ink-body 13.4:1, paper-ink-2 6.3:1.
+   * --paper-rule is furniture and carries no text.
    */
   --paper: #f3f0e9;
   --paper-ink: #16181a;
+  --paper-ink-body: #24262a;
   --paper-ink-2: #55585c;
   --paper-rule: #d5d1c7;
   --paper-recessed: #eae6dd;
@@ -92,7 +99,9 @@
   --type-value: 12px; /* a value being read */
   --type-base: 13px; /* interface body */
   --type-lede: 16.5px; /* the reading half */
+  --type-opening: 18px; /* the paragraph a method page opens with */
   --type-display: 26px; /* the exposure heads-up readout */
+  --type-title: 31px; /* the title of a method page */
 
   --tracking-label: 0.14em;
   --tracking-nav: 0.13em;
@@ -120,6 +129,12 @@
   --transport-height: 46px;
   --console-height: 252px;
   --rail-width: 268px;
+
+  /* The width a line of the reading half is set to. About seventy characters
+   * at --type-lede, which is the measure a paragraph is read at rather than
+   * scanned at.
+   */
+  --measure: 640px;
 
   /* ── Focus ────────────────────────────────────────────────────────────
    * A one pixel brass outline, offset so it never sits on the control it is

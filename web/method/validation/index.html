@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Validation · Orrery</title>
+    <meta
+      name="description"
+      content="What Orrery is checked against: analytic results, a compensated reference kernel, and direct summation in double precision."
+    />
+
+    <link rel="preload" href="/fonts/source-serif-400.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/source-serif-600.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/plex-sans-500.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/plex-mono-400.woff2" as="font" type="font/woff2" crossorigin />
+
+    <link rel="stylesheet" href="/src/styles/paper.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#method">Skip to the argument</a>
+
+    <header class="masthead">
+      <div class="wordmark">
+        <svg class="rings" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <circle cx="8" cy="8" r="7" stroke-width="1" />
+          <circle cx="8" cy="8" r="4.2" stroke-width="1" />
+          <circle class="sun" cx="8" cy="8" r="1.5" />
+          <circle class="body" cx="15" cy="8" r="1.1" />
+          <circle class="moon" cx="8" cy="3.8" r="1" />
+        </svg>
+        <b>Orrery</b>
+      </div>
+
+      <nav class="nav" aria-label="Sections">
+        <a href="../../">Instrument</a>
+        <a href="../" aria-current="page">Method</a>
+        <a href="https://protonicwave.github.io/orrery/">Reference</a>
+      </nav>
+    </header>
+
+    <main class="paper" id="method">
+      <div class="measure">
+        <div class="eyebrow">Method · validation</div>
+
+        <h1>What is checked, and against what</h1>
+
+        <p class="lede">
+          The code is compared against problems whose answers were known before
+          it was written, and never against its own earlier output except where
+          the claim being made is bitwise reproducibility. Every claim below
+          names the test that makes it, so a reader who does not believe one can
+          run it rather than take it.
+        </p>
+
+        <div class="cmd">cmake --preset release
+cmake --build --preset release
+ctest --preset release</div>
+
+        <p>
+          That is
+          <span class="num" data-source="docs/validation.md">311</span> cases and
+          about eleven seconds. One case skips without an Intel GPU present, and
+          reports that it skipped rather than passing quietly. Four of the
+          presets are checks in their own right rather than conveniences:
+          <span class="num">single-precision</span> runs the same assertions
+          against <span class="num">float</span> with the tolerances that build’s
+          own epsilon implies,
+          <span class="num">sanitise</span> and
+          <span class="num">thread-sanitise</span> run them under the address,
+          undefined-behaviour and thread sanitisers, and
+          <span class="num">sycl</span> adds the GPU cases.
+        </p>
+
+        <h2>Three references, and which one applies</h2>
+
+        <p>
+          <b>Analytic results</b> are the strongest statements available, because
+          nothing about them comes from this repository: Kepler’s third law, the
+          virial theorem for a Plummer sphere, the potential energy of a uniform
+          sphere, and the acceleration of a two-body pair at separations where
+          the binary arithmetic is exact.
+        </p>
+
+        <p>
+          <b>A compensated reference kernel</b> sums the same softened force law
+          with every term formed in double precision whatever the build’s scalar
+          type, accumulated with Neumaier compensation, so its own summation
+          error is negligible against whatever it is measuring. It is itself
+          checked against the analytic two-body case before it is trusted to
+          judge anything, and that check compares for equality rather than
+          against a tolerance.
+        </p>
+
+        <p>
+          <b>Direct summation in double precision</b> is the reference for every
+          approximation: the tree solver at each opening angle, the quadrupole
+          option, the single-precision builds and both GPU solvers. It is not
+          deleted once faster methods exist, and it is what the faster methods
+          have to answer to. Comparing two approximations against each other
+          would say they are wrong in the same way rather than that either is
+          right.
+        </p>
+
+        <h2>The order of a method, recovered from a measurement</h2>
+
+        <p>
+          Halving the timestep divides the error of a method of order p by two to
+          the p, so the ratio of the errors at two step sizes recovers p from a
+          measurement. A method whose arithmetic was subtly wrong would still
+          integrate something and would still produce plausible orbits; it would
+          not produce the right power. Measured on a circular orbit, whose exact
+          state after one period is the state it started in.
+        </p>
+
+        <div class="wide">
+          <table class="results" data-source="docs/validation.md">
+            <caption>
+              Measured order, and what a step of each method costs
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Method</th>
+                <th scope="col">Stated order</th>
+                <th scope="col">Measured</th>
+                <th scope="col">Force evaluations</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Velocity Verlet</th>
+                <td class="n">2</td>
+                <td class="n">1.9998</td>
+                <td class="n">1</td>
+              </tr>
+              <tr>
+                <th scope="row">Yoshida 4</th>
+                <td class="n">4</td>
+                <td class="n">4.0006</td>
+                <td class="n">3</td>
+              </tr>
+              <tr>
+                <th scope="row">RK4</th>
+                <td class="n">4</td>
+                <td class="n">4.1670</td>
+                <td class="n">4</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          The same three orders come out of the Python notebooks by an
+          independent route, at
+          <span class="num" data-source="docs/validation.md">1.9998</span>,
+          <span class="num" data-source="docs/validation.md">4.0006</span> and
+          <span class="num" data-source="docs/validation.md">4.1659</span>, and
+          continuous integration executes those notebooks on every change.
+        </p>
+
+        <h2>The counterexample</h2>
+
+        <p>
+          The most informative single comparison the project makes, and the
+          reason it integrates with a second-order method by default rather than
+          a fourth-order one. An eccentric orbit at two hundred steps per orbit,
+          integrated for four hundred orbits, with the energy sampled twenty
+          times per orbit so that the envelope of the oscillation is measured
+          rather than one point on it.
+        </p>
+
+        <div class="wide">
+          <table class="results" data-source="docs/validation.md">
+            <caption>
+              Relative energy error, first twentieth of the run against the last
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Method</th>
+                <th scope="col">First twentieth</th>
+                <th scope="col">Last twentieth</th>
+                <th scope="col">Behaviour</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Velocity Verlet</th>
+                <td class="n" data-says="2.6894e-3">2.6894×10<sup>−3</sup></td>
+                <td class="n" data-says="2.6894e-3">2.6894×10<sup>−3</sup></td>
+                <td>Bounded</td>
+              </tr>
+              <tr>
+                <th scope="row">Yoshida 4</th>
+                <td class="n" data-says="2.0170e-5">2.0170×10<sup>−5</sup></td>
+                <td class="n" data-says="2.0170e-5">2.0170×10<sup>−5</sup></td>
+                <td>Bounded</td>
+              </tr>
+              <tr>
+                <th scope="row">RK4</th>
+                <td class="n" data-says="1.92e-5">1.92×10<sup>−5</sup></td>
+                <td class="n" data-says="3.72e-4">3.72×10<sup>−4</sup></td>
+                <td>Growing</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          The two symplectic methods return the same error at the end of four
+          hundred orbits as they had at the start, to six digits. A symplectic
+          integrator does not conserve the energy of the system it was given; it
+          conserves the energy of a nearby system exactly, and the difference
+          depends on the timestep rather than on how long the run has been going.
+          RK4 has no such structure to fall back on. Its error is an
+          accumulation, it is nineteen times further out by the end of this run
+          and still moving, and it costs four force evaluations a step against
+          Yoshida’s three to get there.
+        </p>
+
+        <p>
+          The same result appears in a column of a CSV file from the command
+          line, over three thousand orbits rather than four hundred.
+        </p>
+
+        <div class="cmd">orrery run examples/kepler.orrery
+orrery run examples/kepler.orrery --set integrator.kind=rk4 \
+    --set output.diagnostics_path=kepler-rk4.csv</div>
+
+        <p>
+          Velocity Verlet gives
+          <span class="num" data-source="docs/validation.md" data-says="2.685e-3"
+            >2.685×10<sup>−3</sup></span
+          >
+          in the first twentieth and
+          <span class="num" data-source="docs/validation.md" data-says="2.689e-3"
+            >2.689×10<sup>−3</sup></span
+          >
+          in the last. RK4 starts twenty times more accurate at
+          <span class="num" data-source="docs/validation.md" data-says="1.30e-4"
+            >1.30×10<sup>−4</sup></span
+          >
+          and finishes at
+          <span class="num" data-source="docs/validation.md" data-says="2.783e-3"
+            >2.783×10<sup>−3</sup></span
+          >, having just overtaken it.
+          <a href="../../?run=kepler">The instrument plays that orbit</a>, and its
+          energy plot is the envelope this table describes.
+        </p>
+
+        <h2>The two-body problem, and a rotating axis</h2>
+
+        <p>
+          A two-body orbit has a closed solution, and an eccentric one is
+          sensitive to the exact form of the force law rather than only to its
+          scale. The orbit closes after one period to
+          <span class="num" data-source="docs/validation.md" data-says="8.8e-6"
+            >8.8×10<sup>−6</sup></span
+          >
+          relative at twenty thousand steps, and to
+          <span class="num" data-source="docs/validation.md" data-says="8.6e-4"
+            >8.6×10<sup>−4</sup></span
+          >
+          at two thousand. Those two figures are one result rather than two: ten
+          times the step gives a hundred times the error, which is what a
+          second-order method promises and what a mistake in the solver would not
+          deliver.
+        </p>
+
+        <p>
+          The precession test is the one worth reading twice. The axis of the
+          eccentric orbit turns by
+          <span class="num" data-source="docs/validation.md" data-says="9.7e-4"
+            >9.7×10<sup>−4</sup></span
+          >
+          radians per revolution, and a rotating axis is either a force law that
+          is not an exact inverse square, which Bertrand’s theorem makes the only
+          other possibility for a closed orbit, or an artefact of the integrator.
+          The two are told apart by halving the timestep: an artefact falls by
+          four and a wrong exponent does not move. The measured ratio is
+          <span class="num" data-source="docs/validation.md">3.99</span>. That is
+          velocity Verlet’s second-order phase error and not the physics, and it
+          is the difference between bounding a number and explaining it.
+        </p>
+
+        <h2>How accurate the kernels are</h2>
+
+        <p>
+          Against the compensated reference, over a 2048-particle Plummer sphere
+          with a fixed seed. Every available kernel is required to stay inside
+          two hundred times the square root of N times the machine epsilon, and
+          the vector kernel is separately required to be no worse than the scalar
+          one.
+        </p>
+
+        <div class="wide">
+          <table class="results" data-source="docs/validation.md">
+            <caption>Relative error against the compensated reference</caption>
+            <thead>
+              <tr>
+                <th scope="col">Build</th>
+                <th scope="col">Kernel</th>
+                <th scope="col">Worst</th>
+                <th scope="col">Root mean square</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">double</th>
+                <td>scalar</td>
+                <td class="n" data-says="3.24e-15">3.24×10<sup>−15</sup></td>
+                <td class="n" data-says="8.8e-16">8.8×10<sup>−16</sup></td>
+              </tr>
+              <tr>
+                <th scope="row">double</th>
+                <td>avx2</td>
+                <td class="n" data-says="9.5e-16">9.5×10<sup>−16</sup></td>
+                <td class="n" data-says="2.5e-16">2.5×10<sup>−16</sup></td>
+              </tr>
+              <tr>
+                <th scope="row">float</th>
+                <td>scalar</td>
+                <td class="n" data-says="1.88e-6">1.88×10<sup>−6</sup></td>
+                <td class="n" data-says="4.78e-7">4.78×10<sup>−7</sup></td>
+              </tr>
+              <tr>
+                <th scope="row">float</th>
+                <td>avx2</td>
+                <td class="n" data-says="3.60e-7">3.60×10<sup>−7</sup></td>
+                <td class="n" data-says="8.35e-8">8.35×10<sup>−8</sup></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          Vectorising the sum improves it, by a factor of
+          <span class="num" data-source="docs/validation.md">3.5</span> in double
+          precision and
+          <span class="num" data-source="docs/validation.md">5.7</span> in single.
+          Keeping one partial sum per lane turns one sum of n terms into four or
+          eight sums of a quarter or an eighth of them, and a shorter sum rounds
+          less. The reassociation a vector kernel is usually apologised for is
+          where some of the error goes rather than where it comes from. No
+          fast-math flag is set anywhere in this project, and the one compiler
+          that defaults to relaxed arithmetic is explicitly put back to strict,
+          because a compiler permitted to reassociate may delete the compensation
+          in the reference kernel and leave the project measuring everything
+          against nothing.
+        </p>
+
+        <h2>What approximating costs, against what single precision costs</h2>
+
+        <p>
+          An opening angle of zero reproduces direct summation to
+          <span class="num" data-source="docs/validation.md" data-says="2e-13"
+            >2×10<sup>−13</sup></span
+          >, having accepted no cells at all and computed exactly N(N−1) pairs:
+          the same physics reached by a different route, through a different
+          particle order and a different loop. At the default angle the tree’s
+          error is three orders of magnitude larger than the single-precision
+          direct kernel’s own
+          <span class="num" data-source="docs/validation.md" data-says="3.7e-6"
+            >3.7×10<sup>−6</sup></span
+          >
+          at 65536 particles. Approximating the physics costs far more accuracy
+          than computing it in single precision does, and that is the single most
+          useful accuracy fact the project has measured.
+        </p>
+
+        <h2>What is not validated</h2>
+
+        <p>
+          There is no analytic solution to compare a many-body run against.
+          Beyond two bodies the problem is chaotic, so a cluster or a collision is
+          checked through its invariants, its diagnostics and the reversibility of
+          its integrator, and not against a known trajectory. Nothing in this
+          project claims a particular long-duration N-body trajectory is correct
+          in detail, and nothing could.
+        </p>
+
+        <p>
+          The tree solver does not conserve momentum, because a tree is not
+          symmetric: particle i may see j through a cell while j sees i directly.
+          The suite measures the size of that violation and requires that closing
+          the opening angle reduces it, which is the true statement, instead of
+          asserting a zero that is not. The renderer’s drawing is not tested
+          either: what is tested is everything under it that is arithmetic, and
+          the drawing itself is checked by looking at it. The GPU evidence comes
+          from one device.
+        </p>
+
+        <p class="foot">
+          <span class="num" data-source="docs/validation.md">311</span> cases ·
+          <span class="num" data-source="docs/validation.md">39</span> validation
+          · <span class="num" data-source="docs/validation.md">36</span> property
+          · <span class="num" data-source="docs/validation.md">3</span> regression
+          · <span class="num" data-source="docs/validation.md">164</span> unit<br />
+          Next: <a href="../performance/">every speed, and what it is a fraction
+          of</a> · <a href="../../?run=kepler">play the Kepler run</a>
+        </p>
+      </div>
+    </main>
+  </body>
+</html>

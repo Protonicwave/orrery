@@ -63,38 +63,6 @@ jobs:
           doxygen --version
           doxygen docs/Doxyfile
 
-      # The gallery is a run of the simulator, not a file in the repository.
-      # Trajectories are large and reproducible from a configuration and a seed,
-      # so they are generated here from examples/ by the code being published
-      # beside them. The cache key covers everything that decides what comes
-      # out: the solver, the initial conditions, the configurations and the
-      # definition of what is published. A change to any of them runs it again.
-      - name: Restore the published gallery
-        id: gallery
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: web/public/gallery
-          key: >-
-            gallery-${{ hashFiles('src/**', 'include/**', 'apps/**',
-            'examples/*.orrery', 'web/src/gallery/runs.ts',
-            'web/tools/publish_gallery.ts') }}
-
-      - name: Install Ninja
-        if: steps.gallery.outputs.cache-hit != 'true'
-        run: sudo apt-get update && sudo apt-get install --yes ninja-build
-
-      # Single precision, which is what every published run is written in and
-      # what the publishing tool checks the binary for. See web/src/gallery.
-      - name: Build the simulator
-        if: steps.gallery.outputs.cache-hit != 'true'
-        env:
-          CXX: clang++
-        run: |
-          set -o errexit
-          cmake --preset single-precision -DORRERY_BUILD_TESTS=OFF \
-            -DORRERY_BUILD_BENCHMARKS=OFF
-          cmake --build --preset single-precision --target orrery
-
       # Pinned to a version rather than a range, and to a long-term support
       # release that runs TypeScript directly, which is what the client's own
       # tools are written in.
@@ -112,13 +80,12 @@ jobs:
         working-directory: web
         run: npm ci
 
-      # After the dependencies, because the tool is TypeScript that imports the
-      # gallery's definition, and before the build, because Vite copies what is
-      # in public/ into the site.
+      # After the dependencies, because the tool imports the gallery's own
+      # definition, and before the build, because Vite copies what is in
+      # public/ into the site. The same action gives the browser tests in
+      # ci.yml the runs they draw.
       - name: Publish the gallery
-        if: steps.gallery.outputs.cache-hit != 'true'
-        working-directory: web
-        run: npm run gallery -- ../build/single-precision/apps/orrery
+        uses: ./.github/actions/gallery
 
       - name: Build the client
         working-directory: web

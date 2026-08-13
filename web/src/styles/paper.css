@@ -1,0 +1,336 @@
+@import "./base.css";
+
+/* The reading half.
+ *
+ * You observe in the dome and you read in the library. These pages are the same
+ * type system as the instrument at the opposite value: the same three faces, the
+ * same hairlines, the same tokens, the same masthead across the top. Nothing
+ * here defines a colour or a size of its own, for the same reason no component
+ * does.
+ *
+ * They are also the only pages in the client that run no JavaScript, which is
+ * why this is a plain stylesheet rather than a module: there is no component to
+ * scope it to. ADR-0050.
+ */
+
+body {
+  background: var(--paper);
+  color: var(--paper-ink-body);
+}
+
+/* Brass at full strength is 2.4:1 against paper, which is under the three to
+ * one a non-text indicator has to hold, so the ring on these pages is the
+ * dimmer of the two brasses at 4.7:1. It is the same accent doing the same job
+ * against a background of the opposite value, not a second decision.
+ */
+:focus-visible {
+  outline: var(--hairline) solid var(--brass-dim);
+}
+
+/* The same skip link the instrument has, drawn in this half's values. */
+.skip-link {
+  background: var(--paper-recessed);
+  border-color: var(--paper-ink-2);
+  color: var(--paper-ink);
+}
+
+/* A link in the prose keeps the colour of the sentence it sits in and is marked
+ * by its underline instead, so that colour is never what carries it. Set before
+ * the navigation below, which is more specific and has to win.
+ */
+a {
+  color: inherit;
+  text-decoration-color: var(--paper-ink-2);
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  text-decoration-color: var(--paper-ink);
+}
+
+/* ── The masthead, shared with the instrument ───────────────────────────────
+ * The same height, the same rule under it, the same wordmark and the same
+ * navigation, so that arriving here from the instrument is arriving at a
+ * different page of one thing rather than at a different site.
+ */
+.masthead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-9);
+  padding: 0 var(--space-7);
+  height: var(--masthead-height);
+  border-bottom: var(--hairline) solid var(--paper-rule);
+}
+
+.wordmark {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.wordmark b {
+  font-weight: 600;
+  font-size: 12.5px;
+  letter-spacing: var(--tracking-wordmark);
+  text-transform: uppercase;
+  color: var(--paper-ink);
+}
+
+.rings circle {
+  stroke: var(--paper-ink-2);
+}
+
+.rings .sun {
+  fill: var(--brass-dim);
+}
+
+.rings .body,
+.rings .moon {
+  fill: var(--paper-ink-2);
+}
+
+.nav {
+  display: flex;
+  gap: var(--space-8);
+  margin-left: var(--space-1);
+}
+
+.nav a {
+  color: var(--paper-ink-2);
+  text-decoration: none;
+  font-size: var(--type-mini);
+  letter-spacing: var(--tracking-nav);
+  text-transform: uppercase;
+  font-weight: 500;
+  padding: var(--space-1) 0;
+  border-bottom: var(--hairline) solid transparent;
+}
+
+.nav a:hover {
+  color: var(--paper-ink);
+}
+
+/* Marked by a rule as well as by its colour, so the mark survives being unable
+ * to see the brass.
+ */
+.nav a[aria-current] {
+  color: var(--paper-ink);
+  border-bottom-color: var(--brass-dim);
+}
+
+/* ── The page ───────────────────────────────────────────────────────────── */
+.paper {
+  padding: var(--space-9) 0 88px;
+}
+
+.measure {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 0 var(--space-9);
+}
+
+/* What kind of page this is, set as instrument lettering rather than as a
+ * heading, because it names a register and is not part of the argument.
+ */
+.eyebrow {
+  font-family: var(--sans);
+  font-size: var(--type-label);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--paper-ink-2);
+  margin-bottom: var(--space-8);
+  padding-bottom: var(--space-4);
+  border-bottom: var(--hairline) solid var(--paper-rule);
+}
+
+h1 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: var(--type-title);
+  line-height: var(--leading-tight);
+  letter-spacing: -0.012em;
+  margin-bottom: var(--space-8);
+  max-width: 15em;
+  color: var(--paper-ink);
+}
+
+/* One level of subheading and no more. A method page is an argument in order
+ * rather than a reference to be navigated, and a third level would be an
+ * invitation to write one.
+ */
+h2 {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: var(--type-small);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--paper-ink);
+  margin: 40px 0 var(--space-5);
+}
+
+p {
+  font-family: var(--serif);
+  font-size: var(--type-lede);
+  line-height: var(--leading-prose);
+  margin-bottom: var(--space-8);
+}
+
+p.lede {
+  font-size: var(--type-opening);
+  color: var(--paper-ink);
+}
+
+/* A figure inside a sentence is set in the face the instrument sets its values
+ * in, so a number reads as a number wherever it appears.
+ */
+.num {
+  font-family: var(--mono);
+  font-size: 0.86em;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.paper .label,
+.paper .unit {
+  color: var(--paper-ink-2);
+}
+
+/* The command that reproduces the claim above it. Every figure on these pages
+ * has one, which is the standard the README keeps.
+ */
+.cmd {
+  font-family: var(--mono);
+  font-size: var(--type-data);
+  line-height: 1.75;
+  color: var(--paper-ink-body);
+  background: var(--paper-recessed);
+  padding: var(--space-5) var(--space-6);
+  margin: 0 0 var(--space-8);
+  overflow-x: auto;
+  white-space: pre;
+}
+
+/* ── Tables ─────────────────────────────────────────────────────────────────
+ * Ruled, never boxed: a rule under the head and a hairline between the rows.
+ * Figures are monospaced and right-aligned so the decimal points line up down
+ * the column, which is the whole reason a results table is worth setting.
+ */
+.results {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 var(--space-8);
+  font-family: var(--sans);
+  font-size: var(--type-value);
+}
+
+.results caption {
+  text-align: left;
+  font-size: var(--type-label);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--paper-ink-2);
+  padding-bottom: var(--space-4);
+}
+
+.results th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--paper-ink-2);
+  font-size: var(--type-mini);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  padding: 0 0 var(--space-3);
+  border-bottom: var(--hairline) solid var(--paper-ink);
+}
+
+.results td {
+  padding: 7px 0;
+  border-bottom: var(--hairline) solid var(--paper-rule);
+  color: var(--paper-ink-body);
+}
+
+.results td:not(:first-child),
+.results th:not(:first-child) {
+  text-align: right;
+  padding-left: var(--space-7);
+}
+
+.results td.n {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.results tbody th {
+  border-bottom: var(--hairline) solid var(--paper-rule);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: var(--type-value);
+  font-family: var(--sans);
+  color: var(--paper-ink-body);
+  padding: 7px 0;
+}
+
+/* A table wide enough to need it scrolls inside its own box rather than making
+ * the page scroll sideways.
+ */
+.wide {
+  overflow-x: auto;
+  margin-bottom: var(--space-8);
+}
+
+.wide .results {
+  margin-bottom: 0;
+  min-width: 480px;
+}
+
+/* ── The contents page ──────────────────────────────────────────────────── */
+.contents {
+  list-style: none;
+  margin: 0 0 var(--space-8);
+}
+
+.contents li {
+  border-top: var(--hairline) solid var(--paper-rule);
+  padding: var(--space-6) 0;
+}
+
+.contents a {
+  font-family: var(--serif);
+  font-size: var(--type-opening);
+  color: var(--paper-ink);
+}
+
+.contents p {
+  margin: var(--space-2) 0 0;
+  font-size: var(--type-lede);
+}
+
+/* ── The foot ───────────────────────────────────────────────────────────────
+ * Where the page came from and where to go next, set in the interface's own
+ * lettering rather than in the serif, because it is furniture and not argument.
+ */
+.foot {
+  margin-top: 40px;
+  padding-top: var(--space-6);
+  border-top: var(--hairline) solid var(--paper-rule);
+  font-family: var(--mono);
+  font-size: var(--type-mini);
+  color: var(--paper-ink-2);
+  line-height: 1.9;
+}
+
+.foot a {
+  color: var(--paper-ink-body);
+}
+
+@media (max-width: 700px) {
+  .masthead {
+    height: auto;
+    padding: var(--space-4) var(--space-5);
+    flex-wrap: wrap;
+    gap: var(--space-5);
+  }
+
+  h1 {
+    font-size: var(--type-display);
+  }
+}

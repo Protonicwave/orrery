@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Method · Orrery</title>
+    <meta
+      name="description"
+      content="What Orrery claims, what each claim is measured against, and the command that makes it again."
+    />
+
+    <!--
+      The reading half sets the serif and marks its figures in the mono. Four
+      faces, each cut to the characters the design sets, preloaded so that
+      nothing moves when they land.
+    -->
+    <link rel="preload" href="/fonts/source-serif-400.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/source-serif-600.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/plex-sans-500.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/plex-mono-400.woff2" as="font" type="font/woff2" crossorigin />
+
+    <link rel="stylesheet" href="/src/styles/paper.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#method">Skip to the contents</a>
+
+    <header class="masthead">
+      <div class="wordmark">
+        <!-- Concentric rings: the instrument the project is named after. -->
+        <svg class="rings" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <circle cx="8" cy="8" r="7" stroke-width="1" />
+          <circle cx="8" cy="8" r="4.2" stroke-width="1" />
+          <circle class="sun" cx="8" cy="8" r="1.5" />
+          <circle class="body" cx="15" cy="8" r="1.1" />
+          <circle class="moon" cx="8" cy="3.8" r="1" />
+        </svg>
+        <b>Orrery</b>
+      </div>
+
+      <nav class="nav" aria-label="Sections">
+        <a href="../">Instrument</a>
+        <a href="./" aria-current="page">Method</a>
+        <a href="https://protonicwave.github.io/orrery/">Reference</a>
+      </nav>
+    </header>
+
+    <main class="paper" id="method">
+      <div class="measure">
+        <div class="eyebrow">Method</div>
+
+        <h1>Every claim, and the command that makes it again</h1>
+
+        <p class="lede">
+          This project puts correctness that can be demonstrated ahead of speed,
+          and speed that can be quantified ahead of elegance. What follows is
+          that order spent: four pages, each of which states what is claimed,
+          what the claim was measured against, and how to run the measurement.
+        </p>
+
+        <p>
+          Nothing on these pages is a figure this repository cannot produce
+          again. Where a number is quoted, the command that produces it is
+          printed beneath it, and where a measurement varies from session to
+          session the spread is printed beside the median rather than left out.
+          That last rule is the one that costs something, and
+          <a href="./performance/">the performance report</a> says what it
+          costs.
+        </p>
+
+        <ul class="contents">
+          <li>
+            <a href="./demonstration/">The demonstration</a>
+            <p>
+              Two disc galaxies on a bound, grazing encounter: what the
+              configuration says, which of its settings the result is sensitive
+              to, and what the run costs to compute and to draw.
+            </p>
+          </li>
+          <li>
+            <a href="./validation/">Validation</a>
+            <p>
+              The analytic comparisons, the convergence study that recovers each
+              integrator’s order from a measurement, and the counterexample that
+              decides which integrator is the default.
+            </p>
+          </li>
+          <li>
+            <a href="./performance/">Performance</a>
+            <p>
+              Every speed as a fraction of a ceiling measured on the same
+              machine in the same session, with the spread and the drift beside
+              each median, and an account of which figures reproduce.
+            </p>
+          </li>
+          <li>
+            <a href="./solvers/">The solvers</a>
+            <p>
+              Four implementations of one interface, what each is fastest at,
+              and the decisions that let a GPU backend be added without becoming
+              a second copy of the physics.
+            </p>
+          </li>
+        </ul>
+
+        <p class="foot">
+          The instrument plays three of these runs:
+          <a href="../?run=kepler">Kepler</a>,
+          <a href="../?run=cluster">the cluster</a> and
+          <a href="../?run=collision">the collision</a>.<br />
+          The reference documentation, generated from the headers, is at
+          <a href="https://protonicwave.github.io/orrery/">the documentation site</a>.
+        </p>
+      </div>
+    </main>
+  </body>
+</html>

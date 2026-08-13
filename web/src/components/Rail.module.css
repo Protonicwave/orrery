@@ -89,3 +89,12 @@
   line-height: 1.55;
   color: var(--ink-3);
 }
+
+/* A link out of the instrument and into the reading half. Underlined as well
+ * as lifted a step up the ink ramp, so that it is a link without brass having
+ * to say so: the accent is spent on the instant, and a link is not one.
+ */
+.provenance a {
+  color: var(--ink);
+  text-underline-offset: 2px;
+}

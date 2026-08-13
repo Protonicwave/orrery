@@ -32,12 +32,14 @@ the backend, as `?renderer=webgl2`, which is what makes the two comparable.
 ## Layout
 
 ```
+method/           The reading half: four arguments and a contents, as HTML
 src/components/   One component and one stylesheet each
 src/config/       A reader for the repository's configuration format
 src/data/         Measurements transcribed from the reports, with their sources
 src/diagnostics/  The diagnostics reader, its plots, and what is derived here
 src/format/       How a number is set
 src/gallery/      Which runs are published, and what each one changes
+src/method/       Where the reading half is, for the links the instrument makes
 src/render/       The renderer interface, its two backends, the camera and loop
 src/state/        The store, and the two kinds of state it keeps apart
 src/styles/       tokens.css, the fonts, and what every element starts from
@@ -94,6 +96,13 @@ them. ADR-0047.
 with subscriptions and may be rendered by React. What a run changes, sixty times
 a second, lives in a mutable record that notifies nobody. `src/state/store.ts`
 says why.
+
+**The reading half is a document and costs nothing to read.** The pages under
+`method/` are static HTML with a stylesheet and no script, built as their own
+entries of the same site. They share `tokens.css`, the three faces and the
+masthead with the instrument, at the opposite value. Every figure on one names
+the file it came from, and `tests/method/figures.test.ts` opens that file and
+requires the figure to be in it. ADR-0050.
 
 **The budgets and the greys are asserted rather than believed.**
 `tools/budget.ts` fails the build when the download grows past its limit, and

@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The solvers · Orrery</title>
+    <meta
+      name="description"
+      content="Four implementations of one solver interface, what each is fastest at, and the decisions that keep a GPU backend from becoming a second copy of the physics."
+    />
+
+    <link rel="preload" href="/fonts/source-serif-400.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/source-serif-600.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/plex-sans-500.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/plex-mono-400.woff2" as="font" type="font/woff2" crossorigin />
+
+    <link rel="stylesheet" href="/src/styles/paper.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#method">Skip to the argument</a>
+
+    <header class="masthead">
+      <div class="wordmark">
+        <svg class="rings" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <circle cx="8" cy="8" r="7" stroke-width="1" />
+          <circle cx="8" cy="8" r="4.2" stroke-width="1" />
+          <circle class="sun" cx="8" cy="8" r="1.5" />
+          <circle class="body" cx="15" cy="8" r="1.1" />
+          <circle class="moon" cx="8" cy="3.8" r="1" />
+        </svg>
+        <b>Orrery</b>
+      </div>
+
+      <nav class="nav" aria-label="Sections">
+        <a href="../../">Instrument</a>
+        <a href="../" aria-current="page">Method</a>
+        <a href="https://protonicwave.github.io/orrery/">Reference</a>
+      </nav>
+    </header>
+
+    <main class="paper" id="method">
+      <div class="measure">
+        <div class="eyebrow">Method · the solvers</div>
+
+        <h1>Four solvers behind one interface</h1>
+
+        <p class="lede">
+          Direct summation on the CPU, a Barnes-Hut tree on the CPU, and both of
+          them again on an integrated GPU in SYCL. They are four implementations
+          of one interface rather than four programs, and which of them is the
+          right choice is a question about the particle count with a measured
+          answer.
+        </p>
+
+        <div class="wide">
+          <table class="results" data-source="docs/performance.md">
+            <caption>
+              The fastest thing the project can do at a given particle count, on
+              one Core Ultra 5 238V with an integrated Arc 130V
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Particles</th>
+                <th scope="col">Fastest</th>
+                <th scope="col">Because</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Below about 2200</th>
+                <td>CPU direct, AVX2 on eight cores</td>
+                <td>A kernel launch costs more than the arithmetic saves</td>
+              </tr>
+              <tr>
+                <th scope="row">2200 to about 9000</th>
+                <td>GPU direct</td>
+                <td>Enough arithmetic to amortise the launch, not enough structure for a tree</td>
+              </tr>
+              <tr>
+                <th scope="row">Above about 9000</th>
+                <td>GPU tree</td>
+                <td>The traversal is three times faster coherent, and the approximation is cheap</td>
+              </tr>
+              <tr>
+                <th scope="row">Above about 6100, without a GPU</th>
+                <td>CPU tree</td>
+                <td>The crossover against CPU direct summation</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          Two qualifications belong beside that table. The crossovers are for a
+          Plummer sphere, and a tree’s cost depends on how clustered the
+          configuration is. And they are for eight threads, since the two
+          algorithms do not parallelise equally well. The tree has to reach half
+          again the size to be worth using on the GPU as on the CPU, which is the
+          expected direction: direct summation is the kernel a GPU is built for,
+          and a tree walk is the kernel it is not.
+        </p>
+
+        <h2>Five decisions the rest of the code rests on</h2>
+
+        <p>
+          <b>Particles are stored as separate contiguous arrays rather than as an
+          array of structs.</b>
+          The force kernel reads positions and masses and nothing else. Under an
+          array-of-structs layout every cache line it fetched would also carry
+          velocities and accelerations it never touches, wasting a large share of
+          the bandwidth that already binds. Separate arrays also give contiguous
+          vector loads instead of strided gathers.
+        </p>
+
+        <p>
+          <b>Virtual dispatch sits at boundaries and never inside a loop.</b>
+          Solvers and backends are selected at run time, so a benchmark or a test
+          can swap implementations from a flag. The cost is one indirect call per
+          timestep ahead of billions of floating-point operations, and it is
+          unmeasurable. No virtual call appears in any loop over particles.
+        </p>
+
+        <p>
+          <b>A GPU implementation is a backend behind the solver interface, not a
+          second copy of the solver.</b>
+          Two divergent implementations of the same physics is the usual way a
+          project of this kind decays, so the device sits behind the interface
+          rather than in front of it, and the suite requires the two to agree
+          rather than to be separately plausible.
+        </p>
+
+        <p>
+          <b>Precision is selected at build time.</b>
+          The scalar type is double by default and float under a build option.
+          Templating every solver on it would multiply compile times and
+          complicate the SYCL kernels for no practical gain, because a given run
+          is either accuracy-oriented or throughput-oriented and never both.
+        </p>
+
+        <p>
+          <b>The direct solver is the reference and is never deleted.</b>
+          Every approximation, whether an opening angle, a multipole order or a
+          reduced precision, is measured against direct summation in double
+          precision. <a href="../validation/">The validation report</a> is that
+          rule spent.
+        </p>
+
+        <h2>What one interaction costs, and what a tree charges for skipping it</h2>
+
+        <p>
+          One pairwise interaction is three subtractions, five operations for the
+          squared separation, one add for the softening, one square root, one
+          division, three multiplies and six operations to accumulate:
+          <span class="num" data-source="docs/performance.md" data-says="twenty floating-point operations"
+            >20</span
+          >
+          floating-point operations, counting the square root and the division as
+          one each, which is the convention the N-body literature uses and what
+          makes these figures comparable with published ones. A force evaluation
+          reads 4N values and performs 20N(N−1) operations, which at 8192
+          particles is an arithmetic intensity of
+          <span class="num" data-source="docs/performance.md">5119</span> flop per
+          byte against a ridge point of
+          <span class="num" data-source="docs/performance.md">3.45</span>. Direct
+          summation is compute-bound by three and a half orders of magnitude.
+        </p>
+
+        <p>
+          A tree replaces distant groups of particles with one term each, and the
+          interaction counter says something the timings cannot. At 262144
+          particles the tree computes
+          <span class="num" data-source="docs/performance.md">78</span> times
+          fewer interactions than direct summation and is only
+          <span class="num" data-source="docs/performance.md">20</span> times
+          faster, so a tree interaction costs about four times a direct one.
+        </p>
+
+        <div class="wide">
+          <table class="results" data-source="docs/performance.md">
+            <caption>Interactions per second, single precision</caption>
+            <thead>
+              <tr>
+                <th scope="col">Solver</th>
+                <th scope="col">Particles</th>
+                <th scope="col">Interactions per second</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Direct</th>
+                <td class="n">65536</td>
+                <td class="n">3.97 G</td>
+              </tr>
+              <tr>
+                <th scope="row">Tree</th>
+                <td class="n">65536</td>
+                <td class="n">0.82 G</td>
+              </tr>
+              <tr>
+                <th scope="row">Tree</th>
+                <td class="n">262144</td>
+                <td class="n">1.02 G</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          Direct summation computes four pairs per AVX2 register from contiguous
+          arrays with no branch and no address arithmetic. A tree’s cell term is a
+          scalar computation at the end of an unpredictable walk, preceded by the
+          comparison that accepted the cell and by the ones that rejected the
+          cells above it. That factor of four, rather than the asymptotics, is
+          what a faster tree has to attack, and it is the reason the GPU traversal
+          was worth attempting at all.
+        </p>
+
+        <p>
+          The rest of a tree evaluation is cheap and measured. The Morton sort,
+          the gather and the build together come to under five per cent at the
+          sizes where a tree is the right choice, and the tree build itself is a
+          fifth of one per cent at 262144 particles. That is the evidence for
+          rebuilding the whole tree every evaluation rather than maintaining one.
+        </p>
+
+        <h2>Where the device is bound, and where it is not</h2>
+
+        <p>
+          On the GPU the ratio between the divide ceiling and the multiply-add
+          ceiling is
+          <span class="num" data-source="docs/performance.md">4.1</span> rather
+          than 27, so the device’s divide unit is comparatively far stronger and
+          the two processors have to be judged against different ceilings. At
+          <span class="num" data-source="docs/performance.md">1174</span>
+          <span class="unit">Gflop/s</span> the GPU direct kernel is at
+          <span class="num" data-source="docs/performance.md">42</span> per cent
+          of the device’s multiply-add ceiling and
+          <span class="num" data-source="docs/performance.md">17.5</span> per cent
+          of its divide ceiling, so unlike the CPU kernel it is bound by neither.
+          What takes the remainder has not been identified, and the two candidates
+          are named rather than guessed between: the two work-group barriers per
+          tile, and the local memory traffic the tiling trades global traffic for.
+          Distinguishing them needs a tile size sweep and sub-group
+          instrumentation that no phase has run.
+        </p>
+
+        <p>
+          Saying so is the point. Three smaller items are open and each is
+          recorded where it was found: the direct kernel’s tile size and its two
+          barriers per tile have never been swept, the tree’s leaf capacity has
+          never been swept although its leaves average
+          <span class="num" data-source="docs/performance.md">9.5</span> particles
+          against a capacity of
+          <span class="num" data-source="docs/performance.md">32</span>, and the
+          GPU direct kernel’s reproducible throughput dip at 16384 particles has
+          not been explained.
+        </p>
+
+        <p class="foot">
+          The decisions above are recorded one at a time in the architecture
+          decision record, which is published with
+          <a href="https://protonicwave.github.io/orrery/">the reference
+          documentation</a>.<br />
+          Back to <a href="../">the method pages</a> ·
+          <a href="../../">the instrument</a>
+        </p>
+      </div>
+    </main>
+  </body>
+</html>
