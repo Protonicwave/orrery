@@ -4,7 +4,7 @@
     // Node's types as well as the client's, because the unit tests are both:
     // they run under Node and read fixture files, and they render components
     // that import CSS modules and read import.meta.env.
-    "types": ["node", "vite/client"],
+    "types": ["node", "vite/client", "@webgpu/types"],
     "allowImportingTsExtensions": true
   },
   "include": [

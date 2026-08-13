@@ -6,7 +6,10 @@
     "moduleResolution": "bundler",
     "moduleDetection": "force",
     "jsx": "react-jsx",
-    "types": ["vite/client"],
+    // WebGPU has no declaration in the DOM library yet, so the one the working
+    // group publishes is added here. Types only: nothing is downloaded by a
+    // browser and nothing is bundled.
+    "types": ["vite/client", "@webgpu/types"],
 
     "strict": true,
     "noUncheckedIndexedAccess": true,
