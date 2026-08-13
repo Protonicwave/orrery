@@ -1,0 +1,31 @@
+# A Plummer sphere of four thousand particles, integrated for a thousand steps
+# with the tree solver. This is the configuration the README quotes.
+#
+# The softening is a twentieth of the scale radius, which is the smallest length
+# this configuration is meant to resolve. The timestep is a thousandth of a time
+# unit, which for a cluster in standard N-body units is a few hundred steps per
+# crossing time.
+
+[run]
+timestep = 0.001
+steps    = 1000
+seed     = 20260811
+
+[initial_conditions]
+kind  = plummer
+count = 4096
+
+[solver]
+kind      = barnes-hut
+softening = 0.05
+
+[integrator]
+kind = velocity-verlet
+
+[output]
+diagnostics_path   = cluster.csv
+diagnostics_stride = 50
+trajectory_path    = cluster.otj
+trajectory_stride  = 100
+checkpoint_path    = cluster.ock
+checkpoint_stride  = 250

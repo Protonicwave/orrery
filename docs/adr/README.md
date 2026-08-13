@@ -58,3 +58,4 @@ introduces it.
 | [0042](0042-package-the-whole-project-from-the-repository-root.md) | Package the whole project from the repository root | Accepted |
 | [0043](0043-generate-the-site-with-the-tool-that-generates-the-reference.md) | Generate the site with the tool that generates the reference | Accepted |
 | [0044](0044-write-the-validation-report-rather-than-generating-it.md) | Write the validation report rather than generating it | Accepted |
+| [0045](0045-keep-the-browser-client-in-this-repository.md) | Keep the browser client in this repository | Accepted |

@@ -1,0 +1,134 @@
+/* The plate: true black, and nothing inside it that is not doing measurement
+ * work. What will be drawn here is a sum of light along a line of sight, so
+ * the surface it is drawn onto is the absence of light rather than a dark grey
+ * that looks like it.
+ */
+.plate {
+  position: relative;
+  background: var(--plate);
+  overflow: hidden;
+  min-height: 0;
+}
+
+.canvas {
+  width: 100%;
+  height: 100%;
+}
+
+/* Registration marks: the corners of a photographic plate. Furniture, and
+ * drawn at the weight furniture is drawn at.
+ */
+.registration {
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.registration::before,
+.registration::after {
+  content: "";
+  position: absolute;
+  background: var(--ink-4);
+}
+
+.registration::before {
+  width: 13px;
+  height: var(--hairline);
+}
+
+.registration::after {
+  width: var(--hairline);
+  height: 13px;
+}
+
+.topLeft {
+  top: var(--space-5);
+  left: var(--space-5);
+}
+
+.topRight {
+  top: var(--space-5);
+  right: var(--space-5);
+}
+
+.topRight::before,
+.topRight::after {
+  right: 0;
+}
+
+.bottomLeft {
+  bottom: var(--space-5);
+  left: var(--space-5);
+}
+
+.bottomLeft::before,
+.bottomLeft::after {
+  bottom: 0;
+}
+
+.bottomRight {
+  bottom: var(--space-5);
+  right: var(--space-5);
+}
+
+.bottomRight::before,
+.bottomRight::after {
+  bottom: 0;
+  right: 0;
+}
+
+/* Plate annotation, written the way a plate is written on: small, catalogued,
+ * in the corner, and never in the way of what is on it.
+ */
+.note {
+  position: absolute;
+  font-family: var(--mono);
+  font-size: var(--type-mini);
+  color: var(--ink-3);
+  line-height: 1.7;
+  pointer-events: none;
+  margin: 0;
+}
+
+.note dt {
+  display: inline;
+  color: var(--ink-4);
+}
+
+.note dd {
+  display: inline;
+  margin: 0 0 0 var(--space-3);
+}
+
+.note div + div {
+  margin-top: 0;
+}
+
+.left {
+  top: 30px;
+  left: 30px;
+}
+
+.right {
+  top: 30px;
+  right: 30px;
+  text-align: right;
+}
+
+/* What the plate says when it holds no exposure. Set in the middle, quiet, and
+ * removed the moment there is something to draw.
+ */
+.unexposed {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: var(--space-9);
+  color: var(--ink-3);
+  font-size: var(--type-small);
+  letter-spacing: var(--tracking-nav);
+  text-transform: uppercase;
+}

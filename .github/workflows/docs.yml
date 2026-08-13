@@ -1,4 +1,9 @@
-# The documentation site: built on every pull request, published from main.
+# The published site: built on every pull request, published from main.
+#
+# Two things are published from one deployment, because GitHub Pages allows a
+# repository one: the documentation at the root, and the browser client under
+# /instrument/. A second workflow deploying separately would not sit beside
+# this one, it would replace whatever it found. ADR-0045.
 #
 # A workflow of its own rather than a job in ci.yml, because publishing needs
 # `pages: write` and `id-token: write`, and the checks that decide whether a
@@ -7,13 +12,14 @@
 #
 # The build half is a check like any other. Doxygen is configured to fail on a
 # warning (docs/Doxyfile), so a link that has gone dead or a reference that no
-# longer resolves fails a pull request here rather than appearing on the site.
+# longer resolves fails a pull request here rather than appearing on the site,
+# and the client's size budget fails a pull request in the same way.
 #
 # Actions are pinned to a commit rather than a tag, for the same reason the C++
 # dependencies are: a tag can be moved onto different code without anything in
 # this repository changing. ADR-0002.
 
-name: Documentation
+name: Site
 
 on:
   push:
@@ -51,16 +57,49 @@ jobs:
 
       # From the repository root, which is what every path in the Doxyfile
       # assumes and what a reader running it by hand will be sitting in.
-      - name: Build
+      - name: Build the documentation
         run: |
           set -o errexit
           doxygen --version
           doxygen docs/Doxyfile
 
+      # Pinned to a version rather than a range, and to a long-term support
+      # release that runs TypeScript directly, which is what the client's own
+      # tools are written in.
+      - name: Install Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.19.0"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # `npm ci` rather than `npm install`, so the build uses the versions the
+      # lock file names and a published site cannot pick up a release that was
+      # made after the pull request was reviewed.
+      - name: Build the client
+        working-directory: web
+        run: |
+          set -o errexit
+          npm ci
+          npm run build
+
+      # The budget is asserted here rather than reported, so a change that
+      # doubles the download fails the pull request that makes it.
+      - name: Assert the size budget
+        working-directory: web
+        run: npm run budget
+
+      - name: Assemble the site
+        run: |
+          set -o errexit
+          mkdir --parents site/instrument
+          cp --recursive build/html/. site/
+          cp --recursive web/dist/. site/instrument/
+
       - name: Upload the site
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:
-          path: build/html
+          path: site
 
   deploy:
     name: Publish to GitHub Pages

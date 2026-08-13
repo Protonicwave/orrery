@@ -1,0 +1,35 @@
+/* The shell. Four rows: the masthead, the stage, the transport and the
+ * console. The stage is the only one that grows.
+ */
+.instrument {
+  height: 100vh;
+  min-height: 660px;
+  display: flex;
+  flex-direction: column;
+}
+
+.stage {
+  display: grid;
+  grid-template-columns: 1fr var(--rail-width);
+  flex: 1;
+  min-height: 0;
+}
+
+/* Below a thousand pixels the rail cannot hold a table of values at a legible
+ * size, so it moves under the plate rather than being cut in half. Nothing is
+ * hidden: a register a reader cannot reach is a register the interface should
+ * not have drawn.
+ */
+@media (max-width: 1000px) {
+  .instrument {
+    height: auto;
+  }
+
+  .stage {
+    grid-template-columns: 1fr;
+  }
+
+  .stage > :first-child {
+    height: 56vh;
+  }
+}

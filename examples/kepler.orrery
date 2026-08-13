@@ -1,0 +1,53 @@
+# The two-body problem, which is the only gravitational system anyone can solve
+# exactly, and so the project's primary validation instrument.
+#
+# An eccentric orbit released at periapsis, integrated for two hundred
+# revolutions at two hundred steps each. No softening: a Kepler orbit is an orbit
+# of two point masses, and softening it would replace the problem whose solution
+# is known with a nearby one whose solution is not.
+#
+# The period of this orbit is 2 pi sqrt(a^3 / G(m1 + m2)), which for two unit
+# masses at a unit semi-major axis is 4.443. The timestep below is that divided
+# by two hundred, and the run is two hundred periods.
+#
+# What to look for in kepler.csv is the relative_energy_error column, and what
+# matters about it is its shape rather than its size. Velocity Verlet holds it
+# inside an envelope of about 2.7e-3 and stays there: the error at the end of two
+# hundred orbits is the error it had after the first few. Run the same file with
+#
+#     orrery run kepler.orrery --set integrator.kind=rk4 \
+#         --set output.diagnostics_path=kepler-rk4.csv
+#
+# and the column behaves differently. RK4 starts twenty times more accurate, at
+# 8.3e-6, and finishes at 1.9e-4, having grown by a factor of twenty-two and
+# still growing. It is of higher order and costs four force evaluations a step
+# against one, and it is the method whose error has no bound.
+#
+# So RK4 is the more accurate of the two over this run and the wrong choice for a
+# long one, which is the whole of ADR-0011's argument. The two curves cross, and
+# where they cross can be watched. With --set run.steps=600000, three thousand
+# orbits, velocity Verlet reports 2.685e-3 in the first twentieth of the run and
+# 2.689e-3 in the last, unchanged to four digits, while RK4 goes from 1.30e-4 to
+# 2.783e-3 and has just overtaken it.
+
+[run]
+timestep = 0.02221441469
+steps    = 40000
+seed     = 1
+
+[initial_conditions]
+kind            = kepler
+primary_mass    = 1
+secondary_mass  = 1
+semi_major_axis = 1
+eccentricity    = 0.5
+
+[solver]
+kind = direct
+
+[integrator]
+kind = velocity-verlet
+
+[output]
+diagnostics_path   = kepler.csv
+diagnostics_stride = 200

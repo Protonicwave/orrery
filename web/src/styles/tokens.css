@@ -1,0 +1,157 @@
+/* The design system, in one file.
+ *
+ * Every colour, every size and every rule the client draws is named here and
+ * nowhere else. A component that wants a colour reads a token; a component
+ * that needs a colour no token provides is a component that has found a gap in
+ * the system, and the gap is filled here rather than worked around there. This
+ * is the same rule the C++ keeps for the version number: one definition, and
+ * everything else reads it.
+ */
+
+:root {
+  /* ── Two blacks, and the difference is meaningful ──────────────────────
+   * The plate is true black because that blackness is the physics: a picture
+   * of a galaxy is a sum of light along the line of sight against nothing at
+   * all. The chrome sits a shade above it, so the render is the darkest and
+   * the brightest thing on screen at once.
+   */
+  --plate: #000000;
+  --chrome: #0a0b0c;
+  --chrome-recessed: #0e0f11;
+
+  /* Hairlines. The interface is ruled, never carded: no shadow, no radius, no
+   * elevation. That single choice is what separates a technical drawing from a
+   * dashboard.
+   *
+   * --rule and --rule-bright separate one region from another and carry no
+   * meaning, so they are as quiet as they look. --edge draws the boundary of
+   * something that can be operated, which does carry meaning, and it is held
+   * at three to one against the surface behind it for that reason.
+   */
+  --rule: #1c1e21;
+  --rule-bright: #2a2d31;
+  --edge: #6b6863;
+  --hairline: 1px;
+
+  /* ── The warm ink ramp ────────────────────────────────────────────────
+   * Never pure white. Each step is a level of attention: a value being read,
+   * a name beside it, a label above it, a mark that is only furniture.
+   *
+   * The chrome is near black, which makes a grey that looks quiet enough to
+   * be right easy to pick and hard to defend, so every step is measured
+   * rather than judged. Against --chrome: ink 15.3:1, ink-2 5.7:1,
+   * ink-3 4.8:1. All three carry text and all three clear 4.5:1 at any size.
+   * ink-4 is 1.7:1 and is never text: it draws registration marks, the zero
+   * line under a sparkline and the ticks along the track, none of which is
+   * needed to read a value or to find a control. tests/styles/contrast.test.ts
+   * asserts all of this against the file.
+   */
+  --ink: #e6e2da;
+  --ink-2: #8e8a84;
+  --ink-3: #807c76;
+  --ink-4: #3a3835;
+
+  /* ── One accent ───────────────────────────────────────────────────────
+   * Brass: the metal an orrery is made of, and the colour an observatory
+   * lights its dome with. It appears only where it carries information, and
+   * never as the only carrier of it: brass always accompanies a label, a
+   * position or a shape. --brass-dim borders the priced control and fills the
+   * played part of the track, so it too clears three to one.
+   */
+  --brass: #c8913f;
+  --brass-dim: #8a642c;
+  --brass-wash: rgba(200, 145, 63, 0.07);
+
+  /* ── The reading half ─────────────────────────────────────────────────
+   * You observe in the dome and you read in the library. Same type system,
+   * same hairlines, opposite value.
+   */
+  --paper: #f3f0e9;
+  --paper-ink: #16181a;
+  --paper-ink-2: #55585c;
+  --paper-rule: #d5d1c7;
+  --paper-recessed: #eae6dd;
+
+  /* ── Three faces, three jobs ──────────────────────────────────────────
+   * Serif for argument, sans for interface, mono for data. Self-hosted and
+   * subset, so there is no third party request and nothing to fall back to
+   * in practice. The stacks exist for the moment before they arrive.
+   */
+  --sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+
+  /* ── Type scale ───────────────────────────────────────────────────────
+   * Small, because an instrument is dense. Each step has a job rather than a
+   * position in a ratio, and the names say which.
+   */
+  --type-label: 9.5px; /* tracked uppercase labels and tier costs */
+  --type-mini: 10px; /* navigation, plate annotation, footnotes */
+  --type-small: 11px; /* control names, table cells */
+  --type-data: 11.5px; /* transport statistics */
+  --type-value: 12px; /* a value being read */
+  --type-base: 13px; /* interface body */
+  --type-lede: 16.5px; /* the reading half */
+  --type-display: 26px; /* the exposure heads-up readout */
+
+  --tracking-label: 0.14em;
+  --tracking-nav: 0.13em;
+  --tracking-wordmark: 0.22em;
+
+  --leading-tight: 1.24;
+  --leading-base: 1.45;
+  --leading-prose: 1.62;
+
+  /* ── Spacing scale ────────────────────────────────────────────────────
+   * One scale, used for padding, gaps and offsets alike.
+   */
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 9px;
+  --space-5: 12px;
+  --space-6: 14px;
+  --space-7: 16px;
+  --space-8: 22px;
+  --space-9: 26px;
+
+  /* ── Fixed dimensions of the shell ────────────────────────────────────*/
+  --masthead-height: 44px;
+  --transport-height: 46px;
+  --console-height: 196px;
+  --rail-width: 268px;
+
+  /* ── Focus ────────────────────────────────────────────────────────────
+   * A one pixel brass outline, offset so it never sits on the control it is
+   * marking. The browser default is a blue halo with a radius, which is a
+   * different design system arriving uninvited.
+   */
+  --focus-ring: var(--hairline) solid var(--brass);
+  --focus-offset: 2px;
+
+  /* The smallest a target may be. WCAG 2.2 asks for twenty-four pixels, and
+   * the interface is drawn in hairlines, so almost every control here draws
+   * something smaller than it accepts a press on. The two are different
+   * measurements and only one of them is a matter of taste.
+   */
+  --target-size: 24px;
+
+  /* ── Motion ───────────────────────────────────────────────────────────
+   * Two durations. Everything here is switched off under reduced motion.
+   */
+  --motion-fast: 80ms;
+  --motion-fade: 500ms;
+  --motion-pulse: 2400ms;
+}
+
+/* Motion is a preference, and the preference wins. The simulation keeps
+ * playing under it; what stops is decoration: the pulsing indicator, the
+ * exposure fade, and every transition.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-fade: 0ms;
+    --motion-pulse: 0ms;
+  }
+}

@@ -50,6 +50,10 @@ the test or the command that produces it.
   [trajectory](formats/trajectory.md) and [checkpoint](formats/checkpoint.md)
   binaries, each specified well enough to be read by something other than this
   program.
+- [The instrument](https://protonicwave.github.io/orrery/instrument/). The
+  browser client, which reads a run's configuration, the figures it measured and
+  the machine they were taken on. Every value in it comes from a file in the
+  repository rather than from a copy of one (ADR-0045).
 
 ## What the design rests on
 
@@ -87,7 +91,7 @@ precision, is measured against direct summation in double precision.
 ## How it is built
 
 - [The API reference](annotated.html), generated from the public headers.
-- [Architecture decision records](adr/README.md). Forty-four short documents
+- [Architecture decision records](adr/README.md). Forty-five short documents
   recording the decisions that had a credible alternative, each with its context
   and its consequences, none of them edited after it was merged.
 - [The measured results, subsystem by subsystem](performance/roofline.md), with

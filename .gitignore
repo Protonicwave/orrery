@@ -40,9 +40,11 @@ asan.log.*
 ubsan.log.*
 
 # Simulation output. Trajectories and checkpoints are large and reproducible
-# from a configuration file, so they are never committed.
-*.orrery
-*.ckpt
+# from a configuration file, so they are never committed. The extensions are
+# the ones the formats actually use: .orrery is the configuration, which is the
+# input and belongs in the history.
+*.otj
+*.ock
 results/
 frames/
 *.mp4
@@ -63,3 +65,10 @@ venv/
 *.swp
 .DS_Store
 Thumbs.db
+
+# Browser client. Dependencies, build output and test artefacts: each is
+# produced by one command, and none of them belongs in the history.
+node_modules/
+dist/
+playwright-report/
+test-results/

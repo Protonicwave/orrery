@@ -1,0 +1,19 @@
+/* A number, set. Monospaced with tabular figures, so the width of a value is a
+ * property of its digit count and nothing else.
+ */
+.numeric {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+/* An exponent is raised and reduced rather than written with the letter e.
+ * vertical-align in em keeps it on the same optical line whatever size the
+ * value is set at.
+ */
+.exponent {
+  font-size: 0.68em;
+  vertical-align: 0.42em;
+  line-height: 1;
+}
