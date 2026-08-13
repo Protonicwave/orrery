@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Performance · Orrery</title>
+    <meta
+      name="description"
+      content="Every speed Orrery claims, expressed as a fraction of a ceiling measured on the same machine, with the spread beside every median."
+    />
+
+    <link rel="preload" href="/fonts/source-serif-400.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/source-serif-600.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/plex-sans-500.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/plex-mono-400.woff2" as="font" type="font/woff2" crossorigin />
+
+    <link rel="stylesheet" href="/src/styles/paper.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#method">Skip to the argument</a>
+
+    <header class="masthead">
+      <div class="wordmark">
+        <svg class="rings" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <circle cx="8" cy="8" r="7" stroke-width="1" />
+          <circle cx="8" cy="8" r="4.2" stroke-width="1" />
+          <circle class="sun" cx="8" cy="8" r="1.5" />
+          <circle class="body" cx="15" cy="8" r="1.1" />
+          <circle class="moon" cx="8" cy="3.8" r="1" />
+        </svg>
+        <b>Orrery</b>
+      </div>
+
+      <nav class="nav" aria-label="Sections">
+        <a href="../../">Instrument</a>
+        <a href="../" aria-current="page">Method</a>
+        <a href="https://protonicwave.github.io/orrery/">Reference</a>
+      </nav>
+    </header>
+
+    <main class="paper" id="method">
+      <div class="measure">
+        <div class="eyebrow">Method · performance</div>
+
+        <h1>Every speed, as a fraction of a ceiling measured on the same machine</h1>
+
+        <p class="lede">
+          A raw timing says nothing on its own: it depends on the part, the power
+          state, the compiler and the size of the problem. A fraction of a
+          measured ceiling says how much of the machine a kernel is using and,
+          more usefully, how much is left. Several of the conclusions here are
+          that there is nothing left, and that is a result rather than a
+          disappointment.
+        </p>
+
+        <p>
+          Every figure was taken on one laptop: an Intel Core Ultra 5 238V, four
+          Lion Cove performance cores and four Skymont efficiency cores, no
+          simultaneous multithreading, AVX2 and no AVX-512, with an integrated
+          Arc 130V sharing the package and the power budget. None of these
+          numbers should be read as a property of the algorithms alone.
+        </p>
+
+        <h2>Read the spread column</h2>
+
+        <p>
+          The protocol is a settling warm-up whose trials are discarded, a fixed
+          number of timed trials, the median reported rather than the best of
+          them, an interquartile range beside every median, a drift figure
+          comparing the second half of a run against the first, a cool-down
+          between configurations, and a thermal canary bracketing the whole
+          session. Every one of those exists because the target is a laptop. A
+          best-of-N on a part that throttles reports the trial taken before the
+          fan noticed; a median with a spread beside it reports the machine. A
+          row carrying a twenty-seven per cent interquartile range does not
+          support a conclusion that a three per cent row would.
+        </p>
+
+        <div class="wide">
+          <table class="results" data-source="docs/performance/roofline.md">
+            <caption>
+              The ceilings this machine actually has, double precision, measured
+              in the same session as the kernels they judge
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Probe</th>
+                <th scope="col">Sustained</th>
+                <th scope="col">Spread</th>
+                <th scope="col">Drift</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Read bandwidth</th>
+                <td class="n">95.68 GB/s</td>
+                <td class="n">1.5%</td>
+                <td class="n">0.9%</td>
+              </tr>
+              <tr>
+                <th scope="row">Triad bandwidth</th>
+                <td class="n">75.23 GB/s</td>
+                <td class="n">1.3%</td>
+                <td class="n">0.9%</td>
+              </tr>
+              <tr>
+                <th scope="row">Fused multiply-add</th>
+                <td class="n">330.25 Gflop/s</td>
+                <td class="n">2.2%</td>
+                <td class="n">−0.4%</td>
+              </tr>
+              <tr>
+                <th scope="row">Divide and square root</th>
+                <td class="n">12.21 Gop/s</td>
+                <td class="n">3.3%</td>
+                <td class="n">1.2%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          Two of those rows decide most of what follows. Read bandwidth is
+          seventy-one per cent of the nominal figure: the specification says about
+          135 GB/s and a read-only stream over a buffer sixty-four times the size
+          of the last-level cache reaches
+          <span class="num" data-source="docs/performance/roofline.md">95.68</span>
+          <span class="unit">GB/s</span>. A roofline drawn against 135 would place
+          every kernel further below the line than it is and would blame the
+          kernel for the memory controller. And the divide and square root ceiling
+          is a twenty-seventh of the multiply-add ceiling. Every pairwise
+          interaction contains one square root and one division, and they retire
+          on a unit that is only partly pipelined and that the other eighteen
+          operations do not use. That ratio, not the multiply-add peak, is what
+          bounds this algorithm on this part.
+        </p>
+
+        <h2>The CPU direct kernel</h2>
+
+        <div class="wide">
+          <table class="results" data-source="docs/performance/roofline.md">
+            <caption>
+              Double precision, 8192 particles, 21 timed trials after a settling
+              warm-up
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Kernel</th>
+                <th scope="col">Threads</th>
+                <th scope="col">Median</th>
+                <th scope="col">Spread</th>
+                <th scope="col">Drift</th>
+                <th scope="col">Of the peak</th>
+                <th scope="col">Of the divide ceiling</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">scalar</th>
+                <td class="n">1</td>
+                <td class="n">177.6 ms</td>
+                <td class="n">1.9%</td>
+                <td class="n">−0.1%</td>
+                <td class="n">2.3%</td>
+                <td class="n">6.2%</td>
+              </tr>
+              <tr>
+                <th scope="row">scalar</th>
+                <td class="n">8</td>
+                <td class="n">35.57 ms</td>
+                <td class="n">2.2%</td>
+                <td class="n">0.4%</td>
+                <td class="n">11.4%</td>
+                <td class="n">30.9%</td>
+              </tr>
+              <tr>
+                <th scope="row">avx2</th>
+                <td class="n">1</td>
+                <td class="n">53.13 ms</td>
+                <td class="n">3.5%</td>
+                <td class="n">−1.6%</td>
+                <td class="n">7.6%</td>
+                <td class="n">20.7%</td>
+              </tr>
+              <tr>
+                <th scope="row">avx2</th>
+                <td class="n">8</td>
+                <td class="n">13.80 ms</td>
+                <td class="n">3.7%</td>
+                <td class="n">4.0%</td>
+                <td class="n">29.5%</td>
+                <td class="n">79.7%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          The last column is the result and the one before it is the trap. At
+          <span class="num" data-source="docs/performance/roofline.md">29.5%</span>
+          of the multiply-add peak it looks as though two thirds of the machine is
+          going to waste. At
+          <span class="num" data-source="docs/performance/roofline.md">79.7%</span>
+          of the square root and division throughput it is clear that almost
+          nothing is: two operations in every twenty compete for a unit the other
+          eighteen cannot use, and the missing fifth is those eighteen, the loads
+          and the loop competing for issue slots. Vectorising and threading
+          together are worth
+          <span class="num" data-source="docs/performance/roofline.md">12.87x</span>
+          in double precision and
+          <span class="num" data-source="docs/performance/roofline.md">22.28x</span>
+          in single. Further work on this kernel has to change the arithmetic
+          rather than the code.
+        </p>
+
+        <h2>Eight cores that are not alike</h2>
+
+        <p>
+          The two kinds of core differ far more in vector throughput than in
+          scalar: the ratio between them is
+          <span class="num" data-source="docs/performance.md">2.17</span> on the
+          scalar kernel and
+          <span class="num" data-source="docs/performance.md">6.34</span> on the
+          vector one. Vectorising therefore made the machine faster and made it
+          less parallel, and both are real. Eight cores are worth
+          <span class="num" data-source="docs/performance.md">4.63</span>
+          performance cores under AVX2, and a speedup on this part should be read
+          against that rather than against eight.
+        </p>
+
+        <div class="wide">
+          <table class="results" data-source="docs/performance.md">
+            <caption>
+              Two ways of dividing a force evaluation between the two kinds of
+              core
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Scheme</th>
+                <th scope="col">Speedup</th>
+                <th scope="col">Of the 4.63 limit</th>
+                <th scope="col">Performance cores idle</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Equal fixed shares</th>
+                <td class="n">3.63x</td>
+                <td class="n">78%</td>
+                <td class="n">83.4%</td>
+              </tr>
+              <tr>
+                <th scope="row">Work stealing</th>
+                <td class="n">4.13x</td>
+                <td class="n">89%</td>
+                <td class="n">8.2%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          The strongest result there is not the speedup. The scheduler was
+          measured on the scalar kernel first, and a prediction was written down:
+          that the balance it found would follow the hardware ratio without
+          changes when the kernel was vectorised. It did. The share the
+          performance cores took moved from 2.38 to one to
+          <span class="num" data-source="docs/performance.md">5.29</span> to one,
+          tracking a hardware ratio that had gone from
+          <span class="num" data-source="docs/performance.md">2.17</span> to
+          <span class="num" data-source="docs/performance.md">6.34</span>, and
+          nothing in the executor changed between the two measurements. It holds
+          no weights, no calibration and no topology. A weight tuned against the
+          scalar kernel would have been wrong by a factor of nearly three by the
+          time the vector kernel existed, and would have been wrong silently.
+        </p>
+
+        <h2>The tree, and the device</h2>
+
+        <p>
+          Barnes-Hut costs
+          <span class="num" data-source="docs/performance.md" data-says="N^1.24"
+            >N<sup>1.24</sup></span
+          >
+          fitted over two and a half decades, against 1.11 for exactly N log N
+          and 2.0 for direct summation, and its crossover against direct
+          summation is at about
+          <span class="num" data-source="docs/performance.md">6100</span>
+          particles. That is high compared with the figures usually quoted, and
+          it is high for a good reason: the opponent is an AVX2 kernel at four
+          fifths of its hardware ceiling on eight cores rather than a scalar loop.
+        </p>
+
+        <p>
+          A GPU does not execute work-items independently: it executes them in
+          sub-groups of 32 that share one instruction pointer, so a tree walk
+          written as though each work-item were a thread has every lane switched
+          off while the others finish the nodes it did not need. Walking the
+          sub-group together, with one node index for all 32 lanes and a lane
+          that has accepted a cell masked out until the group leaves that
+          subtree, steps through about twenty-five per cent more nodes and takes
+          under a third of the time, because the nodes it adds are ones the
+          hardware was already executing under a divergence mask. One session
+          gives
+          <span class="num" data-source="docs/performance.md">3.47x</span>,
+          <span class="num" data-source="docs/performance.md">3.30x</span> and
+          <span class="num" data-source="docs/performance.md">2.94x</span>; a
+          second gives
+          <span class="num" data-source="docs/performance.md">3.96x</span>,
+          <span class="num" data-source="docs/performance.md">2.92x</span> and
+          <span class="num" data-source="docs/performance.md">2.51x</span>. The
+          honest claim is about three times rather than any one of those figures,
+          and that is the claim the project makes.
+        </p>
+
+        <p>
+          The largest tractable configuration is about
+          <span class="num" data-source="docs/performance.md">2.1</span> million
+          particles, at
+          <span class="num" data-source="docs/performance.md">603</span>
+          <span class="unit">ms</span> per force evaluation. Nothing about the
+          device stopped it there. What stopped it is that a session has to
+          finish. The bottleneck now is not on the GPU at all: the Morton sort on
+          the host is
+          <span class="num" data-source="docs/performance.md">40 to 46</span> per
+          cent of every GPU tree evaluation, so a phase spent making the traversal
+          three times faster has succeeded in making the sort the bottleneck.
+        </p>
+
+        <h2>How much of this reproduces</h2>
+
+        <p>
+          The honest answer has two halves and both are part of the result. For
+          configurations this part can sustain, the figures reproduce: the
+          double-precision session behind the kernel table has interquartile
+          ranges from
+          <span class="num" data-source="docs/performance.md">1.3 to 5.0</span> per
+          cent on every row, its thermal canary moved
+          <span class="num" data-source="docs/performance.md">5.2</span> per cent
+          across nine minutes of load, and its repeat row came back within
+          <span class="num" data-source="docs/performance.md">0.4</span> per cent.
+        </p>
+
+        <p>
+          For sustained eight-thread vector work, they do not always. The session
+          before the one quoted produced
+          <span class="num" data-source="docs/performance.md">22.4</span>
+          <span class="unit">ms</span> for the eight-thread AVX2 row rather than
+          <span class="num" data-source="docs/performance.md">13.8</span>, with a
+          <span class="num" data-source="docs/performance.md">27</span> per cent
+          spread, a <span class="num" data-source="docs/performance.md">34</span>
+          per cent drift inside the row, and a canary that spiked to
+          <span class="num" data-source="docs/performance.md">2.09</span> times its
+          starting duration. That is the part hitting its power limit partway
+          through a measurement. The difference between the two sessions is
+          roughly the difference between a machine that had been under load for
+          the previous hour and one that had not, and both of them are this
+          machine. The harness reported all of that rather than averaging it away,
+          which is what it is for.
+        </p>
+
+        <h2>Reproducing it</h2>
+
+        <div class="cmd">cmake --preset release
+cmake --build --preset release
+./build/release/benchmarks/orrery_roofline 8192 21
+./build/release/benchmarks/orrery_threading_scaling 8192 11
+./build/release/benchmarks/orrery_tree_scaling</div>
+
+        <p>
+          And, for the GPU, with the oneAPI compiler. Let the machine idle for
+          several minutes first. The last of these is by a wide margin the longest
+          session the project runs, since it drives the GPU and all eight cores in
+          turn at sizes where one evaluation is most of a second.
+        </p>
+
+        <div class="cmd">cmake --preset sycl-single-precision -DCMAKE_CXX_COMPILER=icx-cl
+cmake --build --preset sycl-single-precision
+./build/sycl-single-precision/benchmarks/orrery_sycl_direct
+./build/sycl-single-precision/benchmarks/orrery_sycl_tree 262144</div>
+
+        <p class="foot">
+          The programs write their tables as CSV. The sessions these figures come
+          from are committed beside the reports, in
+          <span class="num">docs/performance/</span>.<br />
+          Next: <a href="../solvers/">four solvers behind one interface</a> ·
+          <a href="../../?run=cluster">play the cluster run</a>
+        </p>
+      </div>
+    </main>
+  </body>
+</html>
