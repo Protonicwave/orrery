@@ -92,6 +92,9 @@ const POST_SHADER = /* wgsl */ `
 struct Tone {
     exposure : f32,
     white_point : f32,
+    // Zero applies the curve, one leaves the exposed radiance alone. See the
+    // note on ToneCurve in render/renderer.ts for what the second is for.
+    linear_curve : f32,
 };
 
 @group(0) @binding(0) var scene : texture_2d<f32>;
@@ -133,7 +136,13 @@ fn encode_srgb(linear : vec3<f32>) -> vec3<f32> {
 @fragment
 fn fragment_main(@location(0) texture_coordinate : vec2<f32>) -> @location(0) vec4<f32> {
     let radiance = textureSample(scene, scene_sampler, texture_coordinate).rgb;
-    return vec4<f32>(encode_srgb(orrery_tone_curve(radiance, tone.exposure, tone.white_point)), 1.0);
+    var mapped : vec3<f32>;
+    if (tone.linear_curve > 0.5) {
+        mapped = clamp(max(radiance * tone.exposure, vec3<f32>(0.0)), vec3<f32>(0.0), vec3<f32>(1.0));
+    } else {
+        mapped = orrery_tone_curve(radiance, tone.exposure, tone.white_point);
+    }
+    return vec4<f32>(encode_srgb(mapped), 1.0);
 }
 `;
 
@@ -371,6 +380,7 @@ class WebGpuRenderer implements Renderer {
 
     this.tone[0] = settings.exposure;
     this.tone[1] = settings.whitePoint;
+    this.tone[2] = settings.curve === 'linear' ? 1 : 0;
     queue.writeBuffer(this.toneBuffer, 0, this.tone);
 
     if (count > 0) {

@@ -1,7 +1,24 @@
 import { type ReactNode, useId } from 'react';
 import styles from './Control.module.css';
 
-export interface SliderProps {
+/**
+ * What every control here shares.
+ *
+ * A control that cannot act is marked with `aria-disabled` rather than
+ * `disabled`. The two are not the same thing: a disabled input is removed from
+ * the tab order, so the sentence saying why it cannot act becomes something
+ * only a pointer can reach, and the whole point of the note is that it is the
+ * answer to "why is this greyed out". So the control is reachable, focusable,
+ * announced as disabled, described by the note that explains it, and inert.
+ */
+interface Inert {
+  /** Whether the control can act. A disabled one says why through describedBy. */
+  disabled?: boolean;
+  /** The identifier of the note explaining what a disabled control needs. */
+  describedBy?: string;
+}
+
+export interface SliderProps extends Inert {
   name: string;
   value: number;
   min: number;
@@ -33,9 +50,15 @@ export function Slider({
   display,
   valueText,
   dear = false,
+  disabled = false,
+  describedBy,
   onChange,
 }: SliderProps) {
   const id = useId();
+  const classes = [styles.slider, dear ? styles.dear : '', disabled ? styles.inert : '']
+    .filter((part) => part !== '')
+    .join(' ');
+
   return (
     <div className={styles.control}>
       <label className={styles.name} htmlFor={id}>
@@ -44,20 +67,25 @@ export function Slider({
       <input
         id={id}
         type="range"
-        className={dear ? `${styles.slider} ${styles.dear}` : styles.slider}
+        className={classes}
         min={min}
         max={max}
         step={step}
         value={value}
         aria-valuetext={valueText}
-        onChange={(event) => onChange(Number(event.target.value))}
+        aria-disabled={disabled || undefined}
+        aria-describedby={disabled ? describedBy : undefined}
+        onChange={(event) => {
+          if (disabled) return;
+          onChange(Number(event.target.value));
+        }}
       />
       <span className={styles.value}>{display}</span>
     </div>
   );
 }
 
-export interface SegmentedProps<T extends string> {
+export interface SegmentedProps<T extends string> extends Inert {
   name: string;
   options: readonly T[];
   value: T;
@@ -77,18 +105,30 @@ export function Segmented<T extends string>({
   options,
   value,
   dear = false,
+  disabled = false,
+  describedBy,
   onChange,
 }: SegmentedProps<T>) {
   const id = useId();
+  const classes = [
+    styles.segmented,
+    dear ? styles.dear : '',
+    disabled ? styles.inert : '',
+  ]
+    .filter((part) => part !== '')
+    .join(' ');
+
   return (
     <div className={styles.control}>
       <span className={styles.name} id={id}>
         {name}
       </span>
       <div
-        className={dear ? `${styles.segmented} ${styles.dear}` : styles.segmented}
+        className={classes}
         role="radiogroup"
         aria-labelledby={id}
+        aria-disabled={disabled || undefined}
+        aria-describedby={disabled ? describedBy : undefined}
       >
         {options.map((option) => (
           <label className={styles.option} key={option}>
@@ -97,7 +137,11 @@ export function Segmented<T extends string>({
               name={name}
               value={option}
               checked={option === value}
-              onChange={() => onChange(option)}
+              aria-disabled={disabled || undefined}
+              onChange={() => {
+                if (disabled) return;
+                onChange(option);
+              }}
             />
             <span>{option}</span>
           </label>
@@ -108,20 +152,31 @@ export function Segmented<T extends string>({
   );
 }
 
-export interface ToggleProps {
+export interface ToggleProps extends Inert {
   label: string;
   pressed: boolean;
   onChange: (pressed: boolean) => void;
 }
 
 /** An on or off switch, drawn as a mark and a word rather than as a colour. */
-export function Toggle({ label, pressed, onChange }: ToggleProps) {
+export function Toggle({
+  label,
+  pressed,
+  disabled = false,
+  describedBy,
+  onChange,
+}: ToggleProps) {
   return (
     <button
       type="button"
-      className={styles.toggle}
+      className={disabled ? `${styles.toggle} ${styles.inert}` : styles.toggle}
       aria-pressed={pressed}
-      onClick={() => onChange(!pressed)}
+      aria-disabled={disabled || undefined}
+      aria-describedby={disabled ? describedBy : undefined}
+      onClick={() => {
+        if (disabled) return;
+        onChange(!pressed);
+      }}
     >
       {label}
     </button>

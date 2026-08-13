@@ -16,6 +16,14 @@
  * the two it was doing.
  */
 
+import type { ToneCurve } from '../render/renderer';
+
+/**
+ * Which tone-mapping curve the renderer applies. Defined by the renderer, and
+ * carried through here so that the console reads one definition of it.
+ */
+export type { ToneCurve };
+
 export type Listener<T> = (state: T) => void;
 
 export interface Store<T> {
@@ -66,9 +74,6 @@ export function createStore<T extends object>(initial: T): Store<T> {
     },
   };
 }
-
-/** Which tone-mapping curve the renderer applies. Matches the native viewer. */
-export type ToneCurve = 'linear' | 'reinhard' | 'aces';
 
 /** What the plate draws over the particles. */
 export type Overlay = 'none' | 'octree' | 'density';

@@ -22,6 +22,8 @@ export interface TrajectoryFacts {
   readonly scalar: number;
   readonly velocities: boolean;
   readonly byteLength: number;
+  /** The masses, in particle order. Constant for the length of the run. */
+  readonly masses: Float64Array;
 }
 
 export type TrajectoryStatus = 'opening' | 'streaming' | 'complete' | 'failed';
@@ -78,6 +80,34 @@ export class Trajectory {
   /** The frame at `index`, or undefined if it has not arrived. */
   frame(index: number): FramePositions | undefined {
     return this.cache[index];
+  }
+
+  /**
+   * Which frame holds a moment in model time, whether or not it has arrived.
+   *
+   * The interval between frames is taken from the first two frames rather than
+   * from the configuration's stride, because the trajectory is what is being
+   * played and a configuration edited since the run would be a second answer to
+   * the same question. Frames are written at a fixed stride, so two of them are
+   * enough to know where all of them are.
+   *
+   * Answers −1 while fewer than two frames have arrived, which is the only
+   * state in which the spacing is not yet known.
+   */
+  indexAt(time: number): number {
+    const first = this.cache[0];
+    const second = this.cache[1];
+    if (first === undefined || second === undefined) return -1;
+
+    const interval = second.time - first.time;
+    if (!(interval > 0)) return -1;
+    return Math.round((time - first.time) / interval);
+  }
+
+  /** The frame holding a moment, if it has arrived. */
+  frameAt(time: number): FramePositions | undefined {
+    const index = this.indexAt(time);
+    return index < 0 ? undefined : this.cache[index];
   }
 
   /** Start reading. Safe to call once; a second call is ignored. */

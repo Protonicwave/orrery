@@ -209,18 +209,17 @@ export class Instrument implements PlateReadout {
    * needs to know whether to ask again when more of it has.
    */
   seekTime(time: number): boolean {
-    const first = this.options.trajectory.frame(0);
-    const second = this.options.trajectory.frame(1);
-    if (first === undefined) return false;
-    if (second === undefined) {
+    const { trajectory } = this.options;
+    const index = trajectory.indexAt(time);
+    if (index < 0) {
+      // Fewer than two frames have arrived, so the spacing is not yet known.
+      // The first frame is the only one there is to be at.
+      const first = trajectory.frame(0);
+      if (first === undefined) return false;
       this.seek(0);
       return time <= first.time;
     }
 
-    const interval = second.time - first.time;
-    if (!(interval > 0)) return false;
-
-    const index = Math.round((time - first.time) / interval);
     this.seek(index);
     return index <= this.available - 1;
   }

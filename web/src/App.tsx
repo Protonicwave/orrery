@@ -110,6 +110,7 @@ export function App() {
   );
   const playing = useStoreValue(chrome, (state) => state.playing);
   const showDiagnostics = useStoreValue(chrome, (state) => state.diagnostics);
+  const showProfile = useStoreValue(chrome, (state) => state.radialProfile);
 
   // How much of the run has been read, taken once and given to everything that
   // describes it, so the plate's particle count and the transport's cannot be
@@ -195,7 +196,9 @@ export function App() {
             run={run}
             diagnostics={diagnostics}
             instants={instants}
+            trajectory={trajectory}
             showDiagnostics={showDiagnostics}
+            showProfile={showProfile}
             message={unreadable}
           />
         </div>
@@ -219,7 +222,11 @@ export function App() {
             );
           }}
         />
-        <Console run={run} chrome={chrome} />
+        <Console
+          run={run}
+          chrome={chrome}
+          velocities={trajectory.facts?.velocities ?? false}
+        />
       </div>
     </>
   );

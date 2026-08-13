@@ -35,15 +35,20 @@ async function open(url: string): Promise<void> {
 
   try {
     const reader = await TrajectoryReader.open(fetchSource(url));
-    post({
-      kind: 'opened',
-      count: reader.header.count,
-      timestep: reader.header.timestep,
-      frames: reader.frames,
-      scalar: reader.header.scalar,
-      velocities: reader.header.velocities,
-      byteLength: reader.byteLength,
-    });
+    const masses = reader.header.masses;
+    post(
+      {
+        kind: 'opened',
+        count: reader.header.count,
+        timestep: reader.header.timestep,
+        frames: reader.frames,
+        scalar: reader.header.scalar,
+        velocities: reader.header.velocities,
+        byteLength: reader.byteLength,
+        masses,
+      },
+      [masses.buffer as ArrayBuffer],
+    );
 
     for await (const frame of reader.walk()) {
       post(

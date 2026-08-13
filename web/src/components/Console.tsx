@@ -14,13 +14,15 @@ import styles from './Console.module.css';
 import { Segmented, Slider, Toggle, Toggles } from './Control';
 import { Numeric } from './Numeric';
 
-const TONE_CURVES: readonly ToneCurve[] = ['linear', 'reinhard', 'aces'];
+const TONE_CURVES: readonly ToneCurve[] = ['reinhard', 'linear'];
 const OVERLAYS: readonly Overlay[] = ['none', 'octree', 'density'];
 const INTEGRATORS: readonly Integrator[] = ['velocity-verlet', 'yoshida4', 'rk4'];
 
 export interface ConsoleProps {
   run: Run;
   chrome: Store<ChromeState>;
+  /** Whether the trajectory being played carries velocities as well. */
+  velocities: boolean;
 }
 
 /**
@@ -50,16 +52,32 @@ function price(count: number, steps: number): string {
   return `est. ${time} · ${decimal((seconds * 1000) / steps, 1)} ms/step`;
 }
 
-/** The three tiers, laid out left to right by what operating them costs. */
-export function Console({ run, chrome }: ConsoleProps) {
+/**
+ * The three tiers, laid out left to right by what operating them costs.
+ *
+ * Every control that cannot act is drawn back rather than removed, and the
+ * foot of its tier says what it would need. Those notes are the most useful
+ * writing in the interface: between them they say exactly what a trajectory
+ * is. A trajectory holds positions and masses, at a stride, and nothing else.
+ * It does not hold which component a particle was sampled into, so there is no
+ * bulge to show on its own and no pair for a frame to rotate with; it does not
+ * hold velocities unless it was asked to, so nothing can be called bound or
+ * unbound; and it does not hold the tree the solver built, so there is no
+ * octree to draw over it.
+ */
+export function Console({ run, chrome, velocities }: ConsoleProps) {
   const state = useStoreState(chrome);
-  const describedBy = useId();
+  const id = useId();
+
+  const viewNote = `${id}-view-note`;
+  const derivedNote = `${id}-derived-note`;
+  const solverNote = `${id}-solver-note`;
 
   return (
     <div className={styles.console}>
-      <section className={styles.tier} aria-labelledby={`${describedBy}-view`}>
+      <section className={styles.tier} aria-labelledby={`${id}-view`}>
         <div className={styles.head}>
-          <h2 className="label" id={`${describedBy}-view`}>
+          <h2 className="label" id={`${id}-view`}>
             View
           </h2>
           <span className={styles.cost}>instantaneous</span>
@@ -96,24 +114,38 @@ export function Console({ run, chrome }: ConsoleProps) {
           <Toggle
             label="Trails"
             pressed={state.trails}
+            disabled
+            describedBy={viewNote}
             onChange={(trails) => chrome.set({ trails })}
           />
           <Toggle
             label="Lab frame"
             pressed={state.labFrame}
+            disabled
+            describedBy={viewNote}
             onChange={(labFrame) => chrome.set({ labFrame })}
           />
           <Toggle
             label="Bulge only"
             pressed={state.bulgeOnly}
+            disabled
+            describedBy={viewNote}
             onChange={(bulgeOnly) => chrome.set({ bulgeOnly })}
           />
         </Toggles>
+
+        <p className={styles.note} id={viewNote}>
+          Trails need the renderer to accumulate more than the one frame it presents.
+          The other two need what a trajectory does not carry: every published run is
+          already in the centre-of-mass frame, which the linear momentum plot shows, and
+          a frame holds positions rather than which component a particle was sampled
+          into.
+        </p>
       </section>
 
-      <section className={styles.tier} aria-labelledby={`${describedBy}-derived`}>
+      <section className={styles.tier} aria-labelledby={`${id}-derived`}>
         <div className={styles.head}>
-          <h2 className="label" id={`${describedBy}-derived`}>
+          <h2 className="label" id={`${id}-derived`}>
             Derived
           </h2>
           <span className={styles.cost}>&lt; 1 s · from trajectory</span>
@@ -123,6 +155,8 @@ export function Console({ run, chrome }: ConsoleProps) {
           name="Overlay"
           options={OVERLAYS}
           value={state.overlay}
+          disabled
+          describedBy={derivedNote}
           onChange={(overlay) => chrome.set({ overlay })}
         />
         <Slider
@@ -133,6 +167,8 @@ export function Console({ run, chrome }: ConsoleProps) {
           step={0.01}
           display={<Numeric value={state.rotatingFrame} digits={2} />}
           valueText={decimal(state.rotatingFrame, 2)}
+          disabled
+          describedBy={derivedNote}
           onChange={(rotatingFrame) => chrome.set({ rotatingFrame })}
         />
         <Slider
@@ -143,6 +179,8 @@ export function Console({ run, chrome }: ConsoleProps) {
           step={10}
           display={<Numeric value={state.orbitTrace} unit="steps" />}
           valueText={`${decimal(state.orbitTrace)} steps`}
+          disabled
+          describedBy={derivedNote}
           onChange={(orbitTrace) => chrome.set({ orbitTrace })}
         />
 
@@ -160,17 +198,27 @@ export function Console({ run, chrome }: ConsoleProps) {
           <Toggle
             label="Bound / unbound"
             pressed={state.boundUnbound}
+            disabled={!velocities}
+            describedBy={derivedNote}
             onChange={(boundUnbound) => chrome.set({ boundUnbound })}
           />
         </Toggles>
+
+        <p className={styles.note} id={derivedNote}>
+          An octree overlay needs the tree the solver built and a rotating frame needs
+          to know which galaxy each particle came from, neither of which a trajectory
+          records. An orbit trace needs the renderer to draw several frames into one
+          picture. Bound and unbound need velocities, and a published run is written
+          without them.
+        </p>
       </section>
 
       <section
         className={`${styles.tier} ${styles.dear}`}
-        aria-labelledby={`${describedBy}-solver`}
+        aria-labelledby={`${id}-solver`}
       >
         <div className={styles.head}>
-          <h2 className="label" id={`${describedBy}-solver`}>
+          <h2 className="label" id={`${id}-solver`}>
             Solver
           </h2>
           <span className={styles.cost}>requires a new run</span>
@@ -185,6 +233,8 @@ export function Console({ run, chrome }: ConsoleProps) {
           step={0.01}
           display={<Numeric value={state.requestedCount} />}
           valueText={`${decimal(state.requestedCount)} bodies`}
+          disabled
+          describedBy={solverNote}
           onChange={(logarithm) =>
             chrome.set({ requestedCount: Math.round(10 ** logarithm / 100) * 100 })
           }
@@ -198,6 +248,8 @@ export function Console({ run, chrome }: ConsoleProps) {
           step={0.005}
           display={<Numeric value={state.requestedSoftening} digits={3} />}
           valueText={decimal(state.requestedSoftening, 3)}
+          disabled
+          describedBy={solverNote}
           onChange={(requestedSoftening) => chrome.set({ requestedSoftening })}
         />
         <Segmented
@@ -205,23 +257,27 @@ export function Console({ run, chrome }: ConsoleProps) {
           dear
           options={INTEGRATORS}
           value={state.requestedIntegrator}
+          disabled
+          describedBy={solverNote}
           onChange={(requestedIntegrator) => chrome.set({ requestedIntegrator })}
         />
+
+        <p className={styles.note} id={solverNote}>
+          A run is integrated by the compute service, which this instrument does not
+          reach yet. The estimate below is this machine’s measured step time scaled as
+          the tree solver scales, not a promise.
+        </p>
 
         <button
           type="button"
           className={styles.recompute}
           aria-disabled="true"
-          aria-describedby={`${describedBy}-needs`}
+          aria-describedby={solverNote}
           onClick={(event) => event.preventDefault()}
         >
           <span>Recompute</span>
           <span className={styles.price}>{price(state.requestedCount, run.steps)}</span>
         </button>
-        <span className="visually-hidden" id={`${describedBy}-needs`}>
-          A new run is computed by the service, which this instrument does not yet
-          reach.
-        </span>
       </section>
     </div>
   );

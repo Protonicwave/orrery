@@ -3,7 +3,11 @@ import type { Run } from '../config/run';
 import { createRenderer } from '../render/create';
 import { createFurniture } from '../render/furniture';
 import { Instrument } from '../render/instrument';
-import { DEFAULT_SETTINGS, type RenderSettings } from '../render/renderer';
+import {
+  DEFAULT_SETTINGS,
+  type RenderSettings,
+  type ToneCurve,
+} from '../render/renderer';
 import type { ChromeState, Store } from '../state/store';
 import { createFrameState } from '../state/store';
 import type { Reading } from '../state/useReading';
@@ -36,11 +40,16 @@ function stops(exposure: number): number {
   return exposure <= 0 ? 0 : Math.log2(exposure);
 }
 
-/** What the two view controls mean to the renderer. */
-function settingsFor(exposure: number, spriteRadius: number): RenderSettings {
+/** What the view controls mean to the renderer. */
+function settingsFor(
+  exposure: number,
+  spriteRadius: number,
+  curve: ToneCurve,
+): RenderSettings {
   return {
     ...DEFAULT_SETTINGS,
     exposure,
+    curve,
     pointSize: DEFAULT_SETTINGS.pointSize * spriteRadius,
   };
 }
@@ -163,7 +172,11 @@ export function Plate({
           renderer: started.renderer,
           trajectory,
           frame: createFrameState(),
-          settings: settingsFor(opening.exposure, opening.spriteRadius),
+          settings: settingsFor(
+            opening.exposure,
+            opening.spriteRadius,
+            opening.toneCurve,
+          ),
           furniture,
           onExposure: (exposure) => chrome.set({ exposure }),
           onPlaying: (playing) => chrome.set({ playing }),
@@ -203,9 +216,19 @@ export function Plate({
   useEffect(() => {
     const instrument = instrumentRef.current;
     if (instrument === null) return;
-    instrument.settings = settingsFor(state.exposure, state.spriteRadius);
+    instrument.settings = settingsFor(
+      state.exposure,
+      state.spriteRadius,
+      state.toneCurve,
+    );
     instrument.playing = state.playing;
-  }, [instrumentRef, state.exposure, state.spriteRadius, state.playing]);
+  }, [
+    instrumentRef,
+    state.exposure,
+    state.spriteRadius,
+    state.toneCurve,
+    state.playing,
+  ]);
 
   // The text alternative follows what has been read. Its first value is set
   // where the canvas is made, because this effect cannot run before there is a

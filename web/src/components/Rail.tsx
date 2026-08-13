@@ -4,8 +4,10 @@ import { MACHINE, MEASURED } from '../data/machine';
 import type { Diagnostics } from '../diagnostics/series';
 import { setDecimal, setScientific } from '../format/number';
 import type { InstantSource } from '../state/instant';
+import type { Trajectory } from '../trajectory/client';
 import { Diagnostic } from './Diagnostic';
 import { Numeric } from './Numeric';
+import { Profile } from './Profile';
 import styles from './Rail.module.css';
 
 export interface RailProps {
@@ -13,8 +15,12 @@ export interface RailProps {
   /** The run's own diagnostics, or null while they are still being read. */
   diagnostics: Diagnostics | null;
   instants: InstantSource;
+  /** The trajectory being played, for what the client derives from it. */
+  trajectory: Trajectory;
   /** Whether the console's derived tier is asking for the plots. */
   showDiagnostics: boolean;
+  /** Whether it is asking for the radial profile, which is derived here. */
+  showProfile: boolean;
   /** A sentence, if the diagnostics could not be read. */
   message: string;
 }
@@ -139,7 +145,9 @@ export function Rail({
   run,
   diagnostics,
   instants,
+  trajectory,
   showDiagnostics,
+  showProfile,
   message,
 }: RailProps) {
   const configuration = run.configuration;
@@ -181,6 +189,18 @@ export function Rail({
           ))}
 
           {message !== '' && <p className={styles.provenance}>{message}</p>}
+        </section>
+      )}
+
+      {showProfile && (
+        <section className={styles.section}>
+          <h2 className="label">Derived</h2>
+          <Profile trajectory={trajectory} instants={instants} />
+          <p className={styles.provenance}>
+            Worked out in the browser from the frame on the plate and the masses in the
+            trajectory’s header, rather than read from a file the run wrote. It is the
+            instant, where the plots above it are the run.
+          </p>
         </section>
       )}
 

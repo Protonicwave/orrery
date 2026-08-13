@@ -106,6 +106,11 @@ uniform sampler2D scene;
 uniform float exposure;
 uniform float white_point;
 
+// Zero applies the curve, one leaves the exposed radiance alone. A float
+// rather than a bool because a uniform of two values is not worth a second
+// program, and a branch every fragment takes the same way costs nothing.
+uniform float linear_curve;
+
 out vec4 fragment;
 
 vec3 orrery_tone_curve(vec3 radiance, float exposure, float white_point) {
@@ -122,7 +127,10 @@ vec3 encode_srgb(vec3 linear) {
 
 void main() {
     vec3 radiance = texture(scene, texture_coordinate).rgb;
-    fragment = vec4(encode_srgb(orrery_tone_curve(radiance, exposure, white_point)), 1.0);
+    vec3 mapped = linear_curve > 0.5
+        ? clamp(max(radiance * exposure, vec3(0.0)), 0.0, 1.0)
+        : orrery_tone_curve(radiance, exposure, white_point);
+    fragment = vec4(encode_srgb(mapped), 1.0);
 }
 `;
 
@@ -201,6 +209,7 @@ class WebGl2Renderer implements Renderer {
   private readonly sceneAt: WebGLUniformLocation | null;
   private readonly exposureAt: WebGLUniformLocation | null;
   private readonly whitePointAt: WebGLUniformLocation | null;
+  private readonly linearCurveAt: WebGLUniformLocation | null;
 
   private width = 1;
   private height = 1;
@@ -238,6 +247,7 @@ class WebGl2Renderer implements Renderer {
     this.sceneAt = gl.getUniformLocation(this.postProgram, 'scene');
     this.exposureAt = gl.getUniformLocation(this.postProgram, 'exposure');
     this.whitePointAt = gl.getUniformLocation(this.postProgram, 'white_point');
+    this.linearCurveAt = gl.getUniformLocation(this.postProgram, 'linear_curve');
 
     const array = gl.createVertexArray();
     const post = gl.createVertexArray();
@@ -410,6 +420,7 @@ class WebGl2Renderer implements Renderer {
     gl.uniform1i(this.sceneAt, 0);
     gl.uniform1f(this.exposureAt, settings.exposure);
     gl.uniform1f(this.whitePointAt, settings.whitePoint);
+    gl.uniform1f(this.linearCurveAt, settings.curve === 'linear' ? 1 : 0);
 
     gl.bindVertexArray(this.postArray);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
