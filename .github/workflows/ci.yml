@@ -279,6 +279,54 @@ jobs:
             python/notebooks/03_galaxy_collision.ipynb > /dev/null
         shell: bash
 
+  web:
+    name: Browser client
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22.12.0"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # `npm ci` installs exactly what the lock file names and fails if the two
+      # disagree, which is the same pin-and-check the C++ dependencies get.
+      - name: Install
+        working-directory: web
+        run: npm ci
+
+      - name: Lint and format
+        working-directory: web
+        run: npm run lint
+
+      - name: Type check
+        working-directory: web
+        run: npm run typecheck
+
+      - name: Test
+        working-directory: web
+        run: npm test
+
+      # The browser tests run against the production build, because what they
+      # check, the fonts arriving, nothing being fetched from another origin,
+      # the layout not moving and the audit finding nothing, are properties of
+      # what is published rather than of the development server.
+      - name: Build
+        working-directory: web
+        run: npm run build
+
+      - name: Install the browser
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Test in a browser
+        working-directory: web
+        run: npm run e2e
+
   format:
     name: clang-format
     runs-on: ubuntu-24.04
