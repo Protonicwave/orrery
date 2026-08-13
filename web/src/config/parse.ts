@@ -117,6 +117,34 @@ export function override(
   return result;
 }
 
+/**
+ * Write a configuration back out in the format above.
+ *
+ * The writing half exists for one caller: the WebAssembly module takes the text
+ * of a configuration rather than a structure of numbers, so that the browser and
+ * the command line read the same document with the same parser. Something has to
+ * turn an edited configuration back into that document, and doing it here keeps
+ * the reader and the writer in one file where a change to either is visible to
+ * whoever makes it.
+ *
+ * Sections and settings are written in the order they were read, and a
+ * configuration built by `override` keeps that order, so a file that goes
+ * through this and back comes out as it went in but for what was overridden.
+ * Nothing is quoted or escaped, because the format has no quoting: a value is
+ * whatever follows the equals sign as far as the end of the line.
+ */
+export function writeConfiguration(configuration: Configuration): string {
+  const lines: string[] = [];
+  for (const [section, settings] of Object.entries(configuration)) {
+    lines.push(`[${section}]`);
+    for (const [key, value] of Object.entries(settings)) {
+      lines.push(`${key} = ${value}`);
+    }
+    lines.push('');
+  }
+  return lines.join('\n');
+}
+
 /** A setting as text, or undefined if the file leaves it to its default. */
 export function setting(
   configuration: Configuration,

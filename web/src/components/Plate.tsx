@@ -8,17 +8,37 @@ import {
   type RenderSettings,
   type ToneCurve,
 } from '../render/renderer';
+import type { Achieved } from '../solver/run';
 import type { ChromeState, Store } from '../state/store';
 import { createFrameState } from '../state/store';
 import type { Reading } from '../state/useReading';
 import { useStoreState } from '../state/useStore';
-import type { Trajectory } from '../trajectory/client';
+import type { FrameSource } from '../trajectory/client';
 import { Numeric } from './Numeric';
 import styles from './Plate.module.css';
 
 export interface PlateProps {
   run: Run;
-  trajectory: Trajectory;
+  /** The frames being drawn: a published run, or one being integrated here. */
+  source: FrameSource;
+  /**
+   * Where those frames came from, for the catalogue in the corner.
+   *
+   * A picture drawn by the browser build must never be taken for one of the
+   * figures in `docs/performance/`, and the only way to prevent that is to
+   * state what produced it, on the plate, the whole time.
+   */
+  origin: string;
+  /**
+   * What a browser run turned out to be, or null when the plate is showing a
+   * published one.
+   *
+   * Every field is measured or reported by the module. They join the catalogue
+   * rather than sitting under the button that started the run, because they are
+   * the conditions this picture was taken under and a plate is where those are
+   * written.
+   */
+  achieved: Achieved | null;
   /** How much of the run has been read, taken once and shared. */
   reading: Reading;
   chrome: Store<ChromeState>;
@@ -62,10 +82,16 @@ function settingsFor(
  * done to it. The last sentence is there because the canvas is a control and
  * its keys are not discoverable by looking at it.
  */
-function describe(run: Run, count: number, available: number, frames: number): string {
+function describe(
+  run: Run,
+  origin: string,
+  count: number,
+  available: number,
+  frames: number,
+): string {
   return (
     `${run.name}: ${count} particles, ${run.published.title.toLowerCase()}, ` +
-    'drawn as a field of points on a black plate. ' +
+    `${origin}, drawn as a field of points on a black plate. ` +
     `${available} of ${frames} frames read. ` +
     'Drag to turn, scroll to zoom, or use the arrow keys.'
   );
@@ -88,7 +114,9 @@ function describe(run: Run, count: number, available: number, frames: number): s
  */
 export function Plate({
   run,
-  trajectory,
+  source,
+  origin,
+  achieved,
   reading,
   chrome,
   instrumentRef,
@@ -109,6 +137,14 @@ export function Plate({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const sampleRef = useRef(onSample);
   sampleRef.current = onSample;
+
+  // The device takes a moment to start and the source can be changed while it
+  // is starting, so the loop is built with whichever source is current when it
+  // is built rather than with the one this effect closed over.
+  const sourceRef = useRef(source);
+  sourceRef.current = source;
+  const originRef = useRef(origin);
+  originRef.current = origin;
 
   const [condition, setCondition] = useState<Condition>('starting');
   const [message, setMessage] = useState('');
@@ -170,7 +206,7 @@ export function Plate({
           container,
           canvas: started.canvas,
           renderer: started.renderer,
-          trajectory,
+          source: sourceRef.current,
           frame: createFrameState(),
           settings: settingsFor(
             opening.exposure,
@@ -186,7 +222,13 @@ export function Plate({
 
         started.canvas.setAttribute(
           'aria-label',
-          describe(run, trajectory.facts?.count ?? 0, trajectory.available, 0),
+          describe(
+            run,
+            originRef.current,
+            sourceRef.current.facts?.count ?? 0,
+            sourceRef.current.available,
+            0,
+          ),
         );
 
         instrumentRef.current = instrument;
@@ -207,7 +249,15 @@ export function Plate({
       instrumentRef.current = null;
       canvasRef.current = null;
     };
-  }, [chrome, trajectory, instrumentRef, run]);
+    // The source is deliberately not a dependency. Which frames are being drawn
+    // changes when a button is pressed, and rebuilding the instrument for it
+    // would tear down and restart a graphics device to answer a button. The
+    // effect below hands the new source to the loop instead.
+  }, [chrome, instrumentRef, run]);
+
+  useEffect(() => {
+    instrumentRef.current?.play(source);
+  }, [instrumentRef, source]);
 
   // Chrome state reaches the render loop by being written onto the instrument,
   // not by being read through it. A settings object is replaced on a change
@@ -236,9 +286,9 @@ export function Plate({
   useEffect(() => {
     canvasRef.current?.setAttribute(
       'aria-label',
-      describe(run, reading.count, reading.available, reading.frames),
+      describe(run, origin, reading.count, reading.available, reading.frames),
     );
-  }, [run, reading]);
+  }, [run, origin, reading]);
 
   const share =
     reading.frames === 0 ? 0 : Math.round((reading.available / reading.frames) * 100);
@@ -266,6 +316,9 @@ export function Plate({
         <div>
           <dt>SEED</dt> <dd>{run.seed}</dd>
         </div>
+        <div>
+          <dt>SRC</dt> <dd>{origin}</dd>
+        </div>
       </dl>
 
       <dl className={`${styles.note} ${styles.right}`}>
@@ -290,6 +343,36 @@ export function Plate({
             {device === '' ? 'starting' : device}
           </dd>
         </div>
+        {achieved !== null && achieved.count > 0 && (
+          <>
+            <div>
+              <dt>SOLV</dt>{' '}
+              <dd className={styles.device}>
+                {achieved.solver}, {achieved.kernel}, 1 thread
+              </dd>
+            </div>
+            <div>
+              <dt>STEP</dt>{' '}
+              <dd className={styles.value}>
+                <Numeric value={achieved.stepMilliseconds} digits={1} unit="ms" />
+              </dd>
+            </div>
+            <div>
+              <dt>dE/E</dt>{' '}
+              <dd className={styles.value}>
+                {achieved.energyDrift === null ? (
+                  'pending'
+                ) : (
+                  <Numeric
+                    value={achieved.energyDrift}
+                    notation="scientific"
+                    digits={2}
+                  />
+                )}
+              </dd>
+            </div>
+          </>
+        )}
       </dl>
 
       {/* The scale bar: a length on the screen that can be read as a length in

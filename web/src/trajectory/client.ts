@@ -14,16 +14,26 @@
 
 import type { FromWorker, ToWorker } from './protocol';
 
-/** What the header said, once it has been read. */
-export interface TrajectoryFacts {
+/**
+ * What anything the instrument can draw has to be able to say about itself.
+ *
+ * A published trajectory knows more than this, and says so below. A run being
+ * integrated in the browser knows only this, and that is the whole of what the
+ * plate, the transport and the render loop read.
+ */
+export interface SourceFacts {
   readonly count: number;
   readonly timestep: number;
   readonly frames: number;
+  /** The masses, in particle order. Constant for the length of the run. */
+  readonly masses: Float64Array;
+}
+
+/** What the header said, once it has been read. */
+export interface TrajectoryFacts extends SourceFacts {
   readonly scalar: number;
   readonly velocities: boolean;
   readonly byteLength: number;
-  /** The masses, in particle order. Constant for the length of the run. */
-  readonly masses: Float64Array;
 }
 
 export type TrajectoryStatus = 'opening' | 'streaming' | 'complete' | 'failed';
@@ -47,7 +57,30 @@ export interface FramePositions {
  */
 const NOTIFY_EVERY = 0.01;
 
-export class Trajectory {
+/**
+ * A growing sequence of frames the instrument can play.
+ *
+ * Two things are one: a published trajectory arriving over a connection, and a
+ * run being integrated in a Worker. Both hand the render loop frames in order,
+ * both grow while they are being watched, and both can fail partway through and
+ * still be worth looking at. The loop is written against this rather than
+ * against either of them, which is what lets the plate draw a browser run
+ * without knowing that is what it is doing.
+ */
+export interface FrameSource {
+  readonly status: TrajectoryStatus;
+  readonly facts: SourceFacts | null;
+  /** Empty unless it failed, and then a sentence saying how. */
+  readonly message: string;
+  /** Frames that can be drawn, counting from the start and without a gap. */
+  readonly available: number;
+  subscribe(listener: () => void): () => void;
+  frame(index: number): FramePositions | undefined;
+  /** Which frame holds a moment in model time, or −1 if that is not yet known. */
+  indexAt(time: number): number;
+}
+
+export class Trajectory implements FrameSource {
   status: TrajectoryStatus = 'opening';
   facts: TrajectoryFacts | null = null;
   /** Empty until it fails, and then a sentence saying how. */

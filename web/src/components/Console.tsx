@@ -2,6 +2,7 @@ import { useId } from 'react';
 import type { Run } from '../config/run';
 import { MEASURED } from '../data/machine';
 import { decimal, withSign } from '../format/number';
+import type { BrowserRun } from '../solver/configure';
 import type {
   ChromeState,
   Integrator,
@@ -18,11 +19,24 @@ const TONE_CURVES: readonly ToneCurve[] = ['reinhard', 'linear'];
 const OVERLAYS: readonly Overlay[] = ['none', 'octree', 'density'];
 const INTEGRATORS: readonly Integrator[] = ['velocity-verlet', 'yoshida4', 'rk4'];
 
+/** What the browser run is doing, for the control that starts and stops it. */
+export interface BrowserSolver {
+  /** True from the moment it is asked for until it is stopped. */
+  readonly running: boolean;
+  /** What was asked for, once the module has said what it will accept. */
+  readonly plan: BrowserRun | null;
+  /** Empty unless it failed, and then a sentence saying how. */
+  readonly message: string;
+  readonly onStart: () => void;
+  readonly onStop: () => void;
+}
+
 export interface ConsoleProps {
   run: Run;
   chrome: Store<ChromeState>;
   /** Whether the trajectory being played carries velocities as well. */
   velocities: boolean;
+  solver: BrowserSolver;
 }
 
 /**
@@ -53,6 +67,60 @@ function price(count: number, steps: number): string {
 }
 
 /**
+ * The one run this instrument can compute for itself.
+ *
+ * It sits at the foot of the solver tier because it is a new run rather than
+ * something derived from the one on the plate, and it is separated from the
+ * controls above it because those describe a run the compute service would
+ * take and this one describes a run this tab takes.
+ *
+ * What the run turns out to be is not here but on the plate, in the catalogue
+ * beside the exposure: the count, the backend, the step time and the energy
+ * drift are the conditions the picture was taken under, and a plate is where
+ * those are written. A browser stepping a few thousand particles on one thread
+ * with a scalar kernel must never be read as the hardware the performance
+ * reports were taken on, and that is prevented by saying so where the picture
+ * is rather than where the button is.
+ */
+function BrowserRunControl({
+  run,
+  solver,
+  noteId,
+}: {
+  run: Run;
+  solver: BrowserSolver;
+  noteId: string;
+}) {
+  const { plan, running, message } = solver;
+
+  return (
+    <div className={styles.here}>
+      <button
+        type="button"
+        className={styles.recompute}
+        aria-describedby={noteId}
+        onClick={running ? solver.onStop : solver.onStart}
+      >
+        <span>{running ? 'Stop the browser run' : 'Run it in this browser'}</span>
+        <span className={styles.price}>
+          {plan === null
+            ? 'WebAssembly · same solver'
+            : `${decimal(plan.count)} bodies · ${decimal(plan.steps)} steps`}
+        </span>
+      </button>
+
+      <p className={styles.note} id={noteId}>
+        {message !== ''
+          ? message
+          : plan === null
+            ? 'The same C++ as the native binary, compiled to WebAssembly and stepped in a Worker, on one thread and with the scalar kernel. What it shows is the physics rather than the performance.'
+            : `The same C++ as the native binary, compiled to WebAssembly and stepped in a Worker, on one thread and with the scalar kernel. ${run.published.title} is cut to ${decimal(plan.count)} bodies and the first ${decimal(plan.steps)} steps to fit in a tab. The measured figures in the data rail come from the published run and the machine named beside them.`}
+      </p>
+    </div>
+  );
+}
+
+/**
  * The three tiers, laid out left to right by what operating them costs.
  *
  * Every control that cannot act is drawn back rather than removed, and the
@@ -65,13 +133,14 @@ function price(count: number, steps: number): string {
  * unbound; and it does not hold the tree the solver built, so there is no
  * octree to draw over it.
  */
-export function Console({ run, chrome, velocities }: ConsoleProps) {
+export function Console({ run, chrome, velocities, solver }: ConsoleProps) {
   const state = useStoreState(chrome);
   const id = useId();
 
   const viewNote = `${id}-view-note`;
   const derivedNote = `${id}-derived-note`;
   const solverNote = `${id}-solver-note`;
+  const hereNote = `${id}-here-note`;
 
   return (
     <div className={styles.console}>
@@ -278,6 +347,8 @@ export function Console({ run, chrome, velocities }: ConsoleProps) {
           <span>Recompute</span>
           <span className={styles.price}>{price(state.requestedCount, run.steps)}</span>
         </button>
+
+        <BrowserRunControl run={run} solver={solver} noteId={hereNote} />
       </section>
     </div>
   );
