@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './App.module.css';
 import { Console } from './components/Console';
 import { Masthead } from './components/Masthead';
@@ -7,8 +7,10 @@ import { Rail } from './components/Rail';
 import { Transport } from './components/Transport';
 import { numeric } from './config/parse';
 import { collision } from './config/run';
-import { GALLERY, trajectoryUrl } from './gallery/runs';
+import { type Diagnostics, fetchDiagnostics } from './diagnostics/series';
+import { diagnosticsUrl, GALLERY, trajectoryUrl } from './gallery/runs';
 import type { Instrument } from './render/instrument';
+import { InstantSource } from './state/instant';
 import { createChromeState } from './state/store';
 import { useStoreValue } from './state/useStore';
 import { Trajectory } from './trajectory/client';
@@ -49,11 +51,51 @@ export function App() {
     };
   }, [trajectory]);
 
+  // The run's own diagnostics, fetched beside its trajectory. A run whose
+  // diagnostics will not load still plays: the plate and the transport need
+  // nothing from this file, so the rail says what went wrong and the rest of
+  // the instrument carries on.
+  const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null);
+  const [unreadable, setUnreadable] = useState('');
+  useEffect(() => {
+    const published = GALLERY[0];
+    if (published === undefined) return;
+
+    let live = true;
+    void fetchDiagnostics(diagnosticsUrl(import.meta.env.BASE_URL, published))
+      .then((read) => {
+        if (live) setDiagnostics(read);
+      })
+      .catch((error: unknown) => {
+        if (!live) return;
+        setUnreadable(
+          error instanceof Error ? error.message : 'the diagnostics would not load',
+        );
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
+
   // The instant being read. Written ten times a second by the render loop
   // rather than sixty, which is the rate a clock can be read at and the reason
   // a rendered instant never reaches React on a frame.
+  //
+  // The transport's clock is React state because its track is a controlled
+  // input. Everything else that follows the instant, which is four sparkline
+  // cursors and the four values labelled above them, subscribes to the source
+  // below and writes into the document instead.
   const [time, setTime] = useState(0);
+  const instants = useMemo(() => new InstantSource(), []);
+  const sample = useCallback(
+    (at: number, step: number) => {
+      setTime(at);
+      instants.publish(at, step);
+    },
+    [instants],
+  );
   const playing = useStoreValue(chrome, (state) => state.playing);
+  const showDiagnostics = useStoreValue(chrome, (state) => state.diagnostics);
 
   // The transport moves the render loop, which owns where playback is. The
   // reference is filled in by the plate once a backend has started, and stays
@@ -74,9 +116,15 @@ export function App() {
             trajectory={trajectory}
             chrome={chrome}
             instrumentRef={instrument}
-            onSample={setTime}
+            onSample={sample}
           />
-          <Rail run={run} />
+          <Rail
+            run={run}
+            diagnostics={diagnostics}
+            instants={instants}
+            showDiagnostics={showDiagnostics}
+            message={unreadable}
+          />
         </div>
         <Transport
           run={run}
@@ -84,7 +132,7 @@ export function App() {
           playing={playing}
           onPlayingChange={(next) => chrome.set({ playing: next })}
           onSeek={(next) => {
-            setTime(next);
+            sample(next, Math.round(next / run.timestep));
             instrument.current?.seekTime(next);
           }}
         />

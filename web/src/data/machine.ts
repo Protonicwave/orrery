@@ -35,15 +35,17 @@ export const MACHINE: readonly Fact[] = [
  * particles the file states. A measurement is a property of a configuration,
  * so the configuration it was taken under is carried with it and shown beside
  * it rather than left to be assumed.
+ *
+ * What is here is only what a run's own output cannot say. The energy drift and
+ * the virial ratio used to be transcribed here too, and are not any more: the
+ * instrument reads them out of the diagnostics file of the run it is showing,
+ * which is a figure belonging to that run rather than to a different one
+ * (ADR-0048). A step time and a wall clock are properties of the machine, the
+ * diagnostics file carries neither, and they stay.
  */
 export const MEASURED = {
   count: 20_000,
   steps: 6_000,
-  /** Relative energy error over the run. */
-  energyDrift: 3.3e-3,
-  /** The merger virialising: two galaxies in balance becoming one. */
-  virialStart: 0.94,
-  virialEnd: 0.99,
   /** Milliseconds a step, median of timed trials. */
   stepTime: 20.4,
   /** Seconds the whole run takes. */

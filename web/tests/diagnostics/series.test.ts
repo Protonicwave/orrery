@@ -3,7 +3,6 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  type Diagnostics,
   DiagnosticsError,
   extent,
   parseDiagnostics,
@@ -119,32 +118,23 @@ describe('parseDiagnostics', () => {
 });
 
 describe('sampleAt', () => {
-  const kepler = parseDiagnostics(FIXTURE);
+  const times = parseDiagnostics(FIXTURE).time;
 
   it('finds the last sample at or before a moment', () => {
-    expect(sampleAt(kepler, 0)).toBe(0);
-    expect(sampleAt(kepler, 4.44288301)).toBe(1);
-    expect(sampleAt(kepler, 4.5)).toBe(1);
-    expect(sampleAt(kepler, 8.88576602)).toBe(1);
-    expect(sampleAt(kepler, 22.3)).toBe(5);
+    expect(sampleAt(times, 0)).toBe(0);
+    expect(sampleAt(times, 4.44288301)).toBe(1);
+    expect(sampleAt(times, 4.5)).toBe(1);
+    expect(sampleAt(times, 8.88576602)).toBe(1);
+    expect(sampleAt(times, 22.3)).toBe(5);
   });
 
   /** A run has a state before its first sample: the state it started from. */
   it('answers the first sample before the run begins', () => {
-    expect(sampleAt(kepler, -1)).toBe(0);
+    expect(sampleAt(times, -1)).toBe(0);
   });
 
   it('answers nothing when there is nothing to answer with', () => {
-    const empty: Diagnostics = {
-      samples: 0,
-      step: new Float64Array(0),
-      time: new Float64Array(0),
-      energyDrift: new Float64Array(0),
-      virialRatio: new Float64Array(0),
-      angularMomentum: new Float64Array(0),
-      linearMomentum: new Float64Array(0),
-    };
-    expect(sampleAt(empty, 1)).toBe(-1);
+    expect(sampleAt(new Float64Array(0), 1)).toBe(-1);
   });
 });
 

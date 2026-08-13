@@ -167,15 +167,14 @@ export async function fetchDiagnostics(url: string): Promise<Diagnostics> {
  * second and the samples are in order by construction. Before the first sample
  * it answers zero: a run has a state at t = 0 and that state is the first row.
  */
-export function sampleAt(diagnostics: Diagnostics, time: number): number {
-  const { samples } = diagnostics;
-  if (samples === 0) return -1;
+export function sampleAt(times: Float64Array, time: number): number {
+  if (times.length === 0) return -1;
 
   let low = 0;
-  let high = samples - 1;
+  let high = times.length - 1;
   while (low < high) {
     const middle = (low + high + 1) >> 1;
-    if ((diagnostics.time[middle] as number) <= time) low = middle;
+    if ((times[middle] as number) <= time) low = middle;
     else high = middle - 1;
   }
   return low;
