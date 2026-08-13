@@ -474,6 +474,7 @@ include/          Public headers, under include/orrery/<layer>/
 src/              Implementation, one directory per layer
 apps/             The command-line simulator and the viewer
 python/           The extension module, the package, its tests and its notebooks
+web/              The browser client, its design system and its tests
 examples/         Configuration files that run as they are
 tests/            Catch2 test suite, one executable per layer
 benchmarks/       Measurement programs. They report numbers rather than assert them
@@ -502,7 +503,7 @@ everything and nothing depends on it.
 Four habits the repository keeps, each of them checkable rather than asserted.
 
 **A decision that had a credible alternative is written down.**
-[`docs/adr/`](docs/adr/) holds forty-four numbered records, each giving the
+[`docs/adr/`](docs/adr/) holds forty-five numbered records, each giving the
 context, the decision and the consequences. None is edited after it is merged: a
 decision that changes gets a new record superseding the old one, because the
 value of the directory is what was believed at the time rather than a tidy
@@ -536,6 +537,32 @@ mutates a global compiler flag: every setting reaches a target through an
 interface library, so a dependency built inside this tree keeps its own flags
 (ADR-0003).
 
+## Reading one in a browser
+
+The instrument is at
+[protonicwave.github.io/orrery/instrument](https://protonicwave.github.io/orrery/instrument/).
+It reads a run the way the viewer does: the plate, a rail of registers beside it,
+a transport under it and a console of controls laid out left to right by what
+operating them costs. Nothing in it is transcribed. The configuration register is
+`examples/collision.orrery`, parsed by a reader written against the format
+specification; the measured figures carry the particle count and step count they
+were taken at; the version in the masthead is the one in `CMakeLists.txt`.
+
+It is a separate toolchain and no part of the C++ build:
+
+```
+cd web
+npm ci
+npm run dev
+```
+
+`npm test` runs the unit tests, `npm run e2e` runs the browser tests, which
+include an accessibility audit and a check that nothing is fetched from another
+origin, and `npm run budget` asserts the download sizes that continuous
+integration also asserts. The three faces are self-hosted, cut to the characters
+the design sets by `web/tools/subset_fonts.py`. ADR-0045 records why the client
+is in this repository.
+
 ## Documentation
 
 All of it is published at
@@ -556,7 +583,7 @@ apart (ADR-0043).
   trajectory and the checkpoint, each specified well enough to be read by
   something other than this program.
 - [Architecture decision records](docs/adr/): why the design is the way it is,
-  in forty-four short documents.
+  in forty-five short documents.
 - [Contributing guide](CONTRIBUTING.md): conventions, testing categories and the
   definition of done.
 
