@@ -19,6 +19,8 @@
     "test:watch": "vitest",
     "e2e": "playwright test",
     "budget": "node tools/budget.ts",
+    "gallery": "node tools/publish_gallery.ts",
+    "measure": "node tools/measure_render.ts",
     "fonts": "python tools/subset_fonts.py"
   },
   "dependencies": {
@@ -34,6 +36,7 @@
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
     "@vitejs/plugin-react": "6.0.5",
+    "@webgpu/types": "0.1.71",
     "jsdom": "30.0.1",
     "typescript": "7.0.2",
     "vite": "8.2.1",

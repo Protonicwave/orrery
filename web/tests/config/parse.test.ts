@@ -3,6 +3,7 @@ import {
   ConfigurationError,
   identifier,
   numeric,
+  override,
   parseConfiguration,
   setting,
 } from '../../src/config/parse';
@@ -97,5 +98,38 @@ describe('the run identifier', () => {
 
   it('carries the seed and four hexadecimal digits', () => {
     expect(identifier('anything', 20260812)).toMatch(/^20260812-[0-9A-F]{4}$/);
+  });
+});
+
+describe('applying overrides', () => {
+  const file = parseConfiguration(
+    `[run]
+steps = 100
+seed = 1
+[solver]
+softening = 0.12`,
+  );
+
+  it('replaces a setting the file states, as --set does', () => {
+    const run = override(file, [{ setting: 'run.steps', value: '40000' }]);
+    expect(numeric(run, 'run', 'steps')).toBe(40000);
+    expect(numeric(run, 'run', 'seed')).toBe(1);
+    expect(numeric(run, 'solver', 'softening')).toBe(0.12);
+  });
+
+  it('adds a setting the file leaves out, and a section if it has to', () => {
+    const run = override(file, [{ setting: 'output.trajectory_stride', value: '100' }]);
+    expect(numeric(run, 'output', 'trajectory_stride')).toBe(100);
+  });
+
+  it('leaves the configuration it was given alone', () => {
+    override(file, [{ setting: 'run.steps', value: '2' }]);
+    expect(numeric(file, 'run', 'steps')).toBe(100);
+  });
+
+  it('refuses a setting that names no section, as the command line does', () => {
+    expect(() => override(file, [{ setting: 'steps', value: '2' }])).toThrow(
+      ConfigurationError,
+    );
   });
 });

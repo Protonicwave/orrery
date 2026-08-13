@@ -16,7 +16,15 @@ npm run dev
 | `npm run e2e` | Browser tests against the built client, including an accessibility audit |
 | `npm run lint` | Biome, linting and formatting in one pass |
 | `npm run budget` | Assert the download sizes against `tools/budget.ts` |
+| `npm run gallery` | Run the simulator to produce the published trajectories |
+| `npm run measure` | A minute of playback, for the frame rate and the heap |
 | `npm run fonts` | Cut the three faces to the characters the design sets |
+
+The gallery is not committed. `npm run gallery -- <path to orrery>` runs the
+configurations in `src/gallery/runs.ts` and writes their trajectories into
+`public/gallery/`, which is where the client fetches them from; the site
+workflow does the same before it builds. Without it the instrument draws
+nothing and says so, which is a useful state to have seen.
 
 ## Layout
 
@@ -25,10 +33,15 @@ src/components/   One component and one stylesheet each
 src/config/       A reader for the repository's configuration format
 src/data/         Measurements transcribed from the reports, with their sources
 src/format/       How a number is set
+src/gallery/      Which runs are published, and what each one changes
+src/render/       The renderer interface, its two backends, the camera and loop
 src/state/        The store, and the two kinds of state it keeps apart
 src/styles/       tokens.css, the fonts, and what every element starts from
+src/trajectory/   The format, the ranged reader, and the Worker that runs them
 public/fonts/     The subset faces, committed so a build needs no network
-tools/            The font cutter, the budget, and the version reader
+public/gallery/   The published runs, generated rather than committed
+tools/            The font cutter, the budget, the gallery and the measurements
+tests/fixtures/   Two small trajectories the C++ wrote, for the reader's tests
 e2e/              What only a browser can answer
 ```
 
@@ -50,6 +63,18 @@ conditions it was measured under carried with it.
 thin spaces between digit groups, raised exponents, units a weight lighter and
 tabular figures throughout, and offers a spoken form of any value a screen
 reader would otherwise read wrongly.
+
+**The device sits behind the interface, not in front of it.** `src/render/`
+defines one renderer and implements it twice, for WebGPU and for WebGL2, and
+nothing outside that directory knows which one started. ADR-0046 records why,
+and what the two do differently. The same shape as ADR-0026 on the other side of
+the repository.
+
+**Nothing decodes on the thread that draws.** The trajectory reader runs in a
+Worker and frames cross to the page by transfer rather than by copy. The render
+loop reads them, and allocates nothing worth measuring doing it:
+`docs/instrument.md` has the numbers and `tools/measure_render.ts` produces
+them. ADR-0047.
 
 **Two kinds of state, kept apart.** What a person changes lives in a typed store
 with subscriptions and may be rendered by React. What a run changes, sixty times

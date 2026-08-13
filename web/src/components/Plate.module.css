@@ -10,9 +10,120 @@
   min-height: 0;
 }
 
+/* The surface the backend appends its canvas to. It fills the plate and sits
+ * under every piece of furniture, which is what the stacking below arranges.
+ */
+.surface {
+  position: absolute;
+  inset: 0;
+}
+
 .canvas {
+  display: block;
   width: 100%;
   height: 100%;
+  /* The canvas is a control: it is dragged, scrolled and operated by the
+   * keyboard, so it takes focus and shows that it has it.
+   */
+  outline: none;
+  touch-action: none;
+  cursor: grab;
+}
+
+.canvas:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--focus-offset) * -1);
+}
+
+.canvas:active {
+  cursor: grabbing;
+}
+
+/* The scale bar: a length on the screen that can be read as a length in the
+ * model. Bottom left, where a plate's scale goes, and set in the same mono
+ * face as the rest of the catalogue.
+ *
+ * The width is fixed and wider than the longest bar the furniture will draw,
+ * because what the bar stands for is not known until the camera has framed the
+ * particles, and a box that grew to fit it would move.
+ */
+.scale {
+  width: 190px;
+  position: absolute;
+  bottom: 30px;
+  left: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  pointer-events: none;
+  font-family: var(--mono);
+  font-size: var(--type-mini);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+
+.scaleBar {
+  height: 5px;
+  border: var(--hairline) solid var(--ink-4);
+  border-top: none;
+  /* The width is written by the furniture, in pixels, and is the measurement
+   * this element exists to carry.
+   */
+  width: 0;
+}
+
+.scaleText {
+  min-height: 13px;
+  width: 100%;
+}
+
+.scaleText small {
+  color: var(--ink-4);
+  font-size: inherit;
+}
+
+/* The gnomon: which way the model's axes point, after a drag has lost them. */
+.gnomon {
+  position: absolute;
+  bottom: 26px;
+  right: 30px;
+  pointer-events: none;
+  color: var(--ink-4);
+  overflow: visible;
+}
+
+.gnomon line {
+  stroke-width: var(--hairline);
+}
+
+.gnomon text {
+  fill: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 9px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+/* What the plate says while the run is still arriving. Bottom centre, out of
+ * the way of the picture that is already on it.
+ */
+.reading {
+  position: absolute;
+  bottom: var(--space-5);
+  left: 50%;
+  /* Centred on a fixed width rather than on its own, so that the share moving
+   * from nine per cent to ten does not move the sentence around it.
+   */
+  width: 260px;
+  margin: 0 0 0 -130px;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: var(--type-mini);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--tracking-nav);
+  text-transform: uppercase;
+  color: var(--ink-3);
+  pointer-events: none;
 }
 
 /* Registration marks: the corners of a photographic plate. Furniture, and
@@ -106,6 +217,32 @@
   margin-top: 0;
 }
 
+/* A field whose value arrives late and is not the width of its placeholder.
+ * Reserved rather than fitted, for the same reason as the box around it: a
+ * particle count that widened from one digit to five when the header was read
+ * would move the line it sits on.
+ */
+.note .value {
+  display: inline-block;
+  width: 64px;
+  text-align: right;
+}
+
+/* A driver's own name for itself runs to a hundred characters of nested
+ * brackets. It is stated because a picture drawn in a browser must not be
+ * mistaken for one of the native figures, and it is cut to the width of the
+ * catalogue because a plate annotation that reaches into the picture is no
+ * longer an annotation. The whole string is on the element as a title.
+ */
+.note .device {
+  display: inline-block;
+  width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
 .left {
   top: 30px;
   left: 30px;
@@ -115,6 +252,12 @@
   top: 30px;
   right: 30px;
   text-align: right;
+  /* Fixed, because the values in it arrive after the layout does: the particle
+   * count comes from the trajectory's header and the device's name from
+   * whichever backend started. A box that grew to fit them would move, and the
+   * budget for that movement is zero rather than a small number.
+   */
+  width: 300px;
 }
 
 /* What the plate says when it holds no exposure. Set in the middle, quiet, and

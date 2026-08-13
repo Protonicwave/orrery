@@ -1,4 +1,3 @@
-import { useId } from 'react';
 import type { Run } from '../config/run';
 import { decimal } from '../format/number';
 import { Numeric } from './Numeric';
@@ -8,6 +7,8 @@ export interface TransportProps {
   run: Run;
   /** Where in the run the instrument is reading, in model time. */
   time: number;
+  playing: boolean;
+  onPlayingChange: (playing: boolean) => void;
   onSeek: (time: number) => void;
 }
 
@@ -33,8 +34,13 @@ const TICKS = Array.from({ length: 41 }, (_, index) => ({
  * of steps and a timestep, so the step is the time divided by one of them, and
  * the two readouts cannot disagree.
  */
-export function Transport({ run, time, onSeek }: TransportProps) {
-  const trackId = useId();
+export function Transport({
+  run,
+  time,
+  playing,
+  onPlayingChange,
+  onSeek,
+}: TransportProps) {
   const fraction = run.modelTime === 0 ? 0 : time / run.modelTime;
   const step = Math.round(time / run.timestep);
 
@@ -43,18 +49,20 @@ export function Transport({ run, time, onSeek }: TransportProps) {
       <button
         type="button"
         className={styles.button}
-        aria-disabled="true"
-        aria-describedby={`${trackId}-play`}
-        onClick={(event) => event.preventDefault()}
+        aria-pressed={playing}
+        onClick={() => onPlayingChange(!playing)}
       >
-        <svg width="9" height="10" viewBox="0 0 9 10" aria-hidden="true">
-          <path d="M0 0 L9 5 L0 10 Z" fill="currentColor" />
-        </svg>
-        <span className="visually-hidden">Play</span>
+        {playing ? (
+          <svg width="9" height="10" viewBox="0 0 9 10" aria-hidden="true">
+            <path d="M0 0 H3 V10 H0 Z M6 0 H9 V10 H6 Z" fill="currentColor" />
+          </svg>
+        ) : (
+          <svg width="9" height="10" viewBox="0 0 9 10" aria-hidden="true">
+            <path d="M0 0 L9 5 L0 10 Z" fill="currentColor" />
+          </svg>
+        )}
+        <span className="visually-hidden">{playing ? 'Pause' : 'Play'}</span>
       </button>
-      <span className="visually-hidden" id={`${trackId}-play`}>
-        Playback needs a trajectory, which this instrument does not yet read.
-      </span>
 
       <p className={styles.clock}>
         <Numeric value={time} digits={3} />
