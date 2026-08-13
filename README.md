@@ -144,6 +144,28 @@ Reproduce with:
 ./build/release/benchmarks/orrery_tree_scaling
 ```
 
+**One force evaluation, gathered into one place:**
+
+| Solver and device | Particles | Per evaluation | Against a limit measured on the same machine |
+| --- | --- | --- | --- |
+| CPU direct, AVX2, 8 threads | 8192 | 13.80 ms | 79.7% of the divide and square root ceiling |
+| CPU tree | 262144 | 868 ms | 20x direct summation, with cost going as N^1.24 |
+| GPU direct | 65536 | 75.4 ms | 4.09x all eight CPU cores, at 1139 Gflop/s |
+| GPU tree | 262144 | 59.8 ms | 12.2x the CPU tree |
+| GPU tree, the largest run | 2097152 | 603 ms | 87.5 MiB shared, the host's Morton sort 40 to 46% of it |
+
+Drawing is measured separately because it is a frame rate rather than an
+evaluation: a recorded run plays back at a million particles and 126 frames a
+second, and the live collision runs at thirty thousand above thirty.
+
+Every row is a median with an interquartile range beside it in the report, not a
+best of N, because the target is a laptop and a best-of on a part that throttles
+reports the trial taken before the fan noticed (ADR-0019). The session behind the
+first row spreads 1.3 to 5.0 per cent. The report also gives the session where
+that row came out at 22.4 ms instead, with a 27 per cent spread and a thermal
+canary at twice its starting duration, and says which of the two to believe and
+why.
+
 **This machine's real ceilings are not the ones on the specification sheet:**
 
 | Probe | Sustained | Interquartile spread |
