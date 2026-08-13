@@ -55,6 +55,11 @@ frames/
 # that stops being run. These are a few hundred bytes each.
 !web/tests/fixtures/*.otj
 
+# The published gallery. Produced by web/tools/publish_gallery.ts from the
+# configurations in examples/, in the site workflow and by hand, for the same
+# reason no other trajectory is committed: it is output.
+web/public/gallery/
+
 # Python tooling for the bindings and the example notebooks.
 __pycache__/
 *.py[cod]
