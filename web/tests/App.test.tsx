@@ -58,13 +58,26 @@ describe('the instrument', () => {
     expect(screen.getByRole('button', { name: 'Trails' })).toBeDefined();
   });
 
-  it('says that playback and a new run are not reachable yet, rather than pretending', () => {
+  it('offers the transport, and says a new run is not reachable yet', () => {
     render(<App />);
+    // Playback is a control now that there is a trajectory to play. Submitting
+    // a run is still not, and still says so rather than pretending.
     expect(
-      screen.getByRole('button', { name: 'Play' }).getAttribute('aria-disabled'),
-    ).toBe('true');
+      screen.getByRole('button', { name: 'Play' }).getAttribute('aria-pressed'),
+    ).toBe('false');
     expect(
       screen.getByRole('button', { name: /Recompute/ }).getAttribute('aria-disabled'),
     ).toBe('true');
+  });
+
+  /**
+   * This environment has neither a Worker nor a graphics context, which is the
+   * same position a browser too old for either is in. What it must not do is
+   * show an empty black rectangle, because a plate with nothing on it and a
+   * renderer that failed look identical and only one of them should.
+   */
+  it('says what it cannot do rather than showing an empty plate', async () => {
+    render(<App />);
+    expect(await screen.findByText(/will not draw the plate|no Worker/)).toBeDefined();
   });
 });
