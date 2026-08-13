@@ -50,10 +50,13 @@ the test or the command that produces it.
   [trajectory](formats/trajectory.md) and [checkpoint](formats/checkpoint.md)
   binaries, each specified well enough to be read by something other than this
   program.
-- [The instrument](https://protonicwave.github.io/orrery/instrument/). The
-  browser client, which reads a run's configuration, the figures it measured and
-  the machine they were taken on. Every value in it comes from a file in the
-  repository rather than from a copy of one (ADR-0045).
+- [The instrument](instrument.md). The browser client, which plays a trajectory
+  this repository produced and draws it with the same optics as the native
+  renderer. What it draws, how a published run is made, what the drawing costs,
+  and where to find it: it is
+  [live here](https://protonicwave.github.io/orrery/instrument/). Every value in
+  it comes from a file in the repository rather than from a copy of one
+  (ADR-0045).
 
 ## What the design rests on
 

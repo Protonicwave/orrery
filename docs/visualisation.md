@@ -50,6 +50,10 @@ orrery-view play collision.otj
 Playback costs only the drawing, so it runs at whatever the renderer can manage,
 and the camera can be moved freely while it plays.
 
+A trajectory can also be played in a browser. [The instrument](instrument.md)
+reads the same format, draws it with the same two passes and the same tone
+curve, and takes the same controls at the same sensitivities.
+
 A trajectory carries no configuration, so playback cannot tint the two galaxies
 of a collision apart the way a live run does. That colouring is a property of
 which galaxy a particle was sampled into, and a trajectory records positions.

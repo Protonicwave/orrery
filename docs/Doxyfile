@@ -41,6 +41,7 @@ INPUT                  = include \
                          docs/performance.md \
                          docs/python.md \
                          docs/visualisation.md \
+                         docs/instrument.md \
                          docs/adr \
                          docs/formats \
                          docs/performance
