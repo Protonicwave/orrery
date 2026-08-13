@@ -102,10 +102,19 @@ test('moves nothing as its fonts arrive', async ({ page }) => {
       }),
   );
 
-  // Zero, and it can be zero here rather than nearly zero: a method page states
-  // nothing it learns from the network, so there is no field whose contents
-  // arrive after the box around them has been drawn.
-  expect(shifted).toBe(0);
+  // Nothing on a method page is learned from the network, so there is no field
+  // whose contents arrive after the box around them has been drawn, and on a
+  // machine that is not busy the score is exactly zero.
+  //
+  // It is not always exactly zero, and the reason is the one thing on these
+  // pages that does arrive: the faces. They are preloaded and served from this
+  // origin, so the swap window is normally over before the first paint, but on
+  // a runner slow enough to paint the fallback first the swap reflows the prose
+  // and the metric records it. The measured score when that happens is about
+  // two parts in a hundred thousand. The bound is well inside the threshold at
+  // which the metric calls a page good and well outside that, so a page that
+  // starts genuinely moving fails.
+  expect(shifted).toBeLessThan(0.001);
 });
 
 test('goes back to the instrument and on to the next page', async ({ page }) => {
