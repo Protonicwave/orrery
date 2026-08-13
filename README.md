@@ -420,7 +420,7 @@ python/           The extension module, the package, its tests and its notebooks
 examples/         Configuration files that run as they are
 tests/            Catch2 test suite, one executable per layer
 benchmarks/       Measurement programs. They report numbers rather than assert them
-docs/             The two reports, the implementation plan, the site configuration
+docs/             The two reports, the format specifications, the site configuration
 docs/adr/         Numbered decision records, never edited after merge
 docs/formats/     Specifications of the configuration, trajectory and checkpoint files
 docs/performance/ Measured results, with the machine state that produced them
@@ -454,8 +454,6 @@ everything and nothing depends on it.
   something other than this program.
 - [Architecture decision records](docs/adr/): why the design is the way it is,
   in forty-four short documents.
-- [Implementation plan](docs/IMPLEMENTATION_PLAN.md): what was built, in what
-  order, and what each phase had to demonstrate.
 - [Contributing guide](CONTRIBUTING.md): conventions, testing categories and the
   definition of done.
 

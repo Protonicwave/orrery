@@ -14,6 +14,12 @@ consumer laptop hardware, and it is built around three goals in this order:
 correctness that can be demonstrated, performance that can be quantified, and
 engineering that survives inspection.
 
+It is a gravitational N-body simulator and not a framework for physics in
+general. General relativity, hydrodynamics, collisional stellar dynamics with
+regularisation and distributed multi-node execution are all outside it. Each is
+a reasonable extension and none is in scope, because a framework with one solver
+in it is a solver with extra indirection.
+
 ## The two reports
 
 Everything the project claims is in one of these, and every claim in them names
@@ -45,14 +51,45 @@ the test or the command that produces it.
   binaries, each specified well enough to be read by something other than this
   program.
 
+## What the design rests on
+
+Five decisions shape the rest of the code, and each of them is load-bearing
+enough that changing it would change everything above it.
+
+**Particles are stored as separate contiguous arrays rather than as an array of
+structs.** The force kernel reads positions and masses and nothing else. Under an
+array-of-structs layout every cache line it fetched would also carry velocities
+and accelerations it never touches, wasting a large share of the bandwidth that
+already binds. Separate arrays also give contiguous vector loads instead of
+strided gathers.
+
+**Virtual dispatch sits at boundaries and never inside a loop.** Solvers and
+backends are selected at run time, so a benchmark or a test can swap
+implementations from a flag. The cost is one indirect call per timestep ahead of
+billions of floating-point operations, and it is unmeasurable. No virtual call
+appears in any loop over particles.
+
+**A GPU implementation is a backend behind the solver interface, not a second
+copy of the solver.** Two divergent implementations of the same physics is the
+usual way a project of this kind decays, and ADR-0026 puts the device behind the
+interface rather than in front of it.
+
+**Precision is selected at build time.** `Real` is `double` by default and
+`float` under a build option. Templating every solver on the scalar type would
+multiply compile times and complicate the SYCL kernels for no practical gain,
+because a given run is either accuracy-oriented or throughput-oriented and never
+both.
+
+**The direct solver is the reference and is never deleted.** Every
+approximation, whether an opening angle, a multipole order or a reduced
+precision, is measured against direct summation in double precision.
+
 ## How it is built
 
 - [The API reference](annotated.html), generated from the public headers.
 - [Architecture decision records](adr/README.md). Forty-four short documents
   recording the decisions that had a credible alternative, each with its context
   and its consequences, none of them edited after it was merged.
-- [The implementation plan](IMPLEMENTATION_PLAN.md). What was built, in what
-  order, and what each phase had to demonstrate before it counted as done.
-- [The measured results, phase by phase](performance/roofline.md), with the
-  machine state that produced them and an account of which figures reproduce and
-  which do not.
+- [The measured results, subsystem by subsystem](performance/roofline.md), with
+  the machine state that produced them and an account of which figures reproduce
+  and which do not.

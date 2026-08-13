@@ -1,7 +1,6 @@
 # Vectorisation, and the kernels against this machine's measured limits
 
-What Phase 7 measured, on the machine section 2 of the implementation plan
-describes.
+Measured on the machine [the performance report](../performance.md) describes.
 
 The short version, in three findings.
 
@@ -64,8 +63,8 @@ Session of 2026-08-10 19:08, double precision.
 | Fused multiply-add | 330.25 Gflop/s | 2.2% | -0.4% | 335.62 Gflop/s |
 | Divide and square root | 12.21 Gop/s | 3.3% | 1.2% | 12.60 Gop/s |
 
-The bandwidth figures are worth comparing with the nominal one. Section 2 of the
-implementation plan records approximately 135 GB/s for this part, shared between
+The bandwidth figures are worth comparing with the nominal one. The
+manufacturer's figure for this part is approximately 135 GB/s, shared between
 the CPU and the integrated GPU. A read-only stream over a buffer sixty-four
 times the size of the last-level cache reaches 95.7 GB/s, which is 71 per cent
 of it. That is an ordinary result for a real program, and it is the number this
@@ -124,8 +123,8 @@ traffic is `4N * sizeof(Real)` bytes and the arithmetic intensity is
 which at 8192 particles is 5119 flop per byte, against a ridge at 3.45. The
 direct solver is compute-bound by three and a half orders of magnitude.
 
-That is worth pausing on, because section 2 of the implementation plan says most
-kernels in this project are bound by data movement, and that is why the layout
+That is worth pausing on, because most kernels in this project are bound by data
+movement rather than by arithmetic, and that is why the layout
 decisions of ADR-0004 exist. Direct summation is the exception, and it is the
 exception for the same reason it is expensive: it does N-squared work on N data.
 
@@ -283,8 +282,8 @@ Phase 7, and would have been wrong silently.
 
 ## How much of this is reproducible
 
-Section 7 of the implementation plan asks that the harness produce reproducible
-numbers across repeated runs. The honest answer has two halves.
+The harness has to produce reproducible numbers across repeated runs, and
+whether it does is a result in its own right. The honest answer has two halves.
 
 For configurations this part can sustain, yes. The double-precision session above
 has interquartile ranges from 1.3 to 5.0 per cent on every row, its thermal

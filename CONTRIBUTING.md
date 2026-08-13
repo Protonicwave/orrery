@@ -1,15 +1,14 @@
 # Contributing to Orrery
 
-Orrery is built in phases, each described in [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md).
-That document is the source of truth for what is built and in what order. This
-one describes how to work on it. Where the two disagree, the plan wins and this
-file is wrong and should be fixed.
+This file describes how to work on Orrery. What the project is and what it has
+been measured to do are in [the README](README.md) and in the two reports it
+links; the reasoning behind the design is in [`docs/adr/`](docs/adr/).
 
 ## The shape of a contribution
 
-One phase, one branch, one pull request. Branches are named `phase-NN-short-name`,
-for example `phase-02-core`. A change that does not belong to a phase, such as a
-typo or a broken link, may go on a branch named after what it does.
+One logical change, one branch, one pull request. A branch is named after the
+change rather than after whoever is making it or when: `feat/quadrupole-moments`,
+`fix/checkpoint-alignment`, `docs/trajectory-format`.
 
 `main` is protected and always green. There are no direct pushes to it.
 
@@ -134,7 +133,7 @@ A pull request merges only when all of the following hold:
 - Public headers carry documentation comments explaining purpose and rationale.
 - Any new non-obvious decision has an ADR.
 - Performance-affecting changes report measured before and after figures, taken
-  by the benchmark methodology established in Phase 7 once that exists.
+  by the benchmark protocol in ADR-0019 that `benchmarks/harness/` implements.
 - The README reflects reality. No claim appears there that is not reproducible
   by running a documented command.
 - The documentation site builds with no warnings: `doxygen docs/Doxyfile`. A

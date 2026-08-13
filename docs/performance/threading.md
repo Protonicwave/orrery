@@ -1,7 +1,6 @@
 # CPU threading on a hybrid processor
 
-What Phase 6 measured, on the machine section 2 of the implementation plan
-describes.
+Measured on the machine [the performance report](../performance.md) describes.
 
 The short version: dividing the force loop into eight equal shares leaves the
 performance cores idle for 64.5 per cent of every force evaluation. Letting idle
@@ -61,8 +60,8 @@ It also sets the ceiling. Eight cores of which four run at half speed are worth
     4 x 1 + 4 x (1 / 2.17) = 5.84
 
 times one performance core, not eight. A speedup should be read against 5.84
-rather than against 8, and quoting the fraction of that limit is what section 1
-of the implementation plan asks for.
+rather than against 8, and quoting the fraction of that limit rather than the
+raw figure is the rule every speed in this project is stated by.
 
 This is also a warning about baselines. The first version of this measurement
 let the operating system place the single-threaded baseline and reported

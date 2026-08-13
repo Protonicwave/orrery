@@ -1,7 +1,6 @@
 # The tree traversal on the GPU, and what coherence is worth inside it
 
-What Phase 10 measured, on the machine section 2 of the implementation plan
-describes.
+Measured on the machine [the performance report](../performance.md) describes.
 
 The short version, in five findings.
 
@@ -315,9 +314,9 @@ better to say what happened to them than to let them lapse quietly.
 
 The first was the direct kernel's throughput dip at 16384 particles, which that
 document attributed to the padded launch geometry fitting the device least well
-and left for Phase 10. **It was not investigated.** Phase 10's subject is the
-tree traversal, and section 6 of the implementation plan is explicit that a phase
-may not spread into work scheduled elsewhere. The dip does reproduce in this
+and left for the traversal work. **It was not investigated.** The subject here is
+the tree traversal, and a measurement that spreads into every question it passes
+finishes none of them. The dip does reproduce in this
 session's `GPU direct` column, where 16384 particles take 7.07 ms against 1.55 at
 8192, a factor of 4.6 for a factor of 4 in interactions.
 

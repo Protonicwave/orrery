@@ -37,26 +37,23 @@ body:
       required: false
 
   - type: dropdown
-    id: phase
+    id: area
     attributes:
-      label: Related phase
+      label: Which part of the project
       description: >
-        The phase in docs/IMPLEMENTATION_PLAN.md this touches, if any.
+        The layer this touches. The layering is described in CONTRIBUTING.md.
       options:
         - Not sure
-        - Repository, build system or CI
-        - Core data structures
-        - Diagnostics and initial conditions
-        - Integrators
-        - Direct solver
-        - CPU threading
-        - Vectorisation and benchmarking
-        - Barnes-Hut
-        - SYCL backend
-        - Driver, configuration and I/O
-        - Visualisation
-        - Python bindings
-        - Documentation and release
+        - core, particle storage and vector maths
+        - initial_conditions, sampled models and analytic configurations
+        - backend, CPU threading and the SYCL device
+        - integrators
+        - solvers, direct and Barnes-Hut
+        - sim, the run and the file formats
+        - viz, the camera, the tone mapping and the renderer
+        - apps, the command line
+        - python, the bindings and the package
+        - Build system, continuous integration or documentation
     validations:
       required: true
 

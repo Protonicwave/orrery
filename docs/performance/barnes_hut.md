@@ -1,7 +1,6 @@
 # The tree solver, against the algorithm it replaces
 
-What Phase 8 measured, on the machine section 2 of the implementation plan
-describes.
+Measured on the machine [the performance report](../performance.md) describes.
 
 The short version, in four findings.
 
