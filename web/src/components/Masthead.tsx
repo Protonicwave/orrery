@@ -1,4 +1,5 @@
 import type { Run } from '../config/run';
+import { METHOD } from '../method/links';
 import styles from './Masthead.module.css';
 
 /** The documentation site, which is where the reference material is published. */
@@ -43,6 +44,7 @@ export function Masthead({ run }: MastheadProps) {
         <a href="./" aria-current="page">
           Instrument
         </a>
+        <a href={METHOD.contents}>Method</a>
         <a href={REFERENCE}>Reference</a>
       </nav>
 

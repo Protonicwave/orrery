@@ -3,6 +3,7 @@ import type { Run } from '../config/run';
 import { MACHINE, MEASURED } from '../data/machine';
 import type { Diagnostics } from '../diagnostics/series';
 import { setDecimal, setScientific } from '../format/number';
+import { METHOD } from '../method/links';
 import type { InstantSource } from '../state/instant';
 import type { Trajectory } from '../trajectory/client';
 import { Diagnostic } from './Diagnostic';
@@ -189,6 +190,12 @@ export function Rail({
           ))}
 
           {message !== '' && <p className={styles.provenance}>{message}</p>}
+
+          <p className={styles.provenance}>
+            What each of these is checked against, and why a symplectic method holds its
+            energy inside an envelope rather than driving it one way, is{' '}
+            <a href={METHOD.validation}>the validation report</a>.
+          </p>
         </section>
       )}
 
@@ -246,7 +253,8 @@ export function Rail({
           the state; it is the README’s demonstration at{' '}
           <Numeric value={MEASURED.count} /> particles over{' '}
           <Numeric value={MEASURED.steps} /> steps. A step time belongs to a particle
-          count.
+          count. <a href={METHOD.demonstration}>The demonstration</a> sets out that run
+          and what it is sensitive to.
         </p>
       </section>
 
@@ -327,6 +335,12 @@ export function Rail({
             </Row>
           ))}
         </dl>
+        <p className={styles.provenance}>
+          Every speed the project claims was taken on that one part, each as a fraction
+          of a ceiling measured on it in the same session.{' '}
+          <a href={METHOD.performance}>The performance report</a> carries the medians
+          with their spreads.
+        </p>
       </section>
     </aside>
   );
