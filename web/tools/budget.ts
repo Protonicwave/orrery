@@ -62,6 +62,35 @@ function* files(directory: string): Generator<string> {
   }
 }
 
+/**
+ * The reading half's budget, which is zero.
+ *
+ * A method page is markup and a stylesheet and nothing else, so that it can be
+ * read before any script has run and by a reader who runs none (ADR-0050).
+ * Nothing in the client imports those pages, so the only thing that would put a
+ * script tag into one of them is a change to how the site is built, which is
+ * exactly the change worth failing a pull request over.
+ */
+function readingHalfRunsNoScript(): boolean {
+  const pages = [...files(join(DIST, 'method'))].filter(
+    (path) => extname(path) === '.html',
+  );
+
+  if (pages.length === 0) {
+    console.error('the reading half is not in the build at all');
+    return false;
+  }
+
+  let clean = true;
+  for (const path of pages) {
+    if (!/<script/i.test(readFileSync(path, 'utf8'))) continue;
+    console.error(`${path} carries a script and a method page may not`);
+    clean = false;
+  }
+  console.log(`method       ${String(pages.length).padStart(6)} pages, no script`);
+  return clean;
+}
+
 function main(): void {
   const sizes = new Map<string, number>();
   for (const path of files(DIST)) {
@@ -86,6 +115,8 @@ function main(): void {
     );
     if (size > budget.limit) console.log(`  the budget is there for ${budget.why}`);
   }
+
+  passed &&= readingHalfRunsNoScript();
 
   if (!passed) {
     console.error('\nA budget has been passed. Either the code comes back down or the');
