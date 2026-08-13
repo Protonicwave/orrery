@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The demonstration · Orrery</title>
+    <meta
+      name="description"
+      content="Two disc galaxies on a bound, grazing encounter: the configuration, the setting it is most sensitive to, and what the run costs."
+    />
+
+    <link rel="preload" href="/fonts/source-serif-400.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/source-serif-600.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/plex-sans-500.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/plex-mono-400.woff2" as="font" type="font/woff2" crossorigin />
+
+    <link rel="stylesheet" href="/src/styles/paper.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#method">Skip to the argument</a>
+
+    <header class="masthead">
+      <div class="wordmark">
+        <svg class="rings" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <circle cx="8" cy="8" r="7" stroke-width="1" />
+          <circle cx="8" cy="8" r="4.2" stroke-width="1" />
+          <circle class="sun" cx="8" cy="8" r="1.5" />
+          <circle class="body" cx="15" cy="8" r="1.1" />
+          <circle class="moon" cx="8" cy="3.8" r="1" />
+        </svg>
+        <b>Orrery</b>
+      </div>
+
+      <nav class="nav" aria-label="Sections">
+        <a href="../../">Instrument</a>
+        <a href="../" aria-current="page">Method</a>
+        <a href="https://protonicwave.github.io/orrery/">Reference</a>
+      </nav>
+    </header>
+
+    <main class="paper" id="method">
+      <div class="measure">
+        <div class="eyebrow">Method · the demonstration</div>
+
+        <h1>Two disc galaxies on a bound, grazing encounter</h1>
+
+        <p class="lede">
+          They fall together, pass, draw tidal tails out of one another,
+          separate, return and merge. There is no video file in this repository
+          and there is no need for one. The commands that make it are below, and
+          they make it again.
+        </p>
+
+        <p>
+          The timestep is
+          <span class="num" data-source="examples/collision.orrery">0.005</span>,
+          a two-hundredth of the time it takes the inner disc to turn once,
+          which is short enough that the bulge, the densest part of either
+          galaxy, is resolved rather than integrated through. The two discs are
+          tilted differently on purpose. An encounter between two discs in the
+          same plane is symmetric and much the least interesting to look at, and
+          the tidal tails are drawn out of whichever disc is closest to coplanar
+          with the orbit, so a pair inclined by different amounts produces one
+          long tail and one stubby one, which is what real interacting pairs
+          look like.
+        </p>
+
+        <h2>The setting it turns on</h2>
+
+        <p>
+          The softening of
+          <span class="num" data-source="docs/visualisation.md">0.12</span> sits
+          a little above the disc’s scale height of
+          <span class="num" data-source="examples/collision.orrery">0.1</span>,
+          and it is the choice this configuration is most sensitive to. The disc
+          is cold, so it is unstable to its own self-gravity and will fragment on
+          every scale the force law permits. The scale height is the smallest
+          structure the model actually represents; below it the disc is a
+          two-dimensional sheet of point masses rather than a galaxy, and letting
+          that sheet collapse would be resolving the sampling. At
+          <span class="num" data-source="docs/visualisation.md">0.12</span> the
+          fragmentation is confined to scales the model does not resolve anyway,
+          and the spiral structure and the tidal tails are unaffected. At
+          <span class="num" data-source="docs/visualisation.md">0.05</span> the
+          same run ends as a swarm of small dense knots.
+        </p>
+
+        <h2>Running it</h2>
+
+        <p>
+          The renderer is off by default, because it fetches GLFW and needs an
+          OpenGL 3.3 driver. A build without it is a complete simulator without a
+          viewer.
+        </p>
+
+        <div class="cmd">cmake --preset renderer
+cmake --build --preset renderer
+orrery run examples/collision.orrery \
+    --set initial_conditions.count=20000 --set run.steps=6000 \
+    --set output.trajectory_stride=20
+orrery-view play collision.otj --exposure 1.6</div>
+
+        <p>
+          That run is deliberately smaller and shorter than the configuration
+          file’s own settings, so that it finishes in two minutes and can be
+          repeated by anyone reading this. It took
+          <span class="num" data-source="docs/visualisation.md" data-says="122 seconds">122</span>
+          seconds,
+          <span class="num" data-source="docs/visualisation.md">20.4</span
+          ><span class="unit">ms</span> a step, and conserved energy to
+          <span class="num" data-source="docs/visualisation.md" data-says="3.3 parts in a thousand"
+            >3.3×10<sup>−3</sup></span
+          >. Its virial ratio went from
+          <span class="num" data-source="docs/visualisation.md">0.94</span> at the
+          start to
+          <span class="num" data-source="docs/visualisation.md">0.99</span> at the
+          end, which is the merger virialising: two galaxies each in rough
+          internal balance, plus the orbital energy of the encounter between
+          them, become one object in balance with itself.
+        </p>
+
+        <h2>What the drawing costs</h2>
+
+        <p>
+          Measured with the viewer’s own frame counter rather than with the
+          benchmark harness, at 1280 by 720, on the machine
+          <a href="../performance/">the performance report</a> describes. That is
+          the weaker instrument and it is adequate here for a specific reason:
+          each figure is already the mean of several hundred consecutive frames,
+          which is the repetition the harness exists to provide, and no figure is
+          a before-and-after comparison of the same kernel.
+        </p>
+
+        <div class="wide">
+          <table class="results" data-source="docs/visualisation.md">
+            <caption>
+              Drawing alone, one configuration redrawn, against a live run of one
+              tree evaluation and one frame per turn
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Particles</th>
+                <th scope="col">Drawing alone</th>
+                <th scope="col">Live run</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="n">20&thinsp;000</td>
+                <td class="n">5020</td>
+                <td class="n">56</td>
+              </tr>
+              <tr>
+                <td class="n">60&thinsp;000</td>
+                <td class="n">2590</td>
+                <td class="n">14</td>
+              </tr>
+              <tr>
+                <td class="n">200&thinsp;000</td>
+                <td class="n">740</td>
+                <td>not run</td>
+              </tr>
+              <tr>
+                <td class="n">1&thinsp;000&thinsp;000</td>
+                <td class="n">126</td>
+                <td>not run</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          Frames a second, so the headline is two numbers rather than one. The
+          collision runs and draws live at better than thirty frames a second up
+          to about thirty thousand particles, where the limit is the solver and
+          not the renderer: at that count the renderer is drawing three thousand
+          frames a second and waiting. For a picture rather than an interaction,
+          a recorded run plays back at
+          <span class="num" data-source="docs/visualisation.md">1&thinsp;000&thinsp;000</span>
+          particles and
+          <span class="num" data-source="docs/visualisation.md">126</span> frames
+          a second.
+        </p>
+
+        <h2>The run in the browser</h2>
+
+        <p>
+          <a href="../../?run=collision">The instrument</a> plays the same
+          scenario at
+          <span class="num" data-source="docs/instrument.md">8000</span>
+          particles rather than sixty thousand, and a frame every hundred steps
+          rather than every forty. Both changes are about the download and not
+          about the physics: a frame is three component arrays, so the particle
+          count is the size of every frame, and at sixty thousand particles the
+          same run would be a gigabyte and a half. It integrates the whole
+          encounter, all
+          <span class="num" data-source="docs/instrument.md">40&thinsp;000</span> steps
+          of it.
+        </p>
+
+        <div class="cmd">orrery run examples/collision.orrery \
+    --set initial_conditions.count=8000 --set run.steps=40000 \
+    --set output.trajectory_stride=100 --set output.diagnostics_stride=400 \
+    --set output.checkpoint_stride=0</div>
+
+        <p>
+          That took
+          <span class="num" data-source="docs/instrument.md" data-says="338 seconds">338</span>
+          seconds,
+          <span class="num" data-source="docs/instrument.md">8.46</span
+          ><span class="unit">ms</span> a step, and conserved energy to
+          <span class="num" data-source="docs/instrument.md" data-says="7.1 parts in a thousand"
+            >7.1×10<sup>−3</sup></span
+          >
+          across forty thousand steps. Its virial ratio went from
+          <span class="num" data-source="docs/instrument.md">0.942</span> to
+          <span class="num" data-source="docs/instrument.md">0.934</span>. Those
+          are the figures the rail plots beside the picture, read out of the
+          diagnostics file that run wrote.
+        </p>
+
+        <p class="foot">
+          Seed
+          <span class="num" data-source="examples/collision.orrery">20260812</span>
+          · configuration <span class="num">examples/collision.orrery</span><br />
+          Nothing is claimed here that a command in this repository does not
+          reproduce.<br />
+          Next:
+          <a href="../validation/">what is checked, and against what</a> ·
+          <a href="../../?run=collision">play this run</a>
+        </p>
+      </div>
+    </main>
+  </body>
+</html>
