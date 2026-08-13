@@ -104,6 +104,19 @@
       }
     },
     {
+      "name": "wasm",
+      "inherits": "base",
+      "displayName": "Release, WebAssembly",
+      "description": "The browser module: core, initial conditions, integrators and the CPU solvers, compiled to WebAssembly through the Emscripten toolchain and reached through the C interface in wasm/. Needs emsdk on the environment, so run its emsdk_env script first, which sets EMSDK. The renderer, the SYCL backend, the command-line programs and the library's file I/O are not part of this build; the tests and benchmarks are not either, since a browser is not where they are run. Writes the module into web/public/solver.",
+      "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "ORRERY_BUILD_WASM": "ON",
+        "ORRERY_BUILD_TESTS": "OFF",
+        "ORRERY_BUILD_BENCHMARKS": "OFF"
+      }
+    },
+    {
       "name": "lint",
       "inherits": "base",
       "displayName": "Debug with clang-tidy",
@@ -150,6 +163,10 @@
     {
       "name": "python",
       "configurePreset": "python"
+    },
+    {
+      "name": "wasm",
+      "configurePreset": "wasm"
     },
     {
       "name": "lint",

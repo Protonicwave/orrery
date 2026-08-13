@@ -82,6 +82,27 @@ struct Diagnostics {
     }
 };
 
+/// The energy error at `energy`, relative to `reference`.
+///
+/// The quantity every energy plot in this project is of, and what the
+/// `relative_energy_error` column of a diagnostics file carries: the total
+/// energy less the total energy the run started with, divided by the magnitude
+/// of that first value.
+///
+/// It is a function here rather than an expression at the one place that needed
+/// it, because it now has two callers. A native run writes the column into a
+/// CSV file; the WebAssembly module has no file to write and reports the same
+/// number across its boundary instead. Two spellings of a definition are two
+/// definitions, and the one that would drift is the one nobody has a file to
+/// check against.
+///
+/// A run whose first measured energy is zero has no scale to be relative to,
+/// and the absolute difference is returned instead. Two particles at rest at
+/// infinite separation are the only configuration that does it, so this is a
+/// degenerate case rather than a common one, and the alternative is a column of
+/// infinities.
+[[nodiscard]] Real relative_energy_error(Real reference, Real energy) noexcept;
+
 /// The sum of the masses.
 [[nodiscard]] Real total_mass(std::span<const Real> masses);
 

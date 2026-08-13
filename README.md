@@ -440,6 +440,7 @@ The presets are:
 | `sycl-single-precision` | The same with `float`. The configuration the GPU figures come from |
 | `renderer` | Release with the viewer. Fetches GLFW and needs an OpenGL 3.3 driver |
 | `python` | Release with the extension module, importable from the build tree |
+| `wasm` | The browser module, through the Emscripten toolchain. Needs emsdk on the environment |
 | `lint` | Debug with clang-tidy running alongside the compiler. Needs Clang |
 
 Every one of them is exercised by continuous integration, along with a
@@ -503,7 +504,7 @@ everything and nothing depends on it.
 Four habits the repository keeps, each of them checkable rather than asserted.
 
 **A decision that had a credible alternative is written down.**
-[`docs/adr/`](docs/adr/) holds forty-five numbered records, each giving the
+[`docs/adr/`](docs/adr/) holds fifty-two numbered records, each giving the
 context, the decision and the consequences. None is edited after it is merged: a
 decision that changes gets a new record superseding the old one, because the
 value of the directory is what was believed at the time rather than a tidy
@@ -555,7 +556,17 @@ solvers, in the same type system at the opposite value. Those pages are static
 HTML and run no script, and every figure on one names the file in `docs/` it was
 taken from, which a test checks (ADR-0050).
 
-It is a separate toolchain and no part of the C++ build:
+The instrument can also compute a run rather than only play one. The same C++ is
+compiled to WebAssembly by the `wasm` preset and stepped in a Worker, reached
+through the dozen C functions in [`wasm/orrery_wasm.h`](wasm/orrery_wasm.h), and
+a test compares what it computes against a trajectory the native build wrote from
+the same configuration. It has one thread and no vector kernel, so it is the
+physics rather than the performance, and the plate states the solver, the kernel,
+the thread count and the measured step time for as long as it is running.
+[`docs/webassembly.md`](docs/webassembly.md) has the figures; ADR-0051 records
+why the solver is compiled rather than written again.
+
+The client is a separate toolchain and no part of the C++ build:
 
 ```
 cd web

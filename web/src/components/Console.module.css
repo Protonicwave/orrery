@@ -100,6 +100,57 @@
   text-transform: none;
 }
 
+/* The run this instrument can compute for itself.
+ *
+ * Ruled off from the controls above it because it is a different offer: those
+ * describe a run the compute service would take, and this one is taken here,
+ * now, at a size that fits in a tab. Its own note sits under it rather than
+ * joining the tier's, since the tier's note answers "why can I not" and this one
+ * answers "what am I looking at".
+ */
+.here {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: var(--hairline) solid var(--rule);
+}
+
+.here .recompute {
+  margin-top: 0;
+}
+
+.here .note {
+  margin-top: var(--space-3);
+  padding-top: 0;
+}
+
+/* What the run turned out to be. A definition list because that is what it is:
+ * four questions with one answer each, read down rather than across.
+ */
+.achieved {
+  margin-top: var(--space-4);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-2) var(--space-4);
+  font-size: var(--type-label);
+}
+
+.achieved > div {
+  display: contents;
+}
+
+.achieved dt {
+  font-family: var(--mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.achieved dd {
+  margin: 0;
+  color: var(--ink-2);
+  text-align: right;
+}
+
 @media (max-width: 1000px) {
   .console {
     grid-template-columns: 1fr;

@@ -30,6 +30,7 @@ using orrery::core::ParticleData;
 using orrery::core::potential_energy;
 using orrery::core::RandomSource;
 using orrery::core::Real;
+using orrery::core::relative_energy_error;
 using orrery::core::Softening;
 using orrery::core::total_mass;
 using orrery::core::Vec3;
@@ -123,6 +124,21 @@ TEST_CASE("the derived quantities follow the measured ones", "[unit][core]") {
     // Half the kinetic energy the virial theorem would ask for, which is the
     // state the cold uniform sphere starts in.
     REQUIRE(measured.virial_ratio() == static_cast<Real>(0.5));
+}
+
+TEST_CASE("the energy error is relative to where the run started", "[unit][core]") {
+    // An eighth lost from an energy of −4, which is the sign convention every
+    // energy plot in the project is drawn with: a system that has shed energy
+    // reports a negative error. Every value here is exact in binary, so a
+    // failure means the formula is wrong rather than that a tolerance was
+    // chosen badly.
+    REQUIRE(relative_energy_error(Real{-4}, static_cast<Real>(-4.5)) == static_cast<Real>(-0.125));
+
+    REQUIRE(relative_energy_error(Real{-4}, Real{-4}) == Real{0});
+
+    // A run whose first measured energy is zero has no scale to be relative to,
+    // and the absolute difference is the answer rather than an infinity.
+    REQUIRE(relative_energy_error(Real{0}, static_cast<Real>(0.25)) == static_cast<Real>(0.25));
 }
 
 TEST_CASE("softening enters the potential energy as it enters the force", "[unit][core]") {

@@ -1,48 +1,51 @@
 /**
- * How much of the run has been read, as a value React can render.
+ * How much of the run has arrived, as a value React can render.
  *
- * The trajectory client is not a store: it is written to by a Worker's messages
- * and it notifies a hundred times over a load rather than four hundred, which
- * is its own decision and the reason it has a subscription of its own. This
- * turns that subscription into one snapshot, taken in one place, so that the
- * plate, the transport and the instrument's text alternative are all describing
- * the same reading rather than each keeping their own copy of it.
+ * A frame source is not a store: it is written to by a Worker's messages and it
+ * decides for itself how often that is worth passing on. This turns its
+ * subscription into one snapshot, taken in one place, so that the plate, the
+ * transport and the instrument's text alternative are all describing the same
+ * reading rather than each keeping their own copy of it.
+ *
+ * A published trajectory being decoded and a browser run being integrated are
+ * both read through this, because both are a sequence of frames that grows
+ * while it is being watched.
  */
 
 import { useEffect, useState } from 'react';
-import type { Trajectory, TrajectoryStatus } from '../trajectory/client';
+import type { FrameSource, TrajectoryStatus } from '../trajectory/client';
 
 export interface Reading {
   readonly status: TrajectoryStatus;
   /** Frames decoded so far, counting from the start and without a gap. */
   readonly available: number;
-  /** Frames the file holds, once its header has been read. */
+  /** Frames there will be altogether, once that is known. */
   readonly frames: number;
-  /** Particles in the file, which is the count that was actually drawn. */
+  /** Particles the source holds, which is the count that was actually drawn. */
   readonly count: number;
   /** Empty unless the read failed, and then a sentence saying how. */
   readonly message: string;
 }
 
-function snapshot(trajectory: Trajectory): Reading {
+function snapshot(source: FrameSource): Reading {
   return {
-    status: trajectory.status,
-    available: trajectory.available,
-    frames: trajectory.facts?.frames ?? 0,
-    count: trajectory.facts?.count ?? 0,
-    message: trajectory.message,
+    status: source.status,
+    available: source.available,
+    frames: source.facts?.frames ?? 0,
+    count: source.facts?.count ?? 0,
+    message: source.message,
   };
 }
 
-export function useReading(trajectory: Trajectory): Reading {
-  const [reading, setReading] = useState(() => snapshot(trajectory));
+export function useReading(source: FrameSource): Reading {
+  const [reading, setReading] = useState(() => snapshot(source));
 
   useEffect(() => {
-    setReading(snapshot(trajectory));
-    return trajectory.subscribe(() => {
-      setReading(snapshot(trajectory));
+    setReading(snapshot(source));
+    return source.subscribe(() => {
+      setReading(snapshot(source));
     });
-  }, [trajectory]);
+  }, [source]);
 
   return reading;
 }

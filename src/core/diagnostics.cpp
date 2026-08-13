@@ -82,6 +82,12 @@ private:
 
 } // namespace
 
+Real relative_energy_error(Real reference, Real energy) noexcept {
+    const Real scale = std::abs(reference);
+    const Real difference = energy - reference;
+    return scale > 0 ? difference / scale : difference;
+}
+
 Real total_mass(std::span<const Real> masses) {
     CompensatedSum sum;
     for (const Real mass : masses) {

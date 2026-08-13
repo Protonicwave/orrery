@@ -2,10 +2,14 @@
  * The render loop, and the controls that drive it.
  *
  * This is the imperative half of the client. It owns the canvas, the camera and
- * the animation frame, it reads the trajectory's decoded frames directly, and
- * it never touches React: a value that changes sixty times a second must not go
- * through a virtual DOM, which is the decision Phase 2's store was split in two
- * for.
+ * the animation frame, it reads its source's frames directly, and it never
+ * touches React: a value that changes sixty times a second must not go through
+ * a virtual DOM, which is the decision Phase 2's store was split in two for.
+ *
+ * The source is an interface rather than the trajectory reader, because there
+ * are now two things that produce frames in order: a published run being
+ * decoded, and a run being integrated in a Worker by the WebAssembly build of
+ * the solver. Neither is visible from here.
  *
  * ## What the loop is allowed to allocate
  *
@@ -26,7 +30,7 @@
  */
 
 import type { FrameState } from '../state/store';
-import type { Trajectory } from '../trajectory/client';
+import type { FrameSource } from '../trajectory/client';
 import { OrbitCamera } from './camera';
 import type { PlateFurniture } from './furniture';
 import type { Positions, Renderer, RenderSettings } from './renderer';
@@ -77,7 +81,12 @@ export interface InstrumentOptions {
   readonly container: HTMLElement;
   readonly canvas: HTMLCanvasElement;
   readonly renderer: Renderer;
-  readonly trajectory: Trajectory;
+  /**
+   * The frames to play: a published trajectory being read, or a run being
+   * integrated in the browser. The loop does not distinguish them, which is the
+   * point of the interface.
+   */
+  readonly source: FrameSource;
   /** The mutable record the loop writes its per-frame numbers into. */
   readonly frame: FrameState;
   readonly settings: RenderSettings;
@@ -109,6 +118,16 @@ export class Instrument implements PlateReadout {
 
   settings: RenderSettings;
   playing = false;
+
+  /**
+   * The frames being played.
+   *
+   * Replaceable, through `play`, because the instrument outlives the choice
+   * between a published run and one being integrated here. Rebuilding it to
+   * change that would mean tearing down and restarting a graphics device to
+   * answer a button.
+   */
+  private source: FrameSource;
 
   private readonly options: InstrumentOptions;
   private readonly viewProjection = new Float32Array(16);
@@ -144,6 +163,7 @@ export class Instrument implements PlateReadout {
   constructor(options: InstrumentOptions) {
     this.options = options;
     this.settings = options.settings;
+    this.source = options.source;
 
     const { canvas } = options;
     canvas.tabIndex = 0;
@@ -172,11 +192,26 @@ export class Instrument implements PlateReadout {
   }
 
   get available(): number {
-    return this.options.trajectory.available;
+    return this.source.available;
   }
 
   get frames(): number {
-    return this.options.trajectory.facts?.frames ?? 0;
+    return this.source.facts?.frames ?? 0;
+  }
+
+  /**
+   * Draw a different sequence of frames from the beginning.
+   *
+   * The transport goes back to the start and the camera is framed again on the
+   * first frame that arrives, because the new source is a different run and the
+   * distance that suited the old one need not suit it.
+   */
+  play(source: FrameSource): void {
+    if (source === this.source) return;
+    this.source = source;
+    this.position = 0;
+    this.framed = false;
+    this.positions.count = 0;
   }
 
   get pixelsPerUnit(): number {
@@ -209,12 +244,12 @@ export class Instrument implements PlateReadout {
    * needs to know whether to ask again when more of it has.
    */
   seekTime(time: number): boolean {
-    const { trajectory } = this.options;
-    const index = trajectory.indexAt(time);
+    const { source } = this;
+    const index = source.indexAt(time);
     if (index < 0) {
-      // Fewer than two frames have arrived, so the spacing is not yet known.
-      // The first frame is the only one there is to be at.
-      const first = trajectory.frame(0);
+      // The spacing between frames is not yet known. The first frame is the
+      // only one there is to be at.
+      const first = source.frame(0);
       if (first === undefined) return false;
       this.seek(0);
       return time <= first.time;
@@ -342,13 +377,11 @@ export class Instrument implements PlateReadout {
         // what has arrived would play the opening seconds over and over while
         // the rest of the file was still coming, which reads as a stuck run.
         this.position =
-          this.options.trajectory.status === 'complete'
-            ? this.position % available
-            : last;
+          this.source.status === 'complete' ? this.position % available : last;
       }
     }
 
-    const frame = this.options.trajectory.frame(Math.floor(this.position));
+    const frame = this.source.frame(Math.floor(this.position));
     if (frame === undefined) return;
 
     this.positions.count = frame.x.length;

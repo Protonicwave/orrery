@@ -53,6 +53,19 @@ option(ORRERY_ENABLE_RENDERER "Build the real-time renderer and the viewer" OFF)
 # this project through scikit-build-core and needs nothing else from it.
 option(ORRERY_BUILD_PYTHON "Build the Python extension module" OFF)
 
+# The WebAssembly module, which is the same library reached through the C
+# interface in wasm/ rather than a second implementation of it. Off by default
+# because it needs the Emscripten toolchain, and meaningless without it: the
+# wasm preset selects that toolchain and turns this on together.
+option(ORRERY_BUILD_WASM "Build the WebAssembly module" OFF)
+
+if(ORRERY_BUILD_WASM AND NOT EMSCRIPTEN)
+  message(
+    FATAL_ERROR
+      "ORRERY_BUILD_WASM needs the Emscripten toolchain. Configure with "
+      "--preset wasm, having run emsdk_env first.")
+endif()
+
 # Sanitisers are a list rather than a boolean because address and thread cannot
 # be combined, and later phases will want thread on its own once the scheduler
 # in Phase 6 exists.
@@ -77,7 +90,19 @@ if(ORRERY_BUILD_TESTS)
 endif()
 
 add_subdirectory(src)
-add_subdirectory(apps)
+
+# The command-line programs are native tools: they read files, write files and
+# take arguments from a shell. A WebAssembly build has none of those and
+# produces one module instead, so apps/ is not added there.
+if(NOT ORRERY_BUILD_WASM)
+  add_subdirectory(apps)
+endif()
+
+# The WebAssembly module is a consumer of the library rather than a layer of it,
+# so it sits beside apps/ and python/ for the reason each of those gives.
+if(ORRERY_BUILD_WASM)
+  add_subdirectory(wasm)
+endif()
 
 # The bindings are a consumer of the library rather than a layer of it, so they
 # sit beside apps/ and are added after the layers they bind.

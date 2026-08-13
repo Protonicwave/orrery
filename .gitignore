@@ -60,6 +60,11 @@ frames/
 # reason no other trajectory is committed: it is output.
 web/public/gallery/
 
+# The WebAssembly module, written here by the wasm preset. It is compiler
+# output, and the only reason it sits under web/ at all is that the client
+# serves it as a static asset.
+web/public/solver/
+
 # Python tooling for the bindings and the example notebooks.
 __pycache__/
 *.py[cod]

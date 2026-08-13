@@ -1,0 +1,60 @@
+# The WebAssembly module, produced once and defined once.
+#
+# The module is compiler output, like the published gallery beside it, and for
+# the same reason it is generated rather than committed. Three things need it
+# and none can borrow another's: the unit suite compares its answers against the
+# native build's, the browser tests step it in a real Worker, and the site
+# workflow publishes it. This action is what they share, so a change to how it
+# is built cannot reach one of them and not the others.
+#
+# Preconditions: the repository is checked out. It writes into
+# web/public/solver, which is where the wasm preset puts the module and where
+# Vite copies it into the site from, so this has to finish before the client is
+# built.
+
+name: Build the WebAssembly module
+description: Compile the solver to WebAssembly with the Emscripten toolchain.
+
+runs:
+  using: composite
+  steps:
+    # The cache key covers everything that decides what comes out: the library,
+    # the C interface, the build settings and the toolchain version. A change to
+    # any of them compiles it again.
+    - name: Restore the module
+      id: cached
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      with:
+        path: web/public/solver
+        key: >-
+          solver-6.0.6-${{ hashFiles('src/**', 'include/**', 'wasm/**',
+          'cmake/**', 'CMakeLists.txt', 'CMakePresets.json') }}
+
+    - name: Install Ninja
+      if: steps.cached.outputs.cache-hit != 'true'
+      shell: bash
+      run: sudo apt-get update && sudo apt-get install --yes ninja-build
+
+    # Pinned to an exact SDK version rather than to `latest`, for the reason
+    # ADR-0002 pins the C++ dependencies: a moving target makes a build that
+    # succeeded yesterday and fails today a change nobody made. Installed from
+    # the toolchain's own repository rather than through a third-party action,
+    # which would be one more thing to pin and one more thing to trust.
+    - name: Install Emscripten
+      if: steps.cached.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        set -o errexit
+        git clone --depth 1 https://github.com/emscripten-core/emsdk.git "${RUNNER_TEMP}/emsdk"
+        "${RUNNER_TEMP}/emsdk/emsdk" install 6.0.6
+        "${RUNNER_TEMP}/emsdk/emsdk" activate 6.0.6
+
+    - name: Build the module
+      if: steps.cached.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        set -o errexit
+        source "${RUNNER_TEMP}/emsdk/emsdk_env.sh"
+        emcc --version
+        cmake --preset wasm
+        cmake --build --preset wasm

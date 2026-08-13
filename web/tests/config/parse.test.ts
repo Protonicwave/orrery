@@ -6,6 +6,7 @@ import {
   override,
   parseConfiguration,
   setting,
+  writeConfiguration,
 } from '../../src/config/parse';
 
 describe('the configuration reader', () => {
@@ -80,6 +81,46 @@ steps = 10
     const configuration = parseConfiguration('[run]\nsteps = 1');
     expect(setting(configuration, 'run', 'seed')).toBeUndefined();
     expect(numeric(configuration, 'run', 'seed')).toBeUndefined();
+  });
+});
+
+describe('the configuration writer', () => {
+  it('writes what the reader reads back', () => {
+    const text = `
+# A comment, and a blank line.
+
+[run]
+timestep = 0.001
+steps    = 1000
+
+[solver]
+kind = direct
+`;
+    const configuration = parseConfiguration(text);
+    expect(parseConfiguration(writeConfiguration(configuration))).toEqual(
+      configuration,
+    );
+  });
+
+  it('carries an override through', () => {
+    const configuration = override(parseConfiguration('[run]\nsteps = 1000\n'), [
+      { setting: 'run.steps', value: '200' },
+      { setting: 'initial_conditions.count', value: '64' },
+    ]);
+
+    const written = parseConfiguration(writeConfiguration(configuration));
+    expect(setting(written, 'run', 'steps')).toBe('200');
+    expect(setting(written, 'initial_conditions', 'count')).toBe('64');
+  });
+
+  it('writes a section that has no settings in it', () => {
+    // The reader records an empty section, and a writer that dropped it would
+    // turn a document into a different one.
+    const configuration = parseConfiguration('[integrator]\n');
+    expect(writeConfiguration(configuration)).toContain('[integrator]');
+    expect(parseConfiguration(writeConfiguration(configuration))).toEqual(
+      configuration,
+    );
   });
 });
 

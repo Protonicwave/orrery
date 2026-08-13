@@ -71,6 +71,30 @@ if(MSVC)
                          INTERFACE $<$<CONFIG:RelWithDebInfo>:/Ob2>)
 endif()
 
+if(EMSCRIPTEN)
+  # Two settings that have to reach every translation unit in the module, which
+  # is why they are here rather than on the one target that produces it.
+  #
+  # SIMD128 is the vector width WebAssembly has. It is asked for at the compiler
+  # level rather than through a hand-written kernel, which is the opposite of
+  # what ADR-0018 does on x86, and the difference is deliberate: there is no
+  # second kernel to compare against here, so there is no baseline for
+  # auto-vectorisation to quietly erase. The arithmetic is unchanged either way,
+  # because no fast-math flag is set anywhere in this project (ADR-0020) and
+  # without one the compiler may not reassociate the accumulation it would need
+  # to reassociate to vectorise it.
+  #
+  # Exceptions use the WebAssembly exception instructions rather than
+  # Emscripten's older emulation through JavaScript, which is slower and larger.
+  # They cannot be switched off: the configuration reader reports a bad document
+  # by throwing, which is what section 4 of the implementation plan asks of a
+  # setup boundary, and the C interface in wasm/ turns those into return values
+  # at the one place where they would otherwise reach a caller that cannot catch
+  # them.
+  target_compile_options(orrery_options INTERFACE -msimd128 -fwasm-exceptions)
+  target_link_options(orrery_options INTERFACE -fwasm-exceptions)
+endif()
+
 # The oneAPI compiler is the one compiler here that is not IEEE by default.
 #
 # Clang, GCC and MSVC all keep strict floating-point semantics unless asked

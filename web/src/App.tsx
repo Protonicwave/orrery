@@ -12,12 +12,13 @@ import { type Diagnostics, fetchDiagnostics } from './diagnostics/series';
 import { readAddress, writeAddress } from './gallery/address';
 import { diagnosticsUrl, type GalleryRun, trajectoryUrl } from './gallery/runs';
 import type { Instrument } from './render/instrument';
+import { LiveRun } from './solver/run';
 import { InstantSource } from './state/instant';
 import { useViewerShortcuts } from './state/shortcuts';
 import { createChromeState } from './state/store';
 import { useReading } from './state/useReading';
 import { useStoreValue } from './state/useStore';
-import { Trajectory } from './trajectory/client';
+import { type FrameSource, Trajectory } from './trajectory/client';
 
 /**
  * The instrument.
@@ -112,10 +113,39 @@ export function App() {
   const showDiagnostics = useStoreValue(chrome, (state) => state.diagnostics);
   const showProfile = useStoreValue(chrome, (state) => state.radialProfile);
 
+  // The run this tab is integrating for itself, when it has been asked to.
+  //
+  // A browser run and a published one are both sequences of frames that grow
+  // while they are being watched, so the plate, the transport and the render
+  // loop read whichever is current through one interface and never learn which
+  // of the two it is. What they must not do is hide the difference from a
+  // reader, which is what the catalogue on the plate is for.
+  const [live, setLive] = useState<LiveRun | null>(null);
+  const source: FrameSource = live ?? trajectory;
+
+  const stopHere = useCallback(() => {
+    setLive((current) => {
+      current?.stop();
+      return null;
+    });
+    setTime(0);
+  }, []);
+
+  const startHere = useCallback(() => {
+    setLive((current) => {
+      current?.stop();
+      const next = new LiveRun();
+      next.start(run);
+      return next;
+    });
+    setTime(0);
+    wanted.current = null;
+  }, [run]);
+
   // How much of the run has been read, taken once and given to everything that
   // describes it, so the plate's particle count and the transport's cannot be
   // two answers arrived at separately.
-  const reading = useReading(trajectory);
+  const reading = useReading(source);
 
   // The transport moves the render loop, which owns where playback is. The
   // reference is filled in by the plate once a backend has started, and stays
@@ -136,12 +166,19 @@ export function App() {
     if (instrument.current?.seekTime(at) === true) wanted.current = null;
   }, [reading.available]);
 
-  const choose = useCallback((next: GalleryRun) => {
-    window.history.pushState(null, '', writeAddress(window.location.search, next, 0));
-    wanted.current = null;
-    setPublished(next);
-    setTime(0);
-  }, []);
+  // Choosing a run ends any browser run in progress. A browser run belongs to
+  // the scenario it was started from, and leaving it going would put a picture
+  // of one scenario under the configuration of another.
+  const choose = useCallback(
+    (next: GalleryRun) => {
+      window.history.pushState(null, '', writeAddress(window.location.search, next, 0));
+      wanted.current = null;
+      stopHere();
+      setPublished(next);
+      setTime(0);
+    },
+    [stopHere],
+  );
 
   // Back and forward are navigations between runs and between moments, so they
   // have to be answered rather than left to change the address under a page
@@ -150,13 +187,14 @@ export function App() {
     const onPopState = (): void => {
       const address = readAddress(window.location.search);
       wanted.current = address.time;
+      stopHere();
       setPublished(address.run);
     };
     window.addEventListener('popstate', onPopState);
     return () => {
       window.removeEventListener('popstate', onPopState);
     };
-  }, []);
+  }, [stopHere]);
 
   // The native viewer's keys, from anywhere on the page rather than only from
   // the plate. The plate keeps its own handler because it also turns the camera.
@@ -186,7 +224,9 @@ export function App() {
         <div className={styles.stage}>
           <Plate
             run={run}
-            trajectory={trajectory}
+            source={source}
+            origin={live === null ? 'published run' : 'this browser'}
+            achieved={live?.achieved ?? null}
             reading={reading}
             chrome={chrome}
             instrumentRef={instrument}
@@ -226,6 +266,13 @@ export function App() {
           run={run}
           chrome={chrome}
           velocities={trajectory.facts?.velocities ?? false}
+          solver={{
+            running: live !== null,
+            plan: live?.plan ?? null,
+            message: live?.status === 'failed' ? live.message : '',
+            onStart: startHere,
+            onStop: stopHere,
+          }}
         />
       </div>
     </>

@@ -40,7 +40,17 @@ target_link_libraries(
 # kernel is not compiled, ORRERY_HAS_AVX2_KERNEL is not defined, and the scalar
 # kernel is the only one there is. That is a working build rather than a
 # degraded one: the project's correctness has never depended on vector width.
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "^([Xx]86_64|AMD64|amd64|i[3-6]86|[Xx]86)$")
+#
+# Emscripten is excluded by name rather than by processor, because it reports
+# CMAKE_SYSTEM_PROCESSOR as x86 and is not: the target is wasm32, whose vector
+# extension is SIMD128 and which has no AVX2 and no CPUID to ask about it.
+# Without this the kernel is compiled with -mavx2 for a machine that will never
+# run it, and the run-time dispatch then correctly refuses to call it, because
+# cpu_features.cpp has no CPUID on this target and reports nothing. That is a
+# module carrying a kernel it cannot execute, which is a size the download pays
+# for and a claim the build would be making falsely.
+if(NOT EMSCRIPTEN AND CMAKE_SYSTEM_PROCESSOR MATCHES
+                      "^([Xx]86_64|AMD64|amd64|i[3-6]86|[Xx]86)$")
   target_sources(orrery_solvers PRIVATE direct_kernel_avx2.cpp)
 
   # Public because it guards a declaration in a public header, so a consumer
