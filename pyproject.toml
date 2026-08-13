@@ -93,3 +93,38 @@ regex = '(?sm)project\s*\([^)]*VERSION\s+(?P<value>[0-9]+(\.[0-9]+)*)'
 
 [tool.pytest.ini_options]
 testpaths = ["python/tests"]
+
+# How the released wheels are built. This lives here rather than in the release
+# workflow so that the build is the same whether continuous integration runs it
+# or somebody runs cibuildwheel by hand, which is the only way to reproduce a
+# release without a GitHub account.
+[tool.cibuildwheel]
+build-frontend = "build"
+
+# PyPy is skipped because pybind11 supports it but this project has never been
+# built or tested against it, and a wheel nobody has run is worse than no wheel.
+# musllinux is skipped for the same reason. The 32-bit targets are skipped
+# because a simulator whose point is millions of particles has no use for a
+# 4 GB address space.
+skip = ["pp*", "*-musllinux*", "*_i686", "*-win32"]
+
+# glibc 2.28, which is what the C++20 the project is written in needs. The
+# default manylinux image ships GCC 10, which does not have a complete <format>
+# or the ranges the code uses; 2_28 ships GCC 14.
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
+
+# The wheel's own test suite, run against the installed wheel on the machine
+# that built it. This is what makes a green release job evidence rather than a
+# claim: no runner has an Intel GPU or the oneAPI compiler, so a wheel that
+# imports and passes here is a wheel that does not need either. The SYCL backend
+# is off by default (ORRERY_ENABLE_SYCL) and this is the check that it stays
+# genuinely optional.
+test-requires = "pytest"
+test-command = "pytest {project}/python/tests"
+
+[tool.cibuildwheel.macos.environment]
+# std::filesystem and the rest of the C++ standard library this project uses
+# arrived in the macOS 10.15 runtime. Anything older would link and then fail to
+# load, which is the worst of the three possible outcomes.
+MACOSX_DEPLOYMENT_TARGET = "10.15"
