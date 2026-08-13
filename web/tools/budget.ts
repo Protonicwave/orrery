@@ -7,6 +7,9 @@
  * where it is.
  *
  *     npm run build && npm run budget
+ *
+ * Run by Node directly rather than through a bundler, which is why the package
+ * asks for a Node that reads TypeScript without being told to.
  */
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
