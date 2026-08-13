@@ -548,6 +548,13 @@ operating them costs. Nothing in it is transcribed. The configuration register i
 specification; the measured figures carry the particle count and step count they
 were taken at; the version in the masthead is the one in `CMakeLists.txt`.
 
+Beside it is
+[the reading half](https://protonicwave.github.io/orrery/instrument/method/):
+the demonstration, the validation, the performance report and the design of the
+solvers, in the same type system at the opposite value. Those pages are static
+HTML and run no script, and every figure on one names the file in `docs/` it was
+taken from, which a test checks (ADR-0050).
+
 It is a separate toolchain and no part of the C++ build:
 
 ```

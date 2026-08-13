@@ -56,7 +56,10 @@ the test or the command that produces it.
   and where to find it: it is
   [live here](https://protonicwave.github.io/orrery/instrument/). Every value in
   it comes from a file in the repository rather than from a copy of one
-  (ADR-0045).
+  (ADR-0045). Beside it is
+  [the reading half](https://protonicwave.github.io/orrery/instrument/method/):
+  the same argument as the two reports above, at the length a page should be,
+  with every figure traced back to the report it came from.
 
 ## What the design rests on
 
@@ -94,7 +97,7 @@ precision, is measured against direct summation in double precision.
 ## How it is built
 
 - [The API reference](annotated.html), generated from the public headers.
-- [Architecture decision records](adr/README.md). Forty-five short documents
+- [Architecture decision records](adr/README.md). Fifty short documents
   recording the decisions that had a credible alternative, each with its context
   and its consequences, none of them edited after it was merged.
 - [The measured results, subsystem by subsystem](performance/roofline.md), with

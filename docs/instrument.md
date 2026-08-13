@@ -284,6 +284,44 @@ itself is unchanged, which is why the table above still describes it. Take the
 measurement again on a quiet machine before quoting a new figure; the tool says
 what it needs.
 
+## The reading half
+
+You observe in the dome and you read in the library. Beside the instrument, at
+[`/instrument/method/`](https://protonicwave.github.io/orrery/instrument/method/),
+are four pages of prose: the demonstration, the validation, the performance
+report and the design of the solvers. They are the same type system at the
+opposite value, sharing `tokens.css`, the three faces, the hairlines and the
+masthead, so that arriving at one from the instrument is arriving at a different
+page of one thing.
+
+They are static HTML and they run no script (ADR-0050). A method page is markup
+and one stylesheet, so it is readable before anything has executed and by a
+reader who executes nothing; `npm run budget` fails if a built page acquires a
+script tag.
+
+The prose is written rather than generated from the Markdown in `docs/`. These
+reports are the reference and are longer than a page on a site should be; the
+site's version is shorter, arranged as an argument, and links back here for the
+full tables. What holds the two together is that every figure on a page names
+the file it was taken from:
+
+```html
+<span class="num" data-source="docs/performance.md">95.68</span>
+```
+
+`web/tests/method/figures.test.ts` opens each named file and requires the figure
+to be in it, normalising the two differences that are typography rather than
+value: the thin space these pages group digits with, and the minus sign they set
+instead of a hyphen. A table names its source once and every figure cell in it
+is checked. There are 163 such figures, and the test is what makes the pages
+transcriptions rather than recollections.
+
+The instrument links into the reading half from its masthead and from three
+places in the rail, each to the page that argues for what is beside it. Those
+addresses are in `web/src/method/links.ts`, and a test requires each to be a page
+that exists and an entry of the build, since nothing imports a static page and a
+renamed one would otherwise leave a dead link behind.
+
 ## Where the pieces are
 
 | What | Where |
@@ -297,5 +335,7 @@ what it needs.
 | The render loop and the controls | `web/src/render/instrument.ts` |
 | The scale bar and the gnomon | `web/src/render/furniture.ts` |
 | The published runs, and the address | `web/src/gallery/` |
+| The reading half | `web/method/` |
+| Its stylesheet, and the paper palette | `web/src/styles/paper.css` |
 | The diagnostics reader and its plots | `web/src/diagnostics/` |
 | The radial profile, derived here | `web/src/diagnostics/profile.ts` |
