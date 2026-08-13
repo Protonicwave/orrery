@@ -102,13 +102,24 @@ export interface ChromeState {
 }
 
 /**
+ * The smallest count the solver tier's slider can express.
+ *
+ * Used for a run whose configuration states no count, which is the two-body
+ * problem: it names two masses, because the count is a property of that
+ * scenario rather than a setting of it. A slider asking what a new run should
+ * be given has to open somewhere, and the smallest it offers is the honest
+ * answer when the run in front of it cannot suggest one.
+ */
+const SMALLEST_REQUEST = 5_000;
+
+/**
  * The defaults are the run's own settings, so the interface opens showing the
  * configuration it is displaying rather than a set of numbers chosen to look
  * reasonable. The two exposure and sprite values are the viewer's defaults
  * from docs/visualisation.md.
  */
 export function createChromeState(defaults: {
-  count: number;
+  count: number | undefined;
   softening: number;
   integrator: Integrator;
 }): Store<ChromeState> {
@@ -126,7 +137,7 @@ export function createChromeState(defaults: {
     radialProfile: false,
     boundUnbound: false,
     playing: false,
-    requestedCount: defaults.count,
+    requestedCount: Math.max(defaults.count ?? 0, SMALLEST_REQUEST),
     requestedSoftening: defaults.softening,
     requestedIntegrator: defaults.integrator,
   });

@@ -53,15 +53,11 @@ function settingsFor(exposure: number, spriteRadius: number): RenderSettings {
  * done to it. The last sentence is there because the canvas is a control and
  * its keys are not discoverable by looking at it.
  */
-function describe(
-  name: string,
-  count: number,
-  available: number,
-  frames: number,
-): string {
+function describe(run: Run, count: number, available: number, frames: number): string {
   return (
-    `${name}: ${count} particles of a galaxy collision, drawn as a field of ` +
-    `points on a black plate. ${available} of ${frames} frames read. ` +
+    `${run.name}: ${count} particles, ${run.published.title.toLowerCase()}, ` +
+    'drawn as a field of points on a black plate. ' +
+    `${available} of ${frames} frames read. ` +
     'Drag to turn, scroll to zoom, or use the arrow keys.'
   );
 }
@@ -177,7 +173,7 @@ export function Plate({
 
         started.canvas.setAttribute(
           'aria-label',
-          describe(run.name, trajectory.facts?.count ?? 0, trajectory.available, 0),
+          describe(run, trajectory.facts?.count ?? 0, trajectory.available, 0),
         );
 
         instrumentRef.current = instrument;
@@ -198,7 +194,7 @@ export function Plate({
       instrumentRef.current = null;
       canvasRef.current = null;
     };
-  }, [chrome, trajectory, instrumentRef, run.name]);
+  }, [chrome, trajectory, instrumentRef, run]);
 
   // Chrome state reaches the render loop by being written onto the instrument,
   // not by being read through it. A settings object is replaced on a change
@@ -217,9 +213,9 @@ export function Plate({
   useEffect(() => {
     canvasRef.current?.setAttribute(
       'aria-label',
-      describe(run.name, reading.count, reading.available, reading.frames),
+      describe(run, reading.count, reading.available, reading.frames),
     );
-  }, [run.name, reading]);
+  }, [run, reading]);
 
   const share =
     reading.frames === 0 ? 0 : Math.round((reading.available / reading.frames) * 100);

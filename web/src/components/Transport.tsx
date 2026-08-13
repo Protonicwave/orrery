@@ -60,6 +60,12 @@ export function Transport({
   const step = Math.round(time / run.timestep);
   const ticks = useMemo(() => ticksFor(run.samples), [run.samples]);
 
+  // The track moves by one trajectory frame, not by one integrator step. A
+  // trajectory is written at a stride, so the instants between two frames are
+  // instants the run did not record and the plate cannot show; a control that
+  // offered them would answer an arrow key by not changing the picture.
+  const interval = run.frames > 1 ? run.modelTime / (run.frames - 1) : run.timestep;
+
   return (
     <div className={styles.transport}>
       <button
@@ -102,7 +108,7 @@ export function Transport({
           className={styles.range}
           min={0}
           max={run.modelTime}
-          step={run.timestep}
+          step={interval}
           value={time}
           aria-label="Position in the run"
           aria-valuetext={`model time ${decimal(time, 3)} of ${decimal(run.modelTime, 3)}, step ${decimal(step)}`}

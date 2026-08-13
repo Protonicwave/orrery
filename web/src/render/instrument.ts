@@ -203,19 +203,26 @@ export class Instrument implements PlateReadout {
    * and a configuration that has been edited since the run would be a second
    * answer to the same question. Frames are written at a fixed stride, so two
    * of them are enough to know where all of them are.
+   *
+   * Returns whether the frame for that moment had arrived. An address can name
+   * a moment near the end of a run that is still being read, and the caller
+   * needs to know whether to ask again when more of it has.
    */
-  seekTime(time: number): void {
+  seekTime(time: number): boolean {
     const first = this.options.trajectory.frame(0);
     const second = this.options.trajectory.frame(1);
-    if (first === undefined) return;
+    if (first === undefined) return false;
     if (second === undefined) {
       this.seek(0);
-      return;
+      return time <= first.time;
     }
 
     const interval = second.time - first.time;
-    if (!(interval > 0)) return;
-    this.seek(Math.round((time - first.time) / interval));
+    if (!(interval > 0)) return false;
+
+    const index = Math.round((time - first.time) / interval);
+    this.seek(index);
+    return index <= this.available - 1;
   }
 
   start(): void {
