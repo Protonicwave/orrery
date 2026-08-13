@@ -1,0 +1,99 @@
+/* The console, and the tier structure is the physics rather than a styling
+ * flourish. A control that costs nothing is always present and answers
+ * instantly. A control that costs a new run is set apart, priced, and has to
+ * be asked for. The layout teaches which is which without a word of
+ * explanation, and the heading of each tier states its cost so that the lesson
+ * does not depend on noticing the layout.
+ */
+.console {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  border-top: var(--hairline) solid var(--rule);
+  height: var(--console-height);
+  flex: none;
+}
+
+.tier {
+  padding: 11px var(--space-6) var(--space-5);
+  border-right: var(--hairline) solid var(--rule);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tier:last-child {
+  border-right: 0;
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--space-5);
+}
+
+.head h2 {
+  font-weight: 500;
+}
+
+.cost {
+  font-family: var(--mono);
+  font-size: var(--type-label);
+  color: var(--ink-3);
+  letter-spacing: 0.04em;
+}
+
+.dear {
+  background: var(--chrome-recessed);
+}
+
+.dear .cost {
+  color: var(--brass);
+}
+
+/* The expensive gesture, with its price named. */
+.recompute {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  border: var(--hairline) solid var(--brass-dim);
+  background: none;
+  color: var(--brass);
+  font-family: var(--sans);
+  font-size: var(--type-mini);
+  letter-spacing: var(--tracking-nav);
+  text-transform: uppercase;
+  padding: var(--space-3) var(--space-4);
+  width: 100%;
+  cursor: pointer;
+}
+
+.recompute:hover {
+  background: var(--brass-wash);
+}
+
+.recompute[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+.price {
+  font-family: var(--mono);
+  font-size: var(--type-label);
+  color: var(--ink-2);
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+@media (max-width: 1000px) {
+  .console {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .tier {
+    border-right: 0;
+    border-bottom: var(--hairline) solid var(--rule);
+  }
+}

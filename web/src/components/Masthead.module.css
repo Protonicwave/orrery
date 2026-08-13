@@ -1,0 +1,109 @@
+.masthead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-9);
+  padding: 0 var(--space-7);
+  height: var(--masthead-height);
+  border-bottom: var(--hairline) solid var(--rule);
+  flex: none;
+}
+
+.wordmark {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+/* The mark is drawn from the tokens like everything else, so the palette has
+ * one definition and the logo is not an exception to it.
+ */
+.rings circle {
+  stroke: var(--ink-4);
+}
+
+.rings .inner {
+  stroke: var(--ink-3);
+}
+
+.rings .sun {
+  fill: var(--brass);
+}
+
+.rings .body {
+  fill: var(--ink-3);
+}
+
+.rings .moon {
+  fill: var(--ink-2);
+}
+
+.wordmark b {
+  font-weight: 600;
+  font-size: 12.5px;
+  letter-spacing: var(--tracking-wordmark);
+  text-transform: uppercase;
+}
+
+.nav {
+  display: flex;
+  gap: var(--space-8);
+  margin-left: var(--space-1);
+}
+
+.nav a {
+  color: var(--ink-2);
+  text-decoration: none;
+  font-size: var(--type-mini);
+  letter-spacing: var(--tracking-nav);
+  text-transform: uppercase;
+  font-weight: 500;
+  padding: var(--space-1) 0;
+  border-bottom: var(--hairline) solid transparent;
+}
+
+.nav a:hover {
+  color: var(--ink);
+}
+
+/* The page you are on is marked by a rule under it as well as by its colour,
+ * so the mark survives being unable to see the brass.
+ */
+.nav a[aria-current] {
+  color: var(--ink);
+  border-bottom-color: var(--brass);
+}
+
+.right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-7);
+}
+
+.build {
+  font-family: var(--mono);
+  font-size: var(--type-mini);
+  color: var(--ink-3);
+}
+
+.build em {
+  font-style: normal;
+  color: var(--ink-2);
+}
+
+.state {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--type-mini);
+  letter-spacing: var(--tracking-nav);
+  color: var(--ink-2);
+  text-transform: uppercase;
+}
+
+.state i {
+  width: 5px;
+  height: 5px;
+  display: block;
+  border: var(--hairline) solid var(--ink-2);
+}

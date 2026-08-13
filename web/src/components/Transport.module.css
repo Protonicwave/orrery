@@ -1,0 +1,160 @@
+.transport {
+  display: flex;
+  align-items: center;
+  gap: var(--space-7);
+  height: var(--transport-height);
+  padding: 0 var(--space-7);
+  border-top: var(--hairline) solid var(--rule);
+  background: var(--chrome-recessed);
+  flex: none;
+}
+
+.button {
+  width: 24px;
+  height: 24px;
+  border: var(--hairline) solid var(--edge);
+  background: none;
+  color: var(--ink-2);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.button:hover {
+  border-color: var(--ink-3);
+  color: var(--ink);
+}
+
+/* A control that cannot act yet is still reachable and still says what it is.
+ * It is dimmed rather than removed, because a transport with no play button
+ * would be a different instrument.
+ */
+.button[aria-disabled="true"] {
+  color: var(--ink-3);
+  cursor: not-allowed;
+}
+
+.clock {
+  font-family: var(--mono);
+  font-size: var(--type-value);
+  color: var(--ink);
+  flex: none;
+  min-width: 104px;
+}
+
+.clock small {
+  color: var(--ink-3);
+  font-size: var(--type-mini);
+}
+
+/* The track. Tick marks stand at the diagnostics stride, because that is where
+ * the data being scrubbed actually exists.
+ */
+.track {
+  flex: 1;
+  position: relative;
+  height: 24px;
+}
+
+/* The control itself, laid over the drawing and invisible. The range input
+ * brings the keyboard behaviour, the reported bounds and the spoken value; the
+ * lines below it are what a reader sees. Nothing is reimplemented.
+ */
+.range {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: ew-resize;
+  appearance: none;
+}
+
+.line {
+  position: absolute;
+  top: 11px;
+  left: 0;
+  right: 0;
+  height: var(--hairline);
+  background: var(--edge);
+}
+
+.fill {
+  position: absolute;
+  top: 11px;
+  left: 0;
+  height: var(--hairline);
+  background: var(--brass-dim);
+}
+
+.ticks {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  right: 0;
+  height: 7px;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.ticks span {
+  width: var(--hairline);
+  height: 4px;
+  background: var(--ink-4);
+}
+
+.ticks .major {
+  height: 7px;
+}
+
+/* The cursor is a line and a mark, so its position is legible without its
+ * colour.
+ */
+.cursor {
+  position: absolute;
+  top: 3px;
+  width: var(--hairline);
+  height: 17px;
+  background: var(--brass);
+  transform: translateX(-0.5px);
+}
+
+.cursor::after {
+  content: "";
+  position: absolute;
+  left: -2px;
+  top: -3px;
+  width: 5px;
+  height: 5px;
+  background: var(--brass);
+}
+
+/* The ring belongs on the drawing rather than on the invisible input over it. */
+.track:has(.range:focus-visible) {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+.statistics {
+  display: flex;
+  gap: var(--space-8);
+  flex: none;
+}
+
+.statistic {
+  text-align: right;
+}
+
+.statistic :global(.label) {
+  display: block;
+  margin-bottom: 1px;
+}
+
+.statistic span:last-child {
+  font-family: var(--mono);
+  font-size: var(--type-data);
+  color: var(--ink);
+}
