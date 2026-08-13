@@ -59,6 +59,12 @@ export function Rail({ run }: RailProps) {
     // The rail scrolls and holds no control, so it takes a tab stop of its
     // own. Otherwise its lower registers are reachable with a pointer and by
     // nothing else.
+    //
+    // The linter's rule and the accessibility rule disagree here, and they are
+    // arguing about different cases: a tab stop on a static element is
+    // confusing, and a scrollable region that only a pointer can scroll is
+    // unusable. The rule that a reader cannot work around wins.
+    // biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region has to be reachable by keyboard
     <aside className={styles.rail} aria-label="Run data" tabIndex={0}>
       <section className={styles.section}>
         <h2 className="label">Run</h2>

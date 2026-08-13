@@ -29,7 +29,9 @@ test('sets its type in the faces it ships', async ({ page }) => {
   await page.evaluate(() => document.fonts.ready);
 
   const faces = await page.evaluate(() =>
-    [...document.fonts].filter((face) => face.status === 'loaded').map((face) => face.family),
+    [...document.fonts]
+      .filter((face) => face.status === 'loaded')
+      .map((face) => face.family),
   );
   expect(faces).toContain('IBM Plex Sans');
   expect(faces).toContain('IBM Plex Mono');
@@ -68,7 +70,8 @@ test('reaches every control with the keyboard', async ({ page }) => {
     const description = await page.evaluate(() => {
       const active = document.activeElement;
       if (active === null || active === document.body) return null;
-      const name = active.getAttribute('aria-label') ?? active.textContent?.trim() ?? '';
+      const name =
+        active.getAttribute('aria-label') ?? active.textContent?.trim() ?? '';
       return `${active.tagName.toLowerCase()}:${name.slice(0, 24)}`;
     });
     if (description === null) break;
@@ -79,14 +82,16 @@ test('reaches every control with the keyboard', async ({ page }) => {
   // The skip link first, then the navigation, then every control in the order
   // the instrument is laid out in.
   expect(reached[0]).toContain('Skip to the instrument');
-  expect(reached.filter((stop) => stop.startsWith('input')).length).toBeGreaterThanOrEqual(
-    7,
-  );
+  expect(
+    reached.filter((stop) => stop.startsWith('input')).length,
+  ).toBeGreaterThanOrEqual(7);
   expect(reached.some((stop) => stop.includes('Trails'))).toBe(true);
   expect(reached.some((stop) => stop.includes('Recompute'))).toBe(true);
 });
 
-test('draws a focus ring of its own rather than the browser default', async ({ page }) => {
+test('draws a focus ring of its own rather than the browser default', async ({
+  page,
+}) => {
   await page.goto('./');
   await page.locator('body').press('Tab');
 
