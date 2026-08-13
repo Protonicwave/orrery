@@ -87,6 +87,11 @@ jobs:
       - name: Publish the gallery
         uses: ./.github/actions/gallery
 
+      # Also before the build, and for the same reason: the module is a static
+      # asset under public/ and Vite copies what is there when it builds.
+      - name: Build the WebAssembly module
+        uses: ./.github/actions/solver
+
       - name: Build the client
         working-directory: web
         run: npm run build

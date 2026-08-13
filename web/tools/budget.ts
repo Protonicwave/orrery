@@ -13,7 +13,7 @@
  */
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { dirname, extname, join, resolve } from 'node:path';
+import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 
@@ -30,13 +30,30 @@ interface Budget {
 
 const KILOBYTE = 1024;
 
+/**
+ * Where the WebAssembly module is served from.
+ *
+ * Its loader is a .js file and would otherwise count against the interface's
+ * budget, which it should not: the interface is what every reader downloads and
+ * the module is what somebody downloads after asking for a run. Two budgets,
+ * because they answer to two different people.
+ */
+const SOLVER = `${sep}solver${sep}`;
+
 const BUDGETS: readonly Budget[] = [
   {
     what: 'JavaScript',
     limit: 150 * KILOBYTE,
     compressed: true,
     why: 'the whole of the interface, over a connection that is not the one it was built on',
-    matches: (path) => extname(path) === '.js',
+    matches: (path) => extname(path) === '.js' && !path.includes(SOLVER),
+  },
+  {
+    what: 'WebAssembly',
+    limit: 400 * KILOBYTE,
+    compressed: true,
+    why: 'the solver is a download somebody asked for, but it is still a download; the loader is counted with it because nothing can use one without the other',
+    matches: (path) => path.includes(SOLVER),
   },
   {
     what: 'CSS',
