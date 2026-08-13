@@ -1,5 +1,10 @@
 # Orrery
 
+[![CI](https://github.com/Protonicwave/orrery/actions/workflows/ci.yml/badge.svg)](https://github.com/Protonicwave/orrery/actions/workflows/ci.yml)
+[![Documentation](https://github.com/Protonicwave/orrery/actions/workflows/docs.yml/badge.svg)](https://protonicwave.github.io/orrery/)
+[![PyPI](https://img.shields.io/pypi/v/orrery-nbody)](https://pypi.org/project/orrery-nbody/)
+[![Licence](https://img.shields.io/badge/licence-MIT-blue)](LICENCE)
+
 A GPU-accelerated N-body gravitational simulator in C++20, developed and
 benchmarked entirely on a single Lunar Lake laptop.
 
@@ -445,6 +450,12 @@ scheduling policy (ADR-0026). `python/` is not a layer at all: it depends on
 everything and nothing depends on it.
 
 ## Documentation
+
+All of it is published at
+[protonicwave.github.io/orrery](https://protonicwave.github.io/orrery/),
+generated from the Markdown below and from the comments in the public headers by
+one run of one tool, so a page there and the file it came from cannot drift
+apart (ADR-0043).
 
 - [Validation report](docs/validation.md): every analytic comparison,
   convergence study and conservation result, each naming the test that makes it.
