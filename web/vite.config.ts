@@ -1,6 +1,10 @@
+import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { readVersion } from './tools/version.ts';
+
+/** An entry of the site, by the path of the page that starts it. */
+const page = (path: string): string => fileURLToPath(new URL(path, import.meta.url));
 
 // The client is published beside the documentation site rather than in place of
 // it, so every asset is addressed from this prefix. ADR-0045.
@@ -23,6 +27,20 @@ export default defineConfig({
     reportCompressedSize: true,
     target: 'es2022',
     assetsInlineLimit: 0,
+
+    // Six pages, one of which is the instrument. The five under method/ carry
+    // no script tag, so nothing links them to the client's bundle and the
+    // build emits them as markup and a stylesheet. ADR-0050.
+    rollupOptions: {
+      input: {
+        instrument: page('index.html'),
+        method: page('method/index.html'),
+        demonstration: page('method/demonstration/index.html'),
+        validation: page('method/validation/index.html'),
+        performance: page('method/performance/index.html'),
+        solvers: page('method/solvers/index.html'),
+      },
+    },
   },
   css: {
     modules: {
