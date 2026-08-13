@@ -1,0 +1,53 @@
+# The run that says the browser build and the native build agree.
+#
+# Small on purpose. Sixty-four particles and two recorded frames is four
+# kilobytes of trajectory, which is a file worth committing, and two hundred
+# steps of direct summation is enough for a disagreement in the last bits of the
+# force to have grown into something a comparison can see.
+#
+# Direct summation rather than the tree, because the tree's answer depends on
+# the order the octree happens to be built in and this test is about the
+# arithmetic rather than about that. The work-stealing scheduler is asked for
+# because the native run uses it and the WebAssembly build cannot: the two
+# answers agreeing across that difference is part of what is being checked.
+#
+# A uniform sphere rather than a Plummer sphere, and the reason is the one thing
+# about this comparison that is not obvious. The Plummer sampler draws its
+# speeds by rejection, so a difference of one unit in the last place between two
+# platforms' square roots can flip an acceptance, move every later draw one place
+# along the stream, and produce a configuration that is not a perturbation of the
+# other but a different one. `core/random.hpp` says as much: a sampled
+# configuration is reproducible exactly within a platform and only to a few units
+# in the last place across them. The uniform sphere draws a fixed number of times
+# per particle and has no such loop, so the two builds start from the same
+# particles to within their libraries' last bits, which is what makes a
+# comparison of where they end up a comparison of the solver.
+#
+# Regenerate with:
+#
+#     orrery run web/tests/fixtures/agreement.orrery
+
+[run]
+timestep = 0.001
+steps    = 200
+seed     = 20260813
+
+[initial_conditions]
+kind       = uniform-sphere
+count      = 64
+total_mass = 1
+radius     = 1
+
+[solver]
+kind      = direct
+softening = 0.05
+executor  = work-stealing
+
+[integrator]
+kind = velocity-verlet
+
+[output]
+trajectory_path    = web/tests/fixtures/agreement.otj
+trajectory_stride  = 200
+diagnostics_path   = web/tests/fixtures/agreement.csv
+diagnostics_stride = 200
