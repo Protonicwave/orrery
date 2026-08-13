@@ -471,6 +471,45 @@ the CPU kernels they mirror, because a summation over pairs of particles is not 
 scheduling policy (ADR-0026). `python/` is not a layer at all: it depends on
 everything and nothing depends on it.
 
+## Engineering practice
+
+Four habits the repository keeps, each of them checkable rather than asserted.
+
+**A decision that had a credible alternative is written down.**
+[`docs/adr/`](docs/adr/) holds forty-four numbered records, each giving the
+context, the decision and the consequences. None is edited after it is merged: a
+decision that changes gets a new record superseding the old one, because the
+value of the directory is what was believed at the time rather than a tidy
+account of what is believed now.
+
+**Dependencies are pinned to commits, not tags.**
+[`cmake/Dependencies.cmake`](cmake/Dependencies.cmake) names three, and every
+one of them is optional: Catch2 for the test suite, GLFW for the renderer,
+pybind11 for the bindings. A build that wants none of the three fetches nothing.
+A tag can be deleted and recreated on different code, which would change what
+this project builds without changing anything in it, so the pin is a hash and
+the version beside it is a comment saying how old the pin is (ADR-0002). The
+GitHub Actions used by the workflows are pinned the same way and for the same
+reason.
+
+**Every measurement follows one protocol.** [`benchmarks/harness/`](benchmarks/harness/)
+implements it and ADR-0019 records it: a settling warm-up whose trials are
+discarded, a fixed number of timed trials, the median rather than the best of
+them, an interquartile range beside every median, a drift figure comparing the
+second half of a session against the first, a cool-down between configurations,
+and a thermal canary bracketing the session. The programs report numbers and do
+not assert them, which is why they are not tests.
+
+**Warnings are errors and the arithmetic is left alone.** Continuous
+integration builds with Clang, GCC and MSVC with warnings as errors, runs
+clang-format and clang-tidy as checks, and runs the full suite under the
+address, undefined-behaviour and thread sanitisers. No fast-math flag is set
+anywhere, so the vectorised kernel and the scalar one are comparable and the
+accuracy result in the validation report means what it says (ADR-0020). Nothing
+mutates a global compiler flag: every setting reaches a target through an
+interface library, so a dependency built inside this tree keeps its own flags
+(ADR-0003).
+
 ## Documentation
 
 All of it is published at
