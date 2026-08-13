@@ -63,3 +63,10 @@ venv/
 *.swp
 .DS_Store
 Thumbs.db
+
+# Browser client. Dependencies, build output and test artefacts: each is
+# produced by one command, and none of them belongs in the history.
+node_modules/
+dist/
+playwright-report/
+test-results/
