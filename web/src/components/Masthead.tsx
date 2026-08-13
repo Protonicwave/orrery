@@ -48,7 +48,7 @@ export function Masthead({ run }: MastheadProps) {
 
       <div className={styles.right}>
         <p className={styles.build}>
-          {run.solver} · <em>cpu</em> · f64 · v{__ORRERY_VERSION__}
+          {run.solver} · <em>cpu</em> · {run.precision} · v{__ORRERY_VERSION__}
         </p>
         <p className={styles.state}>
           <i aria-hidden="true" /> Loaded

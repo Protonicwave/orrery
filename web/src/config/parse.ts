@@ -83,6 +83,40 @@ export function parseConfiguration(text: string): Configuration {
   return sections;
 }
 
+/**
+ * A configuration with some settings replaced, as `--set` replaces them.
+ *
+ * The published gallery runs are the repository's own configurations with a
+ * few settings changed, and the interface has to describe the run that was
+ * actually made rather than the file it started from. Applying the overrides
+ * here, once, is what keeps every panel agreeing: a particle count on the plate
+ * and a particle count in the data rail are then the same number arrived at the
+ * same way.
+ *
+ * A setting that names no section is an error, as it is on the command line.
+ */
+export function override(
+  configuration: Configuration,
+  settings: readonly { readonly setting: string; readonly value: string }[],
+): Configuration {
+  const result: Record<string, Record<string, string>> = {};
+  for (const [section, values] of Object.entries(configuration)) {
+    result[section] = { ...values };
+  }
+
+  for (const { setting: name, value } of settings) {
+    const dot = name.indexOf('.');
+    if (dot < 0) {
+      throw new ConfigurationError(0, `${name} does not name a section`);
+    }
+    const section = name.slice(0, dot);
+    result[section] ??= {};
+    (result[section] as Record<string, string>)[name.slice(dot + 1)] = value;
+  }
+
+  return result;
+}
+
 /** A setting as text, or undefined if the file leaves it to its default. */
 export function setting(
   configuration: Configuration,
