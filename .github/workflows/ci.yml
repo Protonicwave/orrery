@@ -314,6 +314,14 @@ jobs:
         working-directory: web
         run: npm test
 
+      # The instrument draws a run, so the browser tests need one to draw. The
+      # gallery is generated rather than committed, by the same action the site
+      # workflow uses, and it has to be in public/ before the build because
+      # that is when Vite copies it. Without this the client comes up saying it
+      # has no run, which is a state worth having but not the one under test.
+      - name: Publish the gallery
+        uses: ./.github/actions/gallery
+
       # The browser tests run against the production build, because what they
       # check, the fonts arriving, nothing being fetched from another origin,
       # the layout not moving and the audit finding nothing, are properties of

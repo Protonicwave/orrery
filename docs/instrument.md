@@ -159,8 +159,10 @@ because the project has no third curve.
 
 The gallery is generated, not committed. A trajectory is reproducible from a
 configuration file and a seed, which is the rule `.gitignore` already states for
-`*.otj`, and the site workflow runs the simulator before it builds the client.
-By hand, from `web/`:
+`*.otj`. Two jobs in continuous integration need the runs, the one that builds
+the published site and the one that drives the client in a browser, and both
+produce them through `.github/actions/gallery` so that a change to how a run is
+made cannot reach one of them and not the other. By hand, from `web/`:
 
 ```
 npm run gallery -- ../build/single-precision/apps/orrery
