@@ -132,8 +132,7 @@ TEST_CASE("the energy error is relative to where the run started", "[unit][core]
     // reports a negative error. Every value here is exact in binary, so a
     // failure means the formula is wrong rather than that a tolerance was
     // chosen badly.
-    REQUIRE(relative_energy_error(Real{-4}, static_cast<Real>(-4.5)) ==
-            static_cast<Real>(-0.125));
+    REQUIRE(relative_energy_error(Real{-4}, static_cast<Real>(-4.5)) == static_cast<Real>(-0.125));
 
     REQUIRE(relative_energy_error(Real{-4}, Real{-4}) == Real{0});
 

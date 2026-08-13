@@ -64,3 +64,5 @@ introduces it.
 | [0048](0048-read-the-diagnostics-the-run-wrote.md) | Read the diagnostics the run wrote | Accepted |
 | [0049](0049-put-the-run-and-the-moment-in-the-address.md) | Put the run and the moment in the address | Accepted |
 | [0050](0050-serve-the-reading-half-as-static-pages.md) | Serve the reading half as static pages | Accepted |
+| [0051](0051-compile-the-solver-to-webassembly.md) | Compile the solver to WebAssembly rather than write a second one | Accepted |
+| [0052](0052-build-webassembly-single-threaded.md) | Build the WebAssembly module single threaded, in a Worker | Accepted |

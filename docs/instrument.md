@@ -141,9 +141,20 @@ the foot of its tier.
 | Orbit trace | Derived | Needs several frames drawn into one picture |
 | Bound / unbound | Derived | Needs velocities, which a published run is written without |
 | Bodies, softening, integrator | Solver | Needs a run, which the service will provide |
+| Run it in this browser | Solver | Live, at the size the WebAssembly build permits |
 
 Read together, those reasons say what a trajectory is: positions and masses, at
 a stride, and nothing else.
+
+The last row is the exception, and it is a run rather than something derived
+from one. It steps the scenario on the plate here, in a Worker, using the same
+C++ compiled to WebAssembly, cut to what a tab can do: at most four thousand and
+ninety-six particles and the first two thousand steps, both stated in the note
+beside the control. While it runs the plate's catalogue carries the solver, the
+kernel, the thread count, the measured step time and the energy error, all
+reported by the module, so that a picture computed in a browser cannot be taken
+for one of the figures in the performance report.
+[`docs/webassembly.md`](webassembly.md) is that build in full.
 
 The tone curve offers `reinhard`, which is the extended Reinhard curve of
 `include/orrery/viz/tone_map.hpp` and what the native renderer draws with, and

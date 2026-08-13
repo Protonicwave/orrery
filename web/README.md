@@ -26,6 +26,13 @@ diagnostics into `public/gallery/`, which is where the client fetches them from;
 the site workflow does the same before it builds. Without it the instrument
 draws nothing and says so, which is a useful state to have seen.
 
+The WebAssembly module is not committed either, for the same reason: it is
+compiler output. `cmake --preset wasm && cmake --build --preset wasm`, from the
+repository root with emsdk on the environment, writes it into `public/solver/`.
+Without it the console's browser-run control says the module could not be
+fetched, and the one unit test that compares it against the native build skips
+itself and says so. `docs/webassembly.md` describes what is in it.
+
 A run and a moment in it are both in the address: `?run=cluster&t=12.5`. So is
 the backend, as `?renderer=webgl2`, which is what makes the two comparable.
 
@@ -41,13 +48,15 @@ src/format/       How a number is set
 src/gallery/      Which runs are published, and what each one changes
 src/method/       Where the reading half is, for the links the instrument makes
 src/render/       The renderer interface, its two backends, the camera and loop
+src/solver/       The WebAssembly module, its Worker, and what a browser run is
 src/state/        The store, and the two kinds of state it keeps apart
 src/styles/       tokens.css, the fonts, and what every element starts from
 src/trajectory/   The format, the ranged reader, and the Worker that runs them
 public/fonts/     The subset faces, committed so a build needs no network
 public/gallery/   The published runs, generated rather than committed
+public/solver/    The WebAssembly module, generated rather than committed
 tools/            The font cutter, the budget, the gallery and the measurements
-tests/fixtures/   Two small trajectories the C++ wrote, for the reader's tests
+tests/fixtures/   Small files the C++ wrote, for the reader and for the module
 e2e/              What only a browser can answer
 ```
 

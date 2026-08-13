@@ -60,6 +60,11 @@ the test or the command that produces it.
   [the reading half](https://protonicwave.github.io/orrery/instrument/method/):
   the same argument as the two reports above, at the length a page should be,
   with every figure traced back to the report it came from.
+- [The solver in a browser](webassembly.md). The same C++ compiled to
+  WebAssembly and stepped in a Worker, so the instrument can compute a run as
+  well as play one. What is in that build, what it refuses, what a step costs
+  there against what it costs natively, and the test that says the two builds
+  agree (ADR-0051, ADR-0052).
 
 ## What the design rests on
 
@@ -97,7 +102,7 @@ precision, is measured against direct summation in double precision.
 ## How it is built
 
 - [The API reference](annotated.html), generated from the public headers.
-- [Architecture decision records](adr/README.md). Fifty short documents
+- [Architecture decision records](adr/README.md). Fifty-two short documents
   recording the decisions that had a credible alternative, each with its context
   and its consequences, none of them edited after it was merged.
 - [The measured results, subsystem by subsystem](performance/roofline.md), with
