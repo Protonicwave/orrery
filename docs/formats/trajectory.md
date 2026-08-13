@@ -84,6 +84,24 @@ So a reader consumes frames until the file ends. The cost is that counting them
 means reading the file; the benefit is that a file from an interrupted run is a
 valid file that stops early rather than a broken one.
 
+There is a second way to count them, and it matters to a reader that cannot
+afford to walk the whole file. Every frame is the same length, and that length
+follows from the particle count and the flags, both of which are in the header.
+So a reader that knows how long the file is can divide:
+
+```
+header = 24 + R + N×R + 8
+frame  = 8 + R + 3NR + 8        (6NR with velocities)
+frames = floor((length − header) / frame)
+```
+
+and the offset of frame `n` is `header + n × frame`. That is what lets something
+reading over a network ask for the twentieth frame without having read the
+nineteen before it, and it is why this format needs no index beside it. The
+division is floored, which drops a final frame that stops in the middle: the
+per-frame checksums exist so that this is the correct answer rather than a
+guess.
+
 The checksum is per frame for the same reason. A whole-file checksum can only be
 verified once the file is complete, so it would be absent from precisely the
 files that most need checking. Per frame, a reader accepts every frame that was

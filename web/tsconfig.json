@@ -24,9 +24,9 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  // The client and its unit tests only. What runs in Node, the build
-  // configuration and the browser tests, is checked by tsconfig.node.json
-  // against the Node types, so that nothing shipped to a browser can reach for
-  // a file system by accident.
-  "include": ["src", "tests"]
+  // The client alone. Everything that runs in Node, which is the build
+  // configuration, the tools and both suites of tests, is checked by
+  // tsconfig.node.json against the Node types, so that nothing shipped to a
+  // browser can reach for a file system by accident.
+  "include": ["src"]
 }
