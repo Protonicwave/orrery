@@ -44,11 +44,22 @@ function Row({
  * definition list holds terms and their definitions and a group name is
  * neither. Each group is its own list for the same reason.
  */
-function Group({ title, children }: { title: string; children: ReactNode }) {
+function Group({
+  title,
+  children,
+  arriving = false,
+}: {
+  title: string;
+  children: ReactNode;
+  /** Whether this group's values are read from a file over the network. */
+  arriving?: boolean;
+}) {
   return (
     <div className={styles.group}>
       <h3>{title}</h3>
-      <dl className={styles.table}>{children}</dl>
+      <dl className={arriving ? `${styles.table} ${styles.arriving}` : styles.table}>
+        {children}
+      </dl>
     </div>
   );
 }
@@ -60,6 +71,60 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
  */
 const DRIFT = (value: number) => setScientific(value);
 const RATIO = (value: number) => setDecimal(value, 3);
+
+/**
+ * The plots, and what each one is.
+ *
+ * A list rather than four written out, so that a plot which has no samples yet
+ * is drawn as an empty box of exactly the height it will occupy when the file
+ * arrives. Nothing on the rail may move when the network answers: the budget is
+ * a cumulative layout shift of zero, and a register that grows by four plots
+ * two seconds after the page has been read is the largest shift the interface
+ * could possibly make.
+ */
+const NOTHING = new Float64Array(0);
+
+/** What a register holds before the file it reads from has arrived. */
+const WAITING = <span className={styles.waiting}>reading</span>;
+
+const PLOTS = [
+  {
+    key: 'energy',
+    name: 'Energy drift',
+    column: 'energyDrift',
+    note: 'against the first sample',
+    symbol: 'ΔE/E₀',
+    format: DRIFT,
+  },
+  {
+    key: 'virial',
+    name: 'Virial ratio',
+    column: 'virialRatio',
+    note: 'one in balance',
+    symbol: '−2T/U',
+    format: RATIO,
+  },
+  {
+    key: 'angular',
+    name: 'Angular momentum',
+    column: 'angularMomentum',
+    note: 'magnitude',
+    symbol: '|L|',
+    format: DRIFT,
+  },
+  // Linear momentum rather than step time, which the diagnostics file does not
+  // carry. ADR-0048 gives the reason, and it is the better plot in any case: a
+  // total momentum is the cancellation of N terms of both signs, so staying at
+  // round-off is the strongest conservation statement a run makes.
+  {
+    key: 'linear',
+    name: 'Linear momentum',
+    column: 'linearMomentum',
+    note: 'magnitude',
+    symbol: '|p|',
+    format: DRIFT,
+  },
+] as const;
 
 /**
  * The data rail: what the run measured, what it is, and what it ran on.
@@ -83,6 +148,8 @@ export function Rail({
 
   const samples = diagnostics?.samples ?? 0;
   const last = samples - 1;
+  // A file with no rows in it is not a file that has been read.
+  const read = last < 0 ? null : diagnostics;
 
   return (
     // The rail scrolls and holds no control, so it takes a tab stop of its
@@ -99,83 +166,50 @@ export function Rail({
         <section className={styles.section}>
           <h2 className="label">Diagnostics</h2>
 
-          {diagnostics === null ? (
-            <p className={styles.provenance}>
-              {message === '' ? 'Reading the run’s diagnostics' : message}
-            </p>
-          ) : (
-            <>
-              <Diagnostic
-                name="Energy drift"
-                values={diagnostics.energyDrift}
-                times={diagnostics.time}
-                modelTime={run.modelTime}
-                instants={instants}
-                note={`${samples} samples`}
-                symbol="ΔE/E₀"
-                format={DRIFT}
-              />
-              <Diagnostic
-                name="Virial ratio"
-                values={diagnostics.virialRatio}
-                times={diagnostics.time}
-                modelTime={run.modelTime}
-                instants={instants}
-                note="−2T/U"
-                symbol="1 in balance"
-                format={RATIO}
-              />
-              <Diagnostic
-                name="Angular momentum"
-                values={diagnostics.angularMomentum}
-                times={diagnostics.time}
-                modelTime={run.modelTime}
-                instants={instants}
-                note="magnitude"
-                symbol="|L|"
-                format={DRIFT}
-              />
-              {/* Linear momentum rather than step time, which the diagnostics
-                  file does not carry. ADR-0048 gives the reason and this is
-                  the better plot in any case: a total momentum is the
-                  cancellation of N terms of both signs. */}
-              <Diagnostic
-                name="Linear momentum"
-                values={diagnostics.linearMomentum}
-                times={diagnostics.time}
-                modelTime={run.modelTime}
-                instants={instants}
-                note="magnitude"
-                symbol="|p|"
-                format={DRIFT}
-              />
-            </>
-          )}
+          {PLOTS.map((plot) => (
+            <Diagnostic
+              key={plot.key}
+              name={plot.name}
+              values={diagnostics?.[plot.column] ?? NOTHING}
+              times={diagnostics?.time ?? NOTHING}
+              modelTime={run.modelTime}
+              instants={instants}
+              note={plot.note}
+              symbol={plot.symbol}
+              format={plot.format}
+            />
+          ))}
+
+          {message !== '' && <p className={styles.provenance}>{message}</p>}
         </section>
       )}
 
       <section className={styles.section}>
         <h2 className="label">Measured</h2>
-        <Group title="This run">
-          {diagnostics === null || last < 0 ? (
-            <Row name="diagnostics">not read</Row>
-          ) : (
-            <>
-              <Row name="energy drift" strong>
-                <Numeric
-                  value={diagnostics.energyDrift[last] as number}
-                  notation="scientific"
-                />
-              </Row>
-              <Row name="virial ratio">
-                <Numeric value={diagnostics.virialRatio[0] as number} digits={2} /> →{' '}
-                <Numeric value={diagnostics.virialRatio[last] as number} digits={2} />
-              </Row>
-              <Row name="samples">
-                <Numeric value={samples} />
-              </Row>
-            </>
-          )}
+        {/* Three rows whether or not the file has arrived, for the same reason
+            the plots are drawn empty: a register that grows when the network
+            answers moves everything under it. */}
+        <Group title="This run" arriving>
+          <Row name="energy drift" strong>
+            {read === null ? (
+              WAITING
+            ) : (
+              <Numeric value={read.energyDrift[last] as number} notation="scientific" />
+            )}
+          </Row>
+          <Row name="virial ratio">
+            {read === null ? (
+              WAITING
+            ) : (
+              <>
+                <Numeric value={read.virialRatio[0] as number} digits={2} /> →{' '}
+                <Numeric value={read.virialRatio[last] as number} digits={2} />
+              </>
+            )}
+          </Row>
+          <Row name="samples">
+            {read === null ? WAITING : <Numeric value={samples} />}
+          </Row>
         </Group>
 
         <Group title="The demonstration">

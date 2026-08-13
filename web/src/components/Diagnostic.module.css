@@ -5,10 +5,16 @@
   margin-top: 13px;
 }
 
+/* The line height is a length rather than a ratio, so the head is the same
+ * height whether it holds a value or is still waiting for one. A ratio would
+ * make it as tall as whichever of the two faces on it is set larger, and an
+ * empty head is set in neither.
+ */
 .head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
+  line-height: 18px;
   margin-bottom: var(--space-2);
 }
 
@@ -24,9 +30,17 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* A raised exponent that does not make the line it is on any taller. A
+ * superscript with a line height of its own grows the line box the first time
+ * a value needs one, which moves everything under it: the plots would settle
+ * three pixels lower the moment the diagnostics arrived.
+ */
 .exponent {
   font-size: 0.72em;
-  line-height: 1;
+  line-height: 0;
+  position: relative;
+  top: -0.36em;
+  vertical-align: baseline;
 }
 
 /* The cursor is positioned against this box, so the box is the plot's extent

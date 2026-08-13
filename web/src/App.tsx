@@ -11,7 +11,9 @@ import { type Diagnostics, fetchDiagnostics } from './diagnostics/series';
 import { diagnosticsUrl, GALLERY, trajectoryUrl } from './gallery/runs';
 import type { Instrument } from './render/instrument';
 import { InstantSource } from './state/instant';
+import { useViewerShortcuts } from './state/shortcuts';
 import { createChromeState } from './state/store';
+import { useReading } from './state/useReading';
 import { useStoreValue } from './state/useStore';
 import { Trajectory } from './trajectory/client';
 
@@ -97,11 +99,33 @@ export function App() {
   const playing = useStoreValue(chrome, (state) => state.playing);
   const showDiagnostics = useStoreValue(chrome, (state) => state.diagnostics);
 
+  // How much of the run has been read, taken once and given to everything that
+  // describes it, so the plate's particle count and the transport's cannot be
+  // two answers arrived at separately.
+  const reading = useReading(trajectory);
+
   // The transport moves the render loop, which owns where playback is. The
   // reference is filled in by the plate once a backend has started, and stays
   // null if none does, which is what makes the transport a control that says
   // it can do nothing rather than one that appears to work.
   const instrument = useRef<Instrument | null>(null);
+
+  // The native viewer's keys, from anywhere on the page rather than only from
+  // the plate. The plate keeps its own handler because it also turns the camera.
+  useViewerShortcuts({
+    onPlayPause: useCallback(() => {
+      chrome.set((state) => ({ playing: !state.playing }));
+    }, [chrome]),
+    onReframe: useCallback(() => {
+      instrument.current?.reframe();
+    }, []),
+    onExposure: useCallback(
+      (factor: number) => {
+        chrome.set((state) => ({ exposure: state.exposure * factor }));
+      },
+      [chrome],
+    ),
+  });
 
   return (
     <>
@@ -114,6 +138,7 @@ export function App() {
           <Plate
             run={run}
             trajectory={trajectory}
+            reading={reading}
             chrome={chrome}
             instrumentRef={instrument}
             onSample={sample}
@@ -129,6 +154,7 @@ export function App() {
         <Transport
           run={run}
           time={time}
+          bodies={reading.count}
           playing={playing}
           onPlayingChange={(next) => chrome.set({ playing: next })}
           onSeek={(next) => {

@@ -6,6 +6,7 @@ import { Instrument } from '../render/instrument';
 import { DEFAULT_SETTINGS, type RenderSettings } from '../render/renderer';
 import type { ChromeState, Store } from '../state/store';
 import { createFrameState } from '../state/store';
+import type { Reading } from '../state/useReading';
 import { useStoreState } from '../state/useStore';
 import type { Trajectory } from '../trajectory/client';
 import { Numeric } from './Numeric';
@@ -14,6 +15,8 @@ import styles from './Plate.module.css';
 export interface PlateProps {
   run: Run;
   trajectory: Trajectory;
+  /** How much of the run has been read, taken once and shared. */
+  reading: Reading;
   chrome: Store<ChromeState>;
   /** Filled in with the render loop once a backend has started. */
   instrumentRef: RefObject<Instrument | null>;
@@ -81,6 +84,7 @@ function describe(
 export function Plate({
   run,
   trajectory,
+  reading,
   chrome,
   instrumentRef,
   onSample,
@@ -106,27 +110,6 @@ export function Plate({
   const [device, setDevice] = useState('');
 
   const state = useStoreState(chrome);
-  const [reading, setReading] = useState(() => ({
-    status: trajectory.status,
-    available: trajectory.available,
-    frames: 0,
-    count: 0,
-  }));
-
-  // The trajectory reports itself a hundred times over a load rather than four
-  // hundred, which is what its own notification threshold is for.
-  useEffect(
-    () =>
-      trajectory.subscribe(() => {
-        setReading({
-          status: trajectory.status,
-          available: trajectory.available,
-          frames: trajectory.facts?.frames ?? 0,
-          count: trajectory.facts?.count ?? 0,
-        });
-      }),
-    [trajectory],
-  );
 
   // Starting a backend is asynchronous and a component can be unmounted while
   // it is happening, so the effect carries a flag rather than assuming the
@@ -332,9 +315,7 @@ export function Plate({
 
       {condition !== 'failed' && reading.available === 0 && (
         <p className={styles.unexposed}>
-          {reading.status === 'failed'
-            ? trajectory.message
-            : 'The plate is being exposed'}
+          {reading.status === 'failed' ? reading.message : 'The plate is being exposed'}
         </p>
       )}
 

@@ -46,6 +46,23 @@
   color: var(--ink);
 }
 
+/* A register that has not been read yet says so, in the ink a name is set in
+ * rather than the ink a value is, so it does not read as a value.
+ */
+.waiting {
+  color: var(--ink-3);
+}
+
+/* A register whose values arrive over the network gets a column of a fixed
+ * width rather than one that fits its contents. Everywhere else the values are
+ * known when the page is built and a column that fits them is the tidier
+ * measure; here the column would be one width while the file was being read
+ * and another afterwards, which moves the names beside it.
+ */
+.arriving {
+  grid-template-columns: 1fr 78px;
+}
+
 .group + .group {
   margin-top: 7px;
   padding-top: 7px;

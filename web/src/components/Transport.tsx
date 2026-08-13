@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { Run } from '../config/run';
 import { decimal } from '../format/number';
 import { Numeric } from './Numeric';
@@ -7,20 +8,33 @@ export interface TransportProps {
   run: Run;
   /** Where in the run the instrument is reading, in model time. */
   time: number;
+  /** Particles in the trajectory being drawn, which is the file's own figure. */
+  bodies: number;
   playing: boolean;
   onPlayingChange: (playing: boolean) => void;
   onSeek: (time: number) => void;
 }
 
 /**
- * Ticks at the diagnostics stride, marked every tenth. Fixed furniture, built
- * once, so drawing them costs nothing per render and each has a name of its
- * own rather than a position in a list.
+ * As many ticks as the run has diagnostics samples, because that is where the
+ * data the track scrubs over actually exists: a tick is an instant the rail can
+ * plot a value at.
+ *
+ * Thinned when the stride is fine enough to put them closer together than a
+ * hairline apart, in which case they stop being marks and become a grey band.
+ * A run's stride is a setting, so this cannot be decided once and written down.
  */
-const TICKS = Array.from({ length: 41 }, (_, index) => ({
-  id: `tick-${index}`,
-  major: index % 10 === 0,
-}));
+const MOST_TICKS = 130;
+
+function ticksFor(samples: number): { id: string; major: boolean }[] {
+  if (samples <= 1) return [];
+  const thinning = Math.max(1, Math.ceil(samples / MOST_TICKS));
+  const count = Math.floor((samples - 1) / thinning) + 1;
+  return Array.from({ length: count }, (_, index) => ({
+    id: `tick-${index}`,
+    major: index % 10 === 0,
+  }));
+}
 
 /**
  * The transport: where in the run the instrument is reading.
@@ -37,12 +51,14 @@ const TICKS = Array.from({ length: 41 }, (_, index) => ({
 export function Transport({
   run,
   time,
+  bodies,
   playing,
   onPlayingChange,
   onSeek,
 }: TransportProps) {
   const fraction = run.modelTime === 0 ? 0 : time / run.modelTime;
   const step = Math.round(time / run.timestep);
+  const ticks = useMemo(() => ticksFor(run.samples), [run.samples]);
 
   return (
     <div className={styles.transport}>
@@ -76,7 +92,7 @@ export function Transport({
         <span className={styles.line} />
         <span className={styles.fill} style={{ width: `${fraction * 100}%` }} />
         <span className={styles.ticks} aria-hidden="true">
-          {TICKS.map((tick) => (
+          {ticks.map((tick) => (
             <span key={tick.id} className={tick.major ? styles.major : undefined} />
           ))}
         </span>
@@ -99,9 +115,12 @@ export function Transport({
           <span className="label">Step</span>
           <Numeric value={step} />
         </p>
+        {/* The count the file holds rather than the count the configuration
+            asked for. They agree, and where the interface has both it shows
+            the one that was actually drawn. */}
         <p className={styles.statistic}>
           <span className="label">Bodies</span>
-          <Numeric value={run.count} />
+          <Numeric value={bodies} />
         </p>
         <p className={styles.statistic}>
           <span className="label">Frames</span>
