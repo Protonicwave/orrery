@@ -20,6 +20,7 @@
     "e2e": "playwright test",
     "budget": "node tools/budget.ts",
     "gallery": "node tools/publish_gallery.ts",
+    "measure": "node tools/measure_render.ts",
     "fonts": "python tools/subset_fonts.py"
   },
   "dependencies": {
