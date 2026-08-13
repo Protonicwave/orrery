@@ -19,6 +19,11 @@
  * Not a test. It takes a minute, it wants a machine with a graphics device, and
  * what it produces is a measurement to be written down rather than a threshold
  * to be passed. `docs/instrument.md` quotes what it reported.
+ *
+ * The window it opens has to be the one in front. Chrome draws a window it
+ * believes nobody is looking at at one frame a second, whatever the flags
+ * below ask for, and a run that reports a frame rate near one or near ten is
+ * reporting that rather than anything about the renderer. Take it again.
  */
 
 import { chromium } from '@playwright/test';
@@ -38,16 +43,28 @@ interface Sample {
 
 async function main(): Promise<void> {
   const backend = process.argv[2] ?? 'webgpu';
-  const browser = await chromium.launch({ headless: false });
+  // Headed, because a headless browser composites differently, and with the
+  // flags that stop Chrome throttling a window it thinks nobody is looking at.
+  // A window behind another one is drawn at a fraction of the refresh rate,
+  // which would be a measurement of the desktop rather than of the renderer.
+  const browser = await chromium.launch({
+    headless: false,
+    args: [
+      '--disable-backgrounding-occluded-windows',
+      '--disable-renderer-backgrounding',
+      '--disable-background-timer-throttling',
+    ],
+  });
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-  await page.goto(`${URL}?renderer=${backend}`);
-
-  const client = await page.context().newCDPSession(page);
 
   // Count every animation frame the page draws, from the page rather than from
   // the harness: the harness cannot see a frame, and a frame rate measured by
   // polling is a measurement of the polling.
-  await page.evaluate(() => {
+  //
+  // Installed before the page is opened rather than after it, so the counter is
+  // running from the first frame and survives anything that replaces the
+  // document under it.
+  await page.addInitScript(() => {
     const counter = { frames: 0 };
     (window as unknown as { orreryFrames: { frames: number } }).orreryFrames = counter;
     const tick = () => {
@@ -56,6 +73,9 @@ async function main(): Promise<void> {
     };
     requestAnimationFrame(tick);
   });
+
+  await page.goto(`${URL}?renderer=${backend}`);
+  const client = await page.context().newCDPSession(page);
 
   const read = async (): Promise<Sample> => {
     await client.send('HeapProfiler.collectGarbage');

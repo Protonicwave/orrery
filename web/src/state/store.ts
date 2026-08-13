@@ -100,7 +100,12 @@ export interface ChromeState {
   readonly radialProfile: boolean;
   readonly boundUnbound: boolean;
   readonly playing: boolean;
-  /** What a new run would be asked for. Nothing acts on these until Phase 8. */
+  /**
+   * What a new run would be asked for.
+   *
+   * Nothing acts on them: a run is integrated by the compute service, which
+   * this client does not reach. The solver tier says so where it is read.
+   */
   readonly requestedCount: number;
   readonly requestedSoftening: number;
   readonly requestedIntegrator: Integrator;
