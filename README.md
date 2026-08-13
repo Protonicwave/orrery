@@ -325,9 +325,11 @@ pip install orrery-nbody
 ```
 
 The distribution is `orrery-nbody` and the module it installs is `orrery`,
-because `orrery` on PyPI belongs to an unrelated package that was there first.
-Wheels are published for Linux, macOS and Windows, so nothing is compiled on the
-way in. `pip install .` in a checkout builds the same package from source.
+because `orrery` on PyPI belongs to an unrelated package that was there first. A
+tagged release builds wheels for Linux, macOS and Windows, so an install does not
+compile the C++. `pip install .` in a checkout builds the same package from its
+source instead, which is the route continuous integration takes on all three
+platforms.
 
 ```python
 import orrery
