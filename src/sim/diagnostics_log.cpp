@@ -1,6 +1,5 @@
 #include "orrery/sim/diagnostics_log.hpp"
 
-#include <cmath>
 #include <filesystem>
 #include <limits>
 #include <locale>
@@ -38,15 +37,7 @@ void DiagnosticsLog::record(core::Index step, core::Real time,
         reference_energy_ = energy;
     }
 
-    // A run whose first measured energy is zero has no scale to be relative to,
-    // and dividing by it would fill the column with infinities. Two particles at
-    // rest at infinite separation are the only configuration that does it, so
-    // this is a degenerate case rather than a common one, and reporting the
-    // absolute difference is the honest answer to a question with no relative
-    // form.
-    const core::Real reference = std::abs(*reference_energy_);
-    const core::Real difference = energy - *reference_energy_;
-    const core::Real error = reference > 0 ? difference / reference : difference;
+    const core::Real error = core::relative_energy_error(*reference_energy_, energy);
 
     file_ << step << ',' << time << ',' << diagnostics.kinetic_energy << ','
           << diagnostics.potential_energy << ',' << energy << ',' << error << ','
