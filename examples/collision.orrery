@@ -1,0 +1,64 @@
+# The galaxy collision: two disc galaxies on a bound encounter, merging.
+#
+# This is the project's demonstration configuration, and the one the renderer's
+# documentation runs. Sixty thousand particles is what an Arc 130V draws at a
+# comfortable frame rate while the tree solver keeps up with it on the CPU;
+# docs/visualisation.md gives the measured figures and how to raise the count.
+#
+# The timestep is a two-hundredth of the time it takes the inner disc to turn
+# once, which is short enough that the bulge, the densest part of either galaxy,
+# is resolved rather than integrated through.
+#
+# The softening is a little above the disc's scale height, and that is the
+# choice this configuration is most sensitive to. The disc is cold, as
+# disc_galaxy.hpp says at length, so it is unstable to its own self-gravity and
+# will break into clumps on every scale the force law lets it. The scale height
+# is the smallest structure the model actually represents; below it the disc is
+# a two-dimensional sheet of a few tens of thousands of point masses rather than
+# a galaxy, and letting that sheet collapse would be resolving the sampling. A
+# softening of 0.12 confines the fragmentation to scales the model has, and the
+# spiral structure and the tidal tails, which are the things worth looking at,
+# are unaffected by it. At 0.05 the same run ends as a swarm of small dense
+# knots.
+#
+# The two discs are tilted differently on purpose. An encounter between two
+# discs in the same plane is symmetric and much the least interesting to look
+# at; the tidal tails are drawn out of whichever disc is closest to coplanar
+# with the orbit, so a pair inclined by different amounts produces one long tail
+# and one stubby one, which is what real interacting pairs look like.
+
+[run]
+timestep = 0.005
+steps    = 40000
+seed     = 20260812
+
+[initial_conditions]
+kind                  = galaxy-collision
+count                 = 60000
+total_mass            = 1.5
+bulge_fraction        = 0.2
+scale_length          = 1
+scale_height          = 0.1
+bulge_radius          = 0.2
+mass_ratio            = 0.5
+inclination           = 0.35
+secondary_inclination = 1.2
+separation            = 20
+impact_parameter      = 2
+approach_speed        = 0.8
+
+[solver]
+kind          = barnes-hut
+softening     = 0.12
+opening_angle = 0.6
+
+[integrator]
+kind = velocity-verlet
+
+[output]
+trajectory_path    = collision.otj
+trajectory_stride  = 40
+diagnostics_path   = collision.csv
+diagnostics_stride = 400
+checkpoint_path    = collision.ock
+checkpoint_stride  = 2000
