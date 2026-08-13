@@ -294,8 +294,13 @@ The same simulator, from a notebook, with the particle state as NumPy arrays tha
 share memory with the run rather than copies of it:
 
 ```
-pip install .
+pip install orrery-nbody
 ```
+
+The distribution is `orrery-nbody` and the module it installs is `orrery`,
+because `orrery` on PyPI belongs to an unrelated package that was there first.
+Wheels are published for Linux, macOS and Windows, so nothing is compiled on the
+way in. `pip install .` in a checkout builds the same package from source.
 
 ```python
 import orrery

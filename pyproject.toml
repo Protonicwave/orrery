@@ -15,7 +15,13 @@ requires = ["scikit-build-core>=0.10", "pybind11>=3.0"]
 build-backend = "scikit_build_core.build"
 
 [project]
-name = "orrery"
+# The distribution is named orrery-nbody and the module it installs is named
+# orrery, which is the one place in this project where a name is not the same on
+# both sides of a boundary. `orrery` on PyPI belongs to an unrelated package
+# that has been there since long before this one, and taking a second name is
+# the only remedy: an import name can be shared across indexes, a distribution
+# name cannot. So `pip install orrery-nbody` and then `import orrery`.
+name = "orrery-nbody"
 dynamic = ["version"]
 description = "A GPU-accelerated N-body gravitational simulator"
 readme = "README.md"
