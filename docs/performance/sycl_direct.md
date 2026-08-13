@@ -1,7 +1,6 @@
 # The GPU direct kernel, against the CPU it shares its memory with
 
-What Phase 9 measured, on the machine section 2 of the implementation plan
-describes.
+Measured on the machine [the performance report](../performance.md) describes.
 
 The short version, in four findings.
 

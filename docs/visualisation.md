@@ -123,7 +123,7 @@ swarm of small dense knots.
 
 ## What it costs
 
-Measured on the target machine of section 2 of the implementation plan: Core
+Measured on the machine [the performance report](performance.md) describes: Core
 Ultra 5 238V with an integrated Arc 130V, Windows 11, Clang 22, the `renderer`
 preset, double precision.
 

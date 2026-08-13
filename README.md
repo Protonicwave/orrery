@@ -1,7 +1,35 @@
 # Orrery
 
+[![CI](https://github.com/Protonicwave/orrery/actions/workflows/ci.yml/badge.svg)](https://github.com/Protonicwave/orrery/actions/workflows/ci.yml)
+[![Documentation](https://github.com/Protonicwave/orrery/actions/workflows/docs.yml/badge.svg)](https://protonicwave.github.io/orrery/)
+[![PyPI](https://img.shields.io/pypi/v/orrery-nbody)](https://pypi.org/project/orrery-nbody/)
+[![Licence](https://img.shields.io/badge/licence-MIT-blue)](LICENCE)
+
 A GPU-accelerated N-body gravitational simulator in C++20, developed and
 benchmarked entirely on a single Lunar Lake laptop.
+
+![Two disc galaxies part way through a bound encounter: the heavier one in
+blue-white spread across the upper left, the lighter one in warm yellow pulled
+into a tail below it, each still holding a bright core.](docs/images/collision.png)
+
+Twenty thousand particles, six thousand steps into `examples/collision.orrery`.
+Every point in it is a particle and the two colours are the two galaxies, which
+is what makes it possible to see which material in the remnant came from where.
+The run behind it takes 122 seconds:
+
+```
+cmake --preset renderer
+cmake --build --preset renderer
+./build/renderer/apps/orrery-view run examples/collision.orrery \
+    --set initial_conditions.count=20000 --export frames \
+    --steps-per-frame 6000 --frames 2 \
+    --width 1600 --height 900 --distance 18 --exposure 1.9
+ffmpeg -i frames/frame_00001.ppm docs/images/collision.png
+```
+
+The viewer writes PPM and leaves encoding to something that encodes (ADR-0037),
+so the last line is a format change rather than a step in the making of it. The
+first frame is the initial state and the second is the one above.
 
 Orrery simulates the gravitational interaction of large numbers of point masses:
 a direct O(N^2) solver and a Barnes-Hut O(N log N) solver, symplectic and
@@ -138,6 +166,28 @@ Reproduce with:
 ./build/release/benchmarks/orrery_threading_scaling 8192 11
 ./build/release/benchmarks/orrery_tree_scaling
 ```
+
+**One force evaluation, gathered into one place:**
+
+| Solver and device | Particles | Per evaluation | Against a limit measured on the same machine |
+| --- | --- | --- | --- |
+| CPU direct, AVX2, 8 threads | 8192 | 13.80 ms | 79.7% of the divide and square root ceiling |
+| CPU tree | 262144 | 868 ms | 20x direct summation, with cost going as N^1.24 |
+| GPU direct | 65536 | 75.4 ms | 4.09x all eight CPU cores, at 1139 Gflop/s |
+| GPU tree | 262144 | 59.8 ms | 12.2x the CPU tree |
+| GPU tree, the largest run | 2097152 | 603 ms | 87.5 MiB shared, the host's Morton sort 40 to 46% of it |
+
+Drawing is measured separately because it is a frame rate rather than an
+evaluation: a recorded run plays back at a million particles and 126 frames a
+second, and the live collision runs at thirty thousand above thirty.
+
+Every row is a median with an interquartile range beside it in the report, not a
+best of N, because the target is a laptop and a best-of on a part that throttles
+reports the trial taken before the fan noticed (ADR-0019). The session behind the
+first row spreads 1.3 to 5.0 per cent. The report also gives the session where
+that row came out at 22.4 ms instead, with a 27 per cent spread and a thermal
+canary at twice its starting duration, and says which of the two to believe and
+why.
 
 **This machine's real ceilings are not the ones on the specification sheet:**
 
@@ -294,8 +344,15 @@ The same simulator, from a notebook, with the particle state as NumPy arrays tha
 share memory with the run rather than copies of it:
 
 ```
-pip install .
+pip install orrery-nbody
 ```
+
+The distribution is `orrery-nbody` and the module it installs is `orrery`,
+because `orrery` on PyPI belongs to an unrelated package that was there first. A
+tagged release builds wheels for Linux, macOS and Windows, so an install does not
+compile the C++. `pip install .` in a checkout builds the same package from its
+source instead, which is the route continuous integration takes on all three
+platforms.
 
 ```python
 import orrery
@@ -420,9 +477,10 @@ python/           The extension module, the package, its tests and its notebooks
 examples/         Configuration files that run as they are
 tests/            Catch2 test suite, one executable per layer
 benchmarks/       Measurement programs. They report numbers rather than assert them
-docs/             The two reports, the implementation plan, the site configuration
+docs/             The two reports, the format specifications, the site configuration
 docs/adr/         Numbered decision records, never edited after merge
 docs/formats/     Specifications of the configuration, trajectory and checkpoint files
+docs/images/      The frame at the top of this file, and the command that made it
 docs/performance/ Measured results, with the machine state that produced them
 ```
 
@@ -439,7 +497,52 @@ the CPU kernels they mirror, because a summation over pairs of particles is not 
 scheduling policy (ADR-0026). `python/` is not a layer at all: it depends on
 everything and nothing depends on it.
 
+## Engineering practice
+
+Four habits the repository keeps, each of them checkable rather than asserted.
+
+**A decision that had a credible alternative is written down.**
+[`docs/adr/`](docs/adr/) holds forty-four numbered records, each giving the
+context, the decision and the consequences. None is edited after it is merged: a
+decision that changes gets a new record superseding the old one, because the
+value of the directory is what was believed at the time rather than a tidy
+account of what is believed now.
+
+**Dependencies are pinned to commits, not tags.**
+[`cmake/Dependencies.cmake`](cmake/Dependencies.cmake) names three, and every
+one of them is optional: Catch2 for the test suite, GLFW for the renderer,
+pybind11 for the bindings. A build that wants none of the three fetches nothing.
+A tag can be deleted and recreated on different code, which would change what
+this project builds without changing anything in it, so the pin is a hash and
+the version beside it is a comment saying how old the pin is (ADR-0002). The
+GitHub Actions used by the workflows are pinned the same way and for the same
+reason.
+
+**Every measurement follows one protocol.** [`benchmarks/harness/`](benchmarks/harness/)
+implements it and ADR-0019 records it: a settling warm-up whose trials are
+discarded, a fixed number of timed trials, the median rather than the best of
+them, an interquartile range beside every median, a drift figure comparing the
+second half of a session against the first, a cool-down between configurations,
+and a thermal canary bracketing the session. The programs report numbers and do
+not assert them, which is why they are not tests.
+
+**Warnings are errors and the arithmetic is left alone.** Continuous
+integration builds with Clang, GCC and MSVC with warnings as errors, runs
+clang-format and clang-tidy as checks, and runs the full suite under the
+address, undefined-behaviour and thread sanitisers. No fast-math flag is set
+anywhere, so the vectorised kernel and the scalar one are comparable and the
+accuracy result in the validation report means what it says (ADR-0020). Nothing
+mutates a global compiler flag: every setting reaches a target through an
+interface library, so a dependency built inside this tree keeps its own flags
+(ADR-0003).
+
 ## Documentation
+
+All of it is published at
+[protonicwave.github.io/orrery](https://protonicwave.github.io/orrery/),
+generated from the Markdown below and from the comments in the public headers by
+one run of one tool, so a page there and the file it came from cannot drift
+apart (ADR-0043).
 
 - [Validation report](docs/validation.md): every analytic comparison,
   convergence study and conservation result, each naming the test that makes it.
@@ -454,8 +557,6 @@ everything and nothing depends on it.
   something other than this program.
 - [Architecture decision records](docs/adr/): why the design is the way it is,
   in forty-four short documents.
-- [Implementation plan](docs/IMPLEMENTATION_PLAN.md): what was built, in what
-  order, and what each phase had to demonstrate.
 - [Contributing guide](CONTRIBUTING.md): conventions, testing categories and the
   definition of done.
 

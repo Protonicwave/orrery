@@ -165,8 +165,7 @@ A speedup on this part should be read against 4.63 rather than against 8.
 
 Under equal fixed shares the four performance cores spend five sixths of every
 force evaluation waiting for the efficiency cores to finish an equal share of the
-work. That is the failure mode section 2 of the implementation plan predicted
-from the topology, quantified.
+work. That is the failure mode the topology predicts, quantified.
 
 **The strongest result here is not the speedup.** Phase 6 measured the scheduler
 on the scalar kernel and wrote down a prediction: that the balance it found would

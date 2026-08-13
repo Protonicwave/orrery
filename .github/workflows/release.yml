@@ -1,0 +1,132 @@
+# Wheels and the source distribution, built on a tag and published to PyPI.
+#
+# A workflow of its own rather than a job in ci.yml for the same reason the
+# documentation has one: publishing needs `id-token: write`, and the checks that
+# decide whether a change is correct have no business holding a permission that
+# can put a release on an index.
+#
+# There is no API token anywhere in this file. PyPI is told, once, that this
+# repository's release workflow may publish this project, and the exchange that
+# follows is between GitHub and PyPI over OIDC. A token in a repository secret
+# would be a long-lived credential that leaks with the account holding it.
+#
+# What is built is defined in pyproject.toml under [tool.cibuildwheel], so
+# running `cibuildwheel` by hand reproduces what this workflow produces.
+#
+# Actions are pinned to a commit rather than a tag, for the same reason the C++
+# dependencies are: a tag can be moved onto different code without anything in
+# this repository changing. ADR-0002.
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  # So that the build can be exercised without a tag and without publishing
+  # anything. The publish job below is unreachable on this trigger.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wheels:
+    name: Wheels on ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # One platform failing says nothing about the others, and a release needs
+      # to know about all of them at once rather than one per push.
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x86-64
+            os: ubuntu-24.04
+          - name: Linux aarch64
+            os: ubuntu-24.04-arm
+          - name: macOS x86-64
+            os: macos-13
+          - name: macOS arm64
+            os: macos-14
+          - name: Windows x86-64
+            os: windows-2022
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      # cibuildwheel drives the interpreters itself, one wheel per version, and
+      # runs the project's own pytest suite against each finished wheel. No
+      # oneAPI toolchain and no GPU is installed on any of these runners, which
+      # is the point: the SYCL backend is optional and this is where that is
+      # demonstrated rather than asserted.
+      - name: Build and test the wheels
+        uses: pypa/cibuildwheel@1828c10ab37f080699c7b81cea34097c684a7074 # v4.2.0
+
+      - name: Upload the wheels
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wheels-${{ matrix.os }}
+          path: wheelhouse/*.whl
+          if-no-files-found: error
+
+  sdist:
+    name: Source distribution
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Build the source distribution
+        run: pipx run build --sdist
+
+      # A source distribution that does not build is a release that fails for
+      # everyone on a platform with no wheel, and that is discovered by
+      # installing it rather than by reading it. Installed from the archive
+      # itself, in a directory that is not the checkout, so the import under
+      # test is the installed one.
+      - name: Install it and import the package
+        run: |
+          set -o errexit
+          python -m venv "${RUNNER_TEMP}/check"
+          "${RUNNER_TEMP}/check/bin/pip" install --upgrade pip
+          "${RUNNER_TEMP}/check/bin/pip" install dist/*.tar.gz
+          cd "${RUNNER_TEMP}"
+          "${RUNNER_TEMP}/check/bin/python" -c "import orrery; print(orrery.__version__)"
+
+      - name: Upload the source distribution
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  publish:
+    name: Publish to PyPI
+    needs: [wheels, sdist]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+
+    # The environment is half of what PyPI matches a trusted publisher against,
+    # so it is named here and named the same on the index. It is also where a
+    # required reviewer can be set, which is the one control that stands between
+    # a pushed tag and a version that can never be reused.
+    environment:
+      name: pypi
+      url: https://pypi.org/p/orrery-nbody
+
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Collect every artefact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2

@@ -4,9 +4,9 @@ Every analytic comparison, convergence study and conservation result the project
 makes, gathered into one document. Each claim names the test that makes it, so a
 reader who does not believe one can run it rather than take it.
 
-This is the report the project exists to be able to write. Section 1 of the
-implementation plan puts correctness that can be demonstrated ahead of both speed
-and elegance, and what follows is that priority spent: the code is compared
+This is the report the project exists to be able to write. The project puts
+correctness that can be demonstrated ahead of both speed and elegance, and what
+follows is that priority spent: the code is compared
 against problems whose answers were known before it was written, and never
 against its own earlier output except where the claim being made is bitwise
 reproducibility.
@@ -389,8 +389,8 @@ killed is not chosen to avoid the moment its checkpoint is half written.
 
 ## The suite as a whole
 
-The release preset registers 311 cases. By the four categories section 4 of the
-implementation plan defines:
+The release preset registers 311 cases. By the four categories the contributing
+guide defines:
 
 | Category | Cases | What it means here |
 | --- | --- | --- |
