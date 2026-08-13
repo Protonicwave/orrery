@@ -25,6 +25,14 @@ export interface OpenedMessage {
   readonly scalar: number;
   readonly velocities: boolean;
   readonly byteLength: number;
+  /**
+   * The masses, in particle order, transferred rather than copied.
+   *
+   * They are in the header because they do not change during a run, and they
+   * are sent on because a quantity weighted by mass cannot be derived from
+   * positions alone. The radial profile in the rail is the one that needs them.
+   */
+  readonly masses: Float64Array;
 }
 
 /**

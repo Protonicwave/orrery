@@ -23,6 +23,21 @@
   text-align: right;
 }
 
+/* A control that cannot act yet.
+ *
+ * Drawn back, not removed. A missing control says nothing; a control that is
+ * plainly there and plainly not working is a question, and the note at the foot
+ * of its tier is the answer. It keeps its place in the tab order for the same
+ * reason, so the answer is reachable by whatever asked the question.
+ *
+ * Two signals rather than one: the ink is lower and the cursor says no. Colour
+ * alone would carry it for nobody who cannot see the difference between two
+ * greys.
+ */
+.inert {
+  opacity: 0.42;
+}
+
 /* ── slider ─────────────────────────────────────────────────────────────
  * The drawing is a hairline and a mark eleven pixels tall. The target is the
  * full --target-size, which is what a pointer that is a fingertip rather than
@@ -181,4 +196,13 @@
 
 .toggle[aria-pressed="true"]::before {
   background: currentcolor;
+}
+
+/* The cursor half of the inert marking, at the foot of the file so that it
+ * comes after the three rules it overrides. Each of those is a class of the
+ * same specificity, so what decides between them is the order they are read in.
+ */
+.inert,
+.inert .option span {
+  cursor: not-allowed;
 }

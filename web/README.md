@@ -21,10 +21,13 @@ npm run dev
 | `npm run fonts` | Cut the three faces to the characters the design sets |
 
 The gallery is not committed. `npm run gallery -- <path to orrery>` runs the
-configurations in `src/gallery/runs.ts` and writes their trajectories into
-`public/gallery/`, which is where the client fetches them from; the site
-workflow does the same before it builds. Without it the instrument draws
-nothing and says so, which is a useful state to have seen.
+three configurations in `src/gallery/runs.ts` and writes their trajectories and
+diagnostics into `public/gallery/`, which is where the client fetches them from;
+the site workflow does the same before it builds. Without it the instrument
+draws nothing and says so, which is a useful state to have seen.
+
+A run and a moment in it are both in the address: `?run=cluster&t=12.5`. So is
+the backend, as `?renderer=webgl2`, which is what makes the two comparable.
 
 ## Layout
 
@@ -32,6 +35,7 @@ nothing and says so, which is a useful state to have seen.
 src/components/   One component and one stylesheet each
 src/config/       A reader for the repository's configuration format
 src/data/         Measurements transcribed from the reports, with their sources
+src/diagnostics/  The diagnostics reader, its plots, and what is derived here
 src/format/       How a number is set
 src/gallery/      Which runs are published, and what each one changes
 src/render/       The renderer interface, its two backends, the camera and loop
@@ -54,10 +58,20 @@ no token provides is a gap in the system, and it is filled there rather than
 worked around here.
 
 **Nothing is transcribed that can be read.** The configuration register is
-parsed from `examples/collision.orrery` and the version from the `project()`
-call in `CMakeLists.txt`. What genuinely cannot be parsed, the measured figures,
-lives in `src/data/` with the document it came from named beside it and the
-conditions it was measured under carried with it.
+parsed from the run's own `.orrery` file, the plots and the drift figures come
+from the diagnostics CSV that run wrote, and the version from the `project()`
+call in `CMakeLists.txt`. What genuinely cannot be parsed, the step time and the
+wall clock, lives in `src/data/` with the document it came from named beside it
+and the conditions it was measured under carried with it. ADR-0048.
+
+**What the run measured and what the client derives are kept apart.** The four
+plots in the rail are columns of a file the simulator wrote. The radial profile
+under them is worked out here from the frame on the plate, and it is labelled as
+derived, because a plot in a rail of measurements reads as a measurement.
+
+**A control that cannot act says what it would need.** It is drawn back rather
+than removed and keeps its place in the tab order, with the reason at the foot
+of its tier. Read together those notes say exactly what a trajectory carries.
 
 **Every number goes through one component.** `Numeric` sets real minus signs,
 thin spaces between digit groups, raised exponents, units a weight lighter and

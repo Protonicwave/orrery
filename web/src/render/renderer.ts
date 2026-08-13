@@ -36,10 +36,29 @@ export interface Colour {
   readonly blue: number;
 }
 
+/**
+ * What the accumulated radiance is put through on its way to the display.
+ *
+ * Two, and the project has exactly two. `reinhard` is the extended Reinhard
+ * curve of `include/orrery/viz/tone_map.hpp`, which is what the native renderer
+ * draws with and therefore what a picture from this client has to match.
+ * `linear` is no curve at all: the exposed radiance, clipped at white.
+ *
+ * The second is there to be looked at rather than to be used. The argument for
+ * tone mapping a galaxy is that the sum of light along a line of sight through
+ * the middle of one is tens of times the sum through its outskirts, and a
+ * display has a ratio of about a hundred to work with; selecting `linear` shows
+ * what that argument is about, which is a saturated white core with no
+ * structure in it. No third curve is offered because the project has no third
+ * curve, and offering one would be inventing optics rather than porting them.
+ */
+export type ToneCurve = 'reinhard' | 'linear';
+
 /** Everything about how the picture looks that is not the camera. */
 export interface RenderSettings {
   /** What the accumulated radiance is multiplied by before the curve. */
   readonly exposure: number;
+  readonly curve: ToneCurve;
   /** The exposed radiance that maps exactly to white. */
   readonly whitePoint: number;
   /** The diameter in pixels a particle would have one unit from the camera. */
@@ -70,6 +89,7 @@ export interface RenderSettings {
  */
 export const DEFAULT_SETTINGS: RenderSettings = {
   exposure: 1.6,
+  curve: 'reinhard',
   whitePoint: 4,
   pointSize: 40,
   minimumPointSize: 1.5,

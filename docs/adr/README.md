@@ -61,3 +61,5 @@ introduces it.
 | [0045](0045-keep-the-browser-client-in-this-repository.md) | Keep the browser client in this repository | Accepted |
 | [0046](0046-put-the-renderer-s-device-behind-one-interface.md) | Put the renderer's device behind one interface | Accepted |
 | [0047](0047-decode-trajectories-off-the-main-thread.md) | Decode trajectories off the main thread | Accepted |
+| [0048](0048-read-the-diagnostics-the-run-wrote.md) | Read the diagnostics the run wrote | Accepted |
+| [0049](0049-put-the-run-and-the-moment-in-the-address.md) | Put the run and the moment in the address | Accepted |

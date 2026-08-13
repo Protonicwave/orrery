@@ -87,6 +87,40 @@ export function scientific(value: number, digits = 1): Scientific {
 }
 
 /**
+ * A value split into the parts a readout writes into the document.
+ *
+ * The Numeric component sets a value that changes when a person changes
+ * something. A diagnostic's value changes ten times a second as the run plays,
+ * and rendering it would put four components on the React path at that rate to
+ * move four numbers. So it is written into elements directly, and this is the
+ * shape those elements are written from: the same typographic rules, the same
+ * spoken form beside the set one, and no component allowed to invent either.
+ */
+export interface Reading {
+  /** The figure itself, or the mantissa where there is an exponent. */
+  readonly figure: string;
+  /** The exponent, or empty where the value is not set in scientific notation. */
+  readonly exponent: string;
+  /** What a synthesiser should say instead. */
+  readonly spoken: string;
+}
+
+/** A value set as a mantissa and a raised exponent: 3.3×10⁻³. */
+export function setScientific(value: number, digits = 1): Reading {
+  const { mantissa, exponent } = scientific(value, digits);
+  return { figure: mantissa, exponent, spoken: spoken(value, undefined, true) };
+}
+
+/** A value set as a plain decimal, grouped and with a real minus sign. */
+export function setDecimal(value: number, digits = 0, unit?: string): Reading {
+  return {
+    figure: decimal(value, digits) + (unit === undefined ? '' : unit),
+    exponent: '',
+    spoken: spoken(value, unit),
+  };
+}
+
+/**
  * What a screen reader should say. A value set as 3.3×10⁻³ is three characters
  * and a raised digit to a sighted reader and nonsense to a synthesiser, so
  * every value carries a spoken form beside the set one.

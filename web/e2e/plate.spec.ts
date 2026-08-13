@@ -17,6 +17,12 @@ import { expect, test } from '@playwright/test';
  * works, and every other test in this file exercises the fallback.
  */
 
+/**
+ * The plate's own canvas. The rail draws its sparklines into canvases too, so
+ * "the canvas" stopped being a thing there is one of.
+ */
+const PLATE = '#plate canvas';
+
 /** Long enough for the header and the first requests of frames to arrive. */
 const READY = 20_000;
 
@@ -25,14 +31,14 @@ const INSTANT = 20;
 
 async function open(page: Page, backend: string): Promise<void> {
   await page.goto(`./?renderer=${backend}`);
-  await expect(page.locator('canvas')).toBeVisible();
+  await expect(page.locator(PLATE)).toBeVisible();
   await expect.poll(() => frames(page), { timeout: READY }).toBeGreaterThan(0);
 }
 
 /** How many frames have been decoded, which the canvas states for a reader. */
 async function frames(page: Page): Promise<number> {
   const label = await page.evaluate(
-    () => document.querySelector('canvas')?.getAttribute('aria-label') ?? '',
+    () => document.querySelector('#plate canvas')?.getAttribute('aria-label') ?? '',
   );
   return Number(/(\d+) of \d+ frames read/.exec(label)?.[1] ?? 0);
 }
@@ -109,7 +115,7 @@ async function bare(page: Page): Promise<void> {
 async function seek(page: Page, time: number): Promise<void> {
   await expect.poll(() => frames(page), { timeout: READY }).toBeGreaterThan(50);
   await page.getByRole('slider', { name: 'Position in the run' }).fill(String(time));
-  await expect(page.locator('canvas')).toBeVisible();
+  await expect(page.locator(PLATE)).toBeVisible();
   await page.waitForTimeout(500);
 }
 
@@ -151,7 +157,7 @@ test('plays, and stops where it is paused', async ({ page }) => {
 test('takes the camera from the keyboard as well as the mouse', async ({ page }) => {
   await open(page, 'webgl2');
 
-  const canvas = page.locator('canvas');
+  const canvas = page.locator(PLATE);
   await canvas.focus();
   await expect(canvas).toBeFocused();
 
@@ -182,8 +188,8 @@ test('draws the same picture through either backend', async ({ page, browser }) 
 
   await bare(page);
   await bare(other);
-  const fallback = await signature(page, await page.locator('canvas').screenshot());
-  const primary = await signature(other, await other.locator('canvas').screenshot());
+  const fallback = await signature(page, await page.locator(PLATE).screenshot());
+  const primary = await signature(other, await other.locator(PLATE).screenshot());
   await other.close();
 
   expect(fallback).toHaveLength(256);

@@ -16,6 +16,14 @@
  * the two it was doing.
  */
 
+import type { ToneCurve } from '../render/renderer';
+
+/**
+ * Which tone-mapping curve the renderer applies. Defined by the renderer, and
+ * carried through here so that the console reads one definition of it.
+ */
+export type { ToneCurve };
+
 export type Listener<T> = (state: T) => void;
 
 export interface Store<T> {
@@ -67,9 +75,6 @@ export function createStore<T extends object>(initial: T): Store<T> {
   };
 }
 
-/** Which tone-mapping curve the renderer applies. Matches the native viewer. */
-export type ToneCurve = 'linear' | 'reinhard' | 'aces';
-
 /** What the plate draws over the particles. */
 export type Overlay = 'none' | 'octree' | 'density';
 
@@ -95,11 +100,27 @@ export interface ChromeState {
   readonly radialProfile: boolean;
   readonly boundUnbound: boolean;
   readonly playing: boolean;
-  /** What a new run would be asked for. Nothing acts on these until Phase 8. */
+  /**
+   * What a new run would be asked for.
+   *
+   * Nothing acts on them: a run is integrated by the compute service, which
+   * this client does not reach. The solver tier says so where it is read.
+   */
   readonly requestedCount: number;
   readonly requestedSoftening: number;
   readonly requestedIntegrator: Integrator;
 }
+
+/**
+ * The smallest count the solver tier's slider can express.
+ *
+ * Used for a run whose configuration states no count, which is the two-body
+ * problem: it names two masses, because the count is a property of that
+ * scenario rather than a setting of it. A slider asking what a new run should
+ * be given has to open somewhere, and the smallest it offers is the honest
+ * answer when the run in front of it cannot suggest one.
+ */
+const SMALLEST_REQUEST = 5_000;
 
 /**
  * The defaults are the run's own settings, so the interface opens showing the
@@ -108,7 +129,7 @@ export interface ChromeState {
  * from docs/visualisation.md.
  */
 export function createChromeState(defaults: {
-  count: number;
+  count: number | undefined;
   softening: number;
   integrator: Integrator;
 }): Store<ChromeState> {
@@ -126,7 +147,7 @@ export function createChromeState(defaults: {
     radialProfile: false,
     boundUnbound: false,
     playing: false,
-    requestedCount: defaults.count,
+    requestedCount: Math.max(defaults.count ?? 0, SMALLEST_REQUEST),
     requestedSoftening: defaults.softening,
     requestedIntegrator: defaults.integrator,
   });

@@ -1,8 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { App } from '../src/App';
-import { collision } from '../src/config/run';
+import { runFor } from '../src/config/run';
 import { decimal } from '../src/format/number';
+import { runById } from '../src/gallery/runs';
 
 /**
  * Testing Library folds every run of whitespace into one ordinary space before
@@ -12,6 +13,9 @@ import { decimal } from '../src/format/number';
 function set(text: string) {
   return (_: string, element: Element | null) => element?.textContent === text;
 }
+
+/** The run an address with nothing in it opens, which is the collision. */
+const collision = runFor(runById(null));
 
 /**
  * The shell states what the file states.
@@ -29,9 +33,9 @@ describe('the instrument', () => {
 
   it('shows the particle count the configuration asks for', () => {
     render(<App />);
-    expect(screen.getAllByText(set(decimal(collision.count))).length).toBeGreaterThan(
-      0,
-    );
+    expect(
+      screen.getAllByText(set(decimal(collision.count as number))).length,
+    ).toBeGreaterThan(0);
   });
 
   it('shows the model time the timestep and the step count come to', () => {
@@ -47,6 +51,7 @@ describe('the instrument', () => {
     expect(screen.getByRole('banner')).toBeDefined();
     expect(screen.getByRole('complementary', { name: 'Run data' })).toBeDefined();
     expect(screen.getByRole('navigation', { name: 'Sections' })).toBeDefined();
+    expect(screen.getByRole('navigation', { name: 'Published runs' })).toBeDefined();
   });
 
   it('offers every control to the keyboard', () => {

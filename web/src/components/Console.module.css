@@ -51,9 +51,23 @@
   color: var(--brass);
 }
 
+/* What the controls above it would need in order to act.
+ *
+ * At the foot of the tier rather than under each control, because the answers
+ * belong together: read as a paragraph they say what a trajectory is, and read
+ * one line at a time they would only say that something is missing.
+ */
+.note {
+  margin-top: auto;
+  padding-top: var(--space-4);
+  font-size: var(--type-label);
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
 /* The expensive gesture, with its price named. */
 .recompute {
-  margin-top: auto;
+  margin-top: var(--space-4);
   display: flex;
   align-items: center;
   justify-content: space-between;

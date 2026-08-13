@@ -99,7 +99,7 @@ test('reaches every control with the keyboard', async ({ page }) => {
   await page.locator('body').press('Tab');
 
   const reached: string[] = [];
-  for (let stop = 0; stop < 24; stop += 1) {
+  for (let stop = 0; stop < 32; stop += 1) {
     const description = await page.evaluate(() => {
       const active = document.activeElement;
       if (active === null || active === document.body) return null;
@@ -112,9 +112,10 @@ test('reaches every control with the keyboard', async ({ page }) => {
     await page.keyboard.press('Tab');
   }
 
-  // The skip link first, then the navigation, then every control in the order
-  // the instrument is laid out in.
+  // The skip link first, then the navigation, then the gallery, then every
+  // control in the order the instrument is laid out in.
   expect(reached[0]).toContain('Skip to the instrument');
+  expect(reached.some((stop) => stop.includes('Plummer sphere'))).toBe(true);
   expect(
     reached.filter((stop) => stop.startsWith('input')).length,
   ).toBeGreaterThanOrEqual(7);
