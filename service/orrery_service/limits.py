@@ -71,20 +71,26 @@ MAX_CONFIGURATION_BYTES = 16 * 1024
 ALLOWED_SOLVERS = ("direct", "barnes-hut")
 
 
-def work_units(count: int, steps: int) -> float:
+def work_units(count: int, steps: int, solver: str) -> float:
     """The work a run of `count` particles over `steps` steps costs.
 
-    Particle count times its logarithm times the steps, which is how the tree
-    solver scales and what `docs/performance/barnes_hut.md` measures. It is the
-    right shape for the ceiling even for a submission naming the direct solver,
-    where the true cost goes as the square: a ceiling that let a direct run
-    through because it was scored on the tree's curve would be a ceiling that
-    understated the expensive case, so the direct solver is bounded further by
-    the particle ceiling being the same one the tree gets.
+    Scored on the curve the solver it names actually follows: the square of the
+    count for the direct solver, which computes every pair, and the count times
+    its logarithm for the tree, which is what `docs/performance/barnes_hut.md`
+    measures. One score for both would have to be wrong about one of them, and
+    being wrong about the direct solver is the expensive direction: at the
+    particle ceiling it is several thousand times the pair work.
+
+    The two are not in the same units and are not claimed to be. A tree
+    interaction is preceded by a walk and a direct one is not, so the same score
+    is a slightly different number of seconds on each. What the ceiling needs is
+    a bound rather than an estimate, and comparing both against the tree's
+    reference errs towards refusing the direct run, which is the right way round.
     """
     if count < 2:
         return 0.0
-    return count * math.log2(count) * steps
+    per_step = count * count if solver == "direct" else count * math.log2(count)
+    return per_step * steps
 
 
 #: The most work one submission may ask for.
@@ -97,4 +103,4 @@ def work_units(count: int, steps: int) -> float:
 #: The two ceilings above interact with this one rather than duplicating it. A
 #: run at the particle ceiling gets six thousand steps; a run of two thousand
 #: particles gets the full twenty thousand. Both are the same amount of work.
-MAX_WORK = work_units(MAX_PARTICLES, 6_000)
+MAX_WORK = work_units(MAX_PARTICLES, 6_000, "barnes-hut")
