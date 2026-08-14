@@ -23,10 +23,11 @@ from collections.abc import AsyncIterator
 from datetime import timedelta
 from pathlib import Path
 
+import psycopg
 import pytest
 from psycopg_pool import AsyncConnectionPool
 
-from orrery_service.database import pool, use_compatible_event_loop
+from orrery_service.database import SCHEMA, pool, use_compatible_event_loop
 from orrery_service.queue import Jobs
 from orrery_service.settings import Settings
 from orrery_service.storage import Storage
@@ -119,6 +120,24 @@ def settings_for_tests() -> Settings:
         max_attempts=3,
         allowed_origins=("http://localhost:5173",),
     )
+
+
+def reset_database() -> None:
+    """Empty the test database, creating its tables if they are not there yet.
+
+    The schema before the truncate, and not the other way round. A database
+    nobody has run against has no tables to empty, so a case that truncated
+    first would fail on a fresh one and pass on a machine where some earlier
+    case had happened to create them. Applying the schema is what every process
+    in this service does on start-up and is safe to do again.
+
+    Synchronous, because the two suites that need it drive the application
+    through a test client that owns its own event loop.
+    """
+    with psycopg.connect(DATABASE_URL) as connection:
+        connection.execute(SCHEMA)
+        connection.execute("TRUNCATE job, worker")
+        connection.commit()
 
 
 @pytest.fixture

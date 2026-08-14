@@ -18,7 +18,13 @@ from starlette.websockets import WebSocketDisconnect
 from orrery_service.api import create_app
 from orrery_service.limits import MAX_PARTICLES
 
-from .conftest import DATABASE_URL, needs_database, needs_storage, settings_for_tests
+from .conftest import (
+    DATABASE_URL,
+    needs_database,
+    needs_storage,
+    reset_database,
+    settings_for_tests,
+)
 
 pytestmark = [pytest.mark.integration, needs_database, needs_storage]
 
@@ -32,12 +38,6 @@ seed = 7
 kind = plummer
 count = 64
 """
-
-
-def empty() -> None:
-    with psycopg.connect(DATABASE_URL) as connection:
-        connection.execute("TRUNCATE job, worker")
-        connection.commit()
 
 
 def pretend_a_worker_is_alive(name: str = "worker-1") -> None:
@@ -59,7 +59,7 @@ def pretend_a_worker_is_alive(name: str = "worker-1") -> None:
 
 @pytest.fixture
 def client() -> Iterator[TestClient]:
-    empty()
+    reset_database()
     with TestClient(create_app(settings_for_tests())) as client:
         yield client
 

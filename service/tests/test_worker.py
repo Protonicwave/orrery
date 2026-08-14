@@ -38,6 +38,7 @@ from .conftest import (
     needs_database,
     needs_simulator,
     needs_storage,
+    reset_database,
     settings_for_tests,
 )
 
@@ -262,9 +263,7 @@ def test_the_result_is_fetched_through_the_api_in_ranges() -> None:
     has arrived and that is the request it makes.
     """
     settings = settings_for_tests()
-    with psycopg.connect(DATABASE_URL) as connection:
-        connection.execute("TRUNCATE job, worker")
-        connection.commit()
+    reset_database()
 
     submitted = asyncio.run(_run_one(settings))
 
