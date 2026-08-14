@@ -92,6 +92,29 @@
   background: var(--brass);
 }
 
+/* ── number field ───────────────────────────────────────────────────────
+ * Ruled underneath rather than boxed, so it reads as a value written on a line
+ * and matches the hairline everything else here is drawn with.
+ */
+
+.field {
+  width: 100%;
+  min-height: var(--target-size);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-bottom: var(--hairline) solid var(--edge);
+  background: none;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: var(--type-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.field:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
 /* ── segmented choice ───────────────────────────────────────────────────*/
 
 .segmented {

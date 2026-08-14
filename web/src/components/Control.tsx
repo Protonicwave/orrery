@@ -85,6 +85,68 @@ export function Slider({
   );
 }
 
+export interface FieldProps extends Inert {
+  name: string;
+  value: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  /** Set after the field, for a value that has one. */
+  unit?: string;
+  onChange: (value: number) => void;
+}
+
+/**
+ * A number typed rather than dragged.
+ *
+ * Some settings have no range worth sliding along. A seed is an identity, and a
+ * step count runs over four orders of magnitude, so a slider for either would be
+ * a control whose whole useful travel is a few pixels. A number input answers to
+ * the arrow keys and to being typed into, which is what those two want.
+ *
+ * A value that will not parse leaves the design alone rather than setting it to
+ * nothing, so a half-typed number is a field being edited and not a design that
+ * has briefly stopped being valid.
+ */
+export function Field({
+  name,
+  value,
+  min,
+  max,
+  step,
+  unit,
+  disabled = false,
+  describedBy,
+  onChange,
+}: FieldProps) {
+  const id = useId();
+
+  return (
+    <div className={styles.control}>
+      <label className={styles.name} htmlFor={id}>
+        {name}
+      </label>
+      <input
+        id={id}
+        type="number"
+        className={disabled ? `${styles.field} ${styles.inert}` : styles.field}
+        value={value}
+        min={min}
+        max={max}
+        step={step}
+        aria-disabled={disabled || undefined}
+        aria-describedby={disabled ? describedBy : undefined}
+        onChange={(event) => {
+          if (disabled) return;
+          const next = Number(event.target.value);
+          if (event.target.value !== '' && Number.isFinite(next)) onChange(next);
+        }}
+      />
+      <span className={styles.value}>{unit}</span>
+    </div>
+  );
+}
+
 export interface SegmentedProps<T extends string> extends Inert {
   name: string;
   options: readonly T[];
