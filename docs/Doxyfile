@@ -44,6 +44,7 @@ INPUT                  = include \
                          docs/instrument.md \
                          docs/editor.md \
                          docs/webassembly.md \
+                         docs/service.md \
                          docs/adr \
                          docs/formats \
                          docs/performance
