@@ -140,21 +140,31 @@ the foot of its tier.
 | Rotating frame | Derived | Needs to know which galaxy each particle came from |
 | Orbit trace | Derived | Needs several frames drawn into one picture |
 | Bound / unbound | Derived | Needs velocities, which a published run is written without |
-| Bodies, softening, integrator | Solver | Needs a run, which the service will provide |
+| Bodies, softening, integrator | Solver | Live when the compute service is reachable, and drawn back with the reason when it is not |
+| Recompute | Solver | Submits the run those three describe, and plays what comes back |
 | Run it in this browser | Solver | Live, at the size the WebAssembly build permits |
 
 Read together, those reasons say what a trajectory is: positions and masses, at
 a stride, and nothing else.
 
-The last row is the exception, and it is a run rather than something derived
-from one. It steps the scenario on the plate here, in a Worker, using the same
-C++ compiled to WebAssembly, cut to what a tab can do: at most four thousand and
-ninety-six particles and the first two thousand steps, both stated in the note
-beside the control. While it runs the plate's catalogue carries the solver, the
+The two rows at the foot of the solver tier are runs rather than anything
+derived from one, and they are separated because they are computed in different
+places. Recompute submits the scenario to
+[the compute service](service.md), which runs the same binary this repository
+builds on hardware that is not the reader's; the button carries an estimate and
+the note beside it says what was cut to fit the ceilings. When no service can be
+reached the tier says so and says that the published runs are unaffected, which
+is the state the published site is always in (ADR-0054).
+
+The last row steps the scenario on the plate here instead, in a Worker, using
+the same C++ compiled to WebAssembly, cut to what a tab can do: at most four
+thousand and ninety-six particles and the first two thousand steps, both stated
+in the note beside the control. While it runs the plate's catalogue carries the solver, the
 kernel, the thread count, the measured step time and the energy error, all
 reported by the module, so that a picture computed in a browser cannot be taken
-for one of the figures in the performance report.
-[`docs/webassembly.md`](webassembly.md) is that build in full.
+for one of the figures in the performance report. A run taken by the service
+writes the same catalogue, naming the solver and saying that it happened
+somewhere else. [`docs/webassembly.md`](webassembly.md) is that build in full.
 
 The tone curve offers `reinhard`, which is the extended Reinhard curve of
 `include/orrery/viz/tone_map.hpp` and what the native renderer draws with, and

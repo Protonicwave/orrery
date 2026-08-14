@@ -504,7 +504,7 @@ everything and nothing depends on it.
 Four habits the repository keeps, each of them checkable rather than asserted.
 
 **A decision that had a credible alternative is written down.**
-[`docs/adr/`](docs/adr/) holds fifty-two numbered records, each giving the
+[`docs/adr/`](docs/adr/) holds fifty-seven numbered records, each giving the
 context, the decision and the consequences. None is edited after it is merged: a
 decision that changes gets a new record superseding the old one, because the
 value of the directory is what was believed at the time rather than a tidy
