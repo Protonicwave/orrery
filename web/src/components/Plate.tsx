@@ -8,7 +8,6 @@ import {
   type RenderSettings,
   type ToneCurve,
 } from '../render/renderer';
-import type { Achieved } from '../solver/run';
 import type { ChromeState, Store } from '../state/store';
 import { createFrameState } from '../state/store';
 import type { Reading } from '../state/useReading';
@@ -16,6 +15,25 @@ import { useStoreState } from '../state/useStore';
 import type { FrameSource } from '../trajectory/client';
 import { Numeric } from './Numeric';
 import styles from './Plate.module.css';
+
+/**
+ * The conditions a picture was taken under, whoever took it.
+ *
+ * The two producers describe themselves differently and both are true: a run in
+ * this tab knows its kernel and that it has one thread, and a run on the
+ * compute service knows its solver and that it happened somewhere else. Neither
+ * may be mistaken for the machine `docs/performance.md` names, which is why
+ * `solver` is a sentence written by whoever produced the picture rather than a
+ * name this component assembles.
+ */
+export interface Conditions {
+  readonly count: number;
+  /** The solver, and the machine that ran it. */
+  readonly solver: string;
+  readonly stepMilliseconds: number;
+  /** The relative energy error, or null before anything has measured one. */
+  readonly energyDrift: number | null;
+}
 
 export interface PlateProps {
   run: Run;
@@ -30,15 +48,16 @@ export interface PlateProps {
    */
   origin: string;
   /**
-   * What a browser run turned out to be, or null when the plate is showing a
-   * published one.
+   * What the run being drawn turned out to be, or null for a published one.
    *
-   * Every field is measured or reported by the module. They join the catalogue
-   * rather than sitting under the button that started the run, because they are
-   * the conditions this picture was taken under and a plate is where those are
-   * written.
+   * Every field is measured by whatever produced the picture rather than
+   * assumed by the page: the module reports them for a run in this tab, and the
+   * worker measures them for a run on the compute service. They join the
+   * catalogue rather than sitting under the button that started the run,
+   * because they are the conditions this picture was taken under and a plate is
+   * where those are written.
    */
-  achieved: Achieved | null;
+  conditions: Conditions | null;
   /** How much of the run has been read, taken once and shared. */
   reading: Reading;
   chrome: Store<ChromeState>;
@@ -116,7 +135,7 @@ export function Plate({
   run,
   source,
   origin,
-  achieved,
+  conditions,
   reading,
   chrome,
   instrumentRef,
@@ -343,28 +362,25 @@ export function Plate({
             {device === '' ? 'starting' : device}
           </dd>
         </div>
-        {achieved !== null && achieved.count > 0 && (
+        {conditions !== null && conditions.count > 0 && (
           <>
             <div>
-              <dt>SOLV</dt>{' '}
-              <dd className={styles.device}>
-                {achieved.solver}, {achieved.kernel}, 1 thread
-              </dd>
+              <dt>SOLV</dt> <dd className={styles.device}>{conditions.solver}</dd>
             </div>
             <div>
               <dt>STEP</dt>{' '}
               <dd className={styles.value}>
-                <Numeric value={achieved.stepMilliseconds} digits={1} unit="ms" />
+                <Numeric value={conditions.stepMilliseconds} digits={1} unit="ms" />
               </dd>
             </div>
             <div>
               <dt>dE/E</dt>{' '}
               <dd className={styles.value}>
-                {achieved.energyDrift === null ? (
+                {conditions.energyDrift === null ? (
                   'pending'
                 ) : (
                   <Numeric
-                    value={achieved.energyDrift}
+                    value={conditions.energyDrift}
                     notation="scientific"
                     digits={2}
                   />

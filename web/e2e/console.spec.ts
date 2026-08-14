@@ -30,6 +30,29 @@ test('marks every control that cannot act, and says what it would need', async (
   await expect(recompute).toHaveAttribute('aria-disabled', 'true');
 });
 
+test('says the gallery is unaffected when it cannot reach the compute service', async ({
+  page,
+}) => {
+  // The published site is built without a compute service, so this is the state
+  // most readers see, and it is the one that has to stay useful: the solver
+  // tier explains that a new run needs something this page cannot reach, and
+  // says in the same breath that everything else on screen still comes from a
+  // file the repository produced.
+  await page.goto('./?renderer=webgl2');
+
+  const recompute = page.getByRole('button', { name: /Recompute/ });
+  const describes = await recompute.getAttribute('aria-describedby');
+  expect(describes).not.toBeNull();
+
+  const note = page.locator(`#${describes}`);
+  await expect(note).toBeVisible();
+  await expect(note).toContainText('compute service');
+  await expect(note).toContainText('unaffected');
+
+  // And the gallery is still there to be used.
+  await expect(page.getByRole('link', { name: /Plummer sphere/ })).toBeVisible();
+});
+
 test('leaves a control that cannot act in the tab order', async ({ page }) => {
   await page.goto('./?renderer=webgl2');
 
