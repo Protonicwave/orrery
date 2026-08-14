@@ -220,7 +220,15 @@ export function App() {
         Skip to the instrument
       </a>
       <div className={styles.instrument}>
-        <Masthead run={run} />
+        <Masthead
+          page="instrument"
+          state="Loaded"
+          build={
+            <>
+              {run.solver} · <em>cpu</em> · {run.precision} · v{__ORRERY_VERSION__}
+            </>
+          }
+        />
         <Gallery runs={RUNS} current={published} onChoose={choose} />
         <div className={styles.stage}>
           <Plate

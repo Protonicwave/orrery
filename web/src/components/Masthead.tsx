@@ -1,24 +1,30 @@
-import type { Run } from '../config/run';
-import { METHOD } from '../method/links';
+import type { ReactNode } from 'react';
+import { methodFrom, type Page, pageFrom } from '../method/links';
 import styles from './Masthead.module.css';
 
 /** The documentation site, which is where the reference material is published. */
 const REFERENCE = 'https://protonicwave.github.io/orrery/';
 
 export interface MastheadProps {
-  run: Run;
+  /** Which page this is, so the navigation marks it and addresses it from here. */
+  page: Page;
+  /** The caption line: what is loaded and what produced it. */
+  build: ReactNode;
+  /** What the page is doing, in one word. */
+  state: string;
 }
 
 /**
- * The instrument's top rule: what this is, where else to go, and what is
- * loaded.
+ * The top rule of a page: what this is, where else to go, and what is loaded.
  *
- * The build line states the run's solver, the precision the figures were taken
- * in and the version, in the way a plate is captioned. The state beside it
- * says what the instrument is doing, and it says the truth: a configuration is
- * loaded and nothing is being integrated.
+ * The build line is captioned the way a plate is captioned, and it says the
+ * truth about the page it is on. The instrument states the run's solver and the
+ * precision its figures were taken in; the editor states that nothing has been
+ * integrated yet, because in the editor nothing has.
  */
-export function Masthead({ run }: MastheadProps) {
+export function Masthead({ page, build, state }: MastheadProps) {
+  const method = methodFrom(page);
+
   return (
     <header className={styles.masthead}>
       <div className={styles.wordmark}>
@@ -41,19 +47,26 @@ export function Masthead({ run }: MastheadProps) {
       </div>
 
       <nav className={styles.nav} aria-label="Sections">
-        <a href="./" aria-current="page">
+        <a
+          href={pageFrom(page, 'instrument')}
+          aria-current={page === 'instrument' ? 'page' : undefined}
+        >
           Instrument
         </a>
-        <a href={METHOD.contents}>Method</a>
+        <a
+          href={pageFrom(page, 'editor')}
+          aria-current={page === 'editor' ? 'page' : undefined}
+        >
+          Editor
+        </a>
+        <a href={method.contents}>Method</a>
         <a href={REFERENCE}>Reference</a>
       </nav>
 
       <div className={styles.right}>
-        <p className={styles.build}>
-          {run.solver} · <em>cpu</em> · {run.precision} · v{__ORRERY_VERSION__}
-        </p>
+        <p className={styles.build}>{build}</p>
         <p className={styles.state}>
-          <i aria-hidden="true" /> Loaded
+          <i aria-hidden="true" /> {state}
         </p>
       </div>
     </header>
