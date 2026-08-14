@@ -346,6 +346,75 @@ jobs:
         working-directory: web
         run: npm run e2e
 
+  service:
+    name: Compute service
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install the service
+        run: python -m pip install -e "service[test,dev]"
+
+      - name: Lint and format
+        working-directory: service
+        run: |
+          set -o errexit
+          ruff check .
+          ruff format --check .
+
+      # The Pydantic models are the only statement of the contract, and
+      # web/src/service/contract.ts is generated from them. Regenerating it here
+      # and requiring the working tree to be unchanged is what stops the two
+      # halves of the boundary describing different things: a field added on one
+      # side and not the other fails here rather than reaching a client that does
+      # not know about it.
+      - name: Check the generated contract is current
+        run: |
+          set -o errexit
+          python service/tools/export_contract.py
+          git diff --exit-code -- web/src/service/contract.ts
+
+      # The simulator, which the worker runs and which the configuration reader
+      # is compared against. Only the one target: the suite and the benchmarks
+      # are built and run by the matrix above, and building them again here would
+      # add several minutes to a job that needs one binary.
+      - name: Build the simulator
+        run: |
+          set -o errexit
+          sudo apt-get update && sudo apt-get install --yes ninja-build
+          cmake --preset release -DORRERY_BUILD_TESTS=OFF -DORRERY_BUILD_BENCHMARKS=OFF
+          cmake --build --preset release --target orrery
+
+      # The same command service/README.md gives a developer, so that what runs
+      # here is what somebody can run before pushing rather than a second
+      # arrangement that only exists in this file. --wait holds until both
+      # containers report healthy.
+      - name: Start PostgreSQL and the object store
+        run: docker compose -f deploy/compose.yaml up -d --wait postgres storage
+
+      # Everything, integration cases included. Those skip themselves without a
+      # database, an object store and a binary, and this job exists to be the
+      # place that has all three: the queue's concurrency, a worker killed part
+      # way through a run, and the agreement between this project's two readers
+      # of the configuration format are none of them checkable without them.
+      - name: Test
+        working-directory: service
+        env:
+          ORRERY_TEST_DATABASE_URL: postgresql://orrery:orrery@localhost:5432/orrery
+          ORRERY_TEST_STORAGE_ENDPOINT: http://localhost:9000
+          ORRERY_BINARY: ${{ github.workspace }}/build/release/apps/orrery
+        run: python -m pytest -q
+
+      - name: Stop the containers
+        if: always()
+        run: docker compose -f deploy/compose.yaml down --volumes
+
   format:
     name: clang-format
     runs-on: ubuntu-24.04
