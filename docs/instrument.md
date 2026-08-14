@@ -297,6 +297,16 @@ itself is unchanged, which is why the table above still describes it. Take the
 measurement again on a quiet machine before quoting a new figure; the tool says
 what it needs.
 
+## The editor beside it
+
+The instrument plays runs this repository has already made.
+[The editor](editor.md) is the page that makes one: the same design system, the
+same solver in a Worker, and a scenario drawn as a technical drawing with its
+lengths dimensioned rather than as a picture of the particles. What leaves it is
+a configuration file the native binary runs unmodified, which is what makes the
+client a way into the repository rather than only a window onto it. ADR-0053
+records how it is drawn and why.
+
 ## The reading half
 
 You observe in the dome and you read in the library. Beside the instrument, at
