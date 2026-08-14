@@ -299,6 +299,15 @@ class Worker:
         diagnostics = workspace / DIAGNOSTICS_FILE
         while True:
             await asyncio.sleep(self._settings.heartbeat_interval.total_seconds())
+
+            # Two heartbeats, and both are needed. The job's is what holds the
+            # claim; the worker's is what says this machine is alive at all. A
+            # run takes minutes, and a worker that only announced itself between
+            # jobs would drop out of the worker table part way through the first
+            # long one, at which point the API would tell everybody that nothing
+            # is available to take a run while a run is being taken.
+            await self._jobs.announce(self._name, self._version)
+
             run.energy_drift = await asyncio.to_thread(last_energy_drift, diagnostics)
             held = await self._jobs.beat(
                 claim.id,

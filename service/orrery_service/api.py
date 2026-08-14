@@ -394,12 +394,31 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
 
 def main() -> None:
-    """Run the API under uvicorn, for a container's entry point."""
+    """Run the API under uvicorn, for a container's entry point.
+
+    The server is started inside an event loop this process makes rather than
+    through `uvicorn.run`, which makes its own and chooses the kind. That choice
+    is the wrong one on Windows, where it takes the proactor loop and psycopg's
+    connections then never answer, so every request to a service that came up
+    apparently healthy times out. Asking uvicorn for the plain asyncio loop and
+    starting it here is what makes the two agree.
+    """
     import uvicorn
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
     use_compatible_event_loop()
-    uvicorn.run(create_app(), host="0.0.0.0", port=8000)
+
+    server = uvicorn.Server(
+        uvicorn.Config(
+            create_app(),
+            # Every interface, because the process is addressed from outside the
+            # container it runs in.
+            host="0.0.0.0",
+            port=8000,
+            loop="asyncio",
+        )
+    )
+    asyncio.run(server.serve())
 
 
 if __name__ == "__main__":
