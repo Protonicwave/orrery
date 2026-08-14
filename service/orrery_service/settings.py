@@ -82,6 +82,13 @@ class Settings:
     #: for ever would be a queue that never drains.
     max_attempts: int
 
+    #: Which origins the browser client may call this service from.
+    #:
+    #: A list rather than a wildcard. The site is published on one origin, the
+    #: development server runs on another, and an API that answered any origin
+    #: would be one any page could queue runs on.
+    allowed_origins: tuple[str, ...]
+
     @staticmethod
     def from_environment() -> Settings:
         return Settings(
@@ -99,4 +106,9 @@ class Settings:
                 seconds=_integer("ORRERY_HEARTBEAT_SECONDS", 15)
             ),
             max_attempts=_integer("ORRERY_MAX_ATTEMPTS", 3),
+            allowed_origins=tuple(
+                origin.strip()
+                for origin in os.environ.get("ORRERY_ALLOWED_ORIGINS", "").split(",")
+                if origin.strip()
+            ),
         )
