@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Orrery: the initial-conditions editor</title>
+    <meta
+      name="description"
+      content="Design an initial condition as a technical drawing, preview it with the same solver, and take away a configuration file the simulator runs."
+    />
+
+    <!--
+      The same four faces the instrument paints with, preloaded for the same
+      reason. They are the same files under the same addresses, so a reader who
+      arrives here from the instrument has them already.
+    -->
+    <link rel="preload" href="/fonts/plex-sans-400.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/plex-sans-500.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/plex-sans-600.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/plex-mono-400.woff2" as="font" type="font/woff2" crossorigin />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/editor/main.tsx"></script>
+  </body>
+</html>
