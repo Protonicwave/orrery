@@ -310,11 +310,11 @@ jobs:
         working-directory: web
         run: npm run typecheck
 
-      # Before the unit suite, because one of its tests runs the module and
-      # compares what it computes against a trajectory the native build wrote.
-      # That test skips itself when the module is absent, so without this the
-      # comparison the WebAssembly build exists to pass would quietly not be
-      # made.
+      # Before the unit suite, because two of its tests run the module and
+      # compare what it computes against a trajectory the native build wrote:
+      # one for the module itself and one for a design out of the editor. Both
+      # skip themselves when the module is absent, so without this the
+      # comparisons those builds exist to pass would quietly not be made.
       - name: Build the WebAssembly module
         uses: ./.github/actions/solver
 

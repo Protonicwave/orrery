@@ -1,0 +1,137 @@
+/* The rail: what the design comes to, what a preview of it measured, and the
+ * file it makes. Ruled into panels the way the instrument's rail is, because it
+ * is the same rail reading a different thing.
+ */
+.rail {
+  border-left: var(--hairline) solid var(--rule);
+  overflow-y: auto;
+  background: var(--chrome);
+}
+
+.panel {
+  border-bottom: var(--hairline) solid var(--rule);
+  padding: var(--space-5) var(--space-6) var(--space-6);
+}
+
+.panel h2 {
+  display: block;
+  margin: 0 0 11px;
+  font-weight: 500;
+}
+
+/* A name and its value, with the figures down one edge. */
+.readout {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 5px var(--space-5);
+  font-size: var(--type-small);
+  margin: 0;
+}
+
+.line {
+  display: contents;
+}
+
+.line dt {
+  color: var(--ink-3);
+}
+
+.line dd {
+  margin: 0;
+  font-family: var(--mono);
+  color: var(--ink);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Whether a pair is bound is the one thing on this panel that is a verdict
+ * rather than a measurement, so it is set in words. The brass is a second
+ * signal beside them and never the only one.
+ */
+.bound {
+  color: var(--brass);
+}
+
+.unbound {
+  color: var(--ink-2);
+}
+
+.note {
+  margin: var(--space-4) 0 0;
+  font-size: var(--type-label);
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+/* The action a panel offers, drawn as the instrument draws its priced control:
+ * a brass rule around it, what it does on the left and what it will cost on the
+ * right.
+ */
+.action {
+  margin-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  border: var(--hairline) solid var(--brass-dim);
+  background: none;
+  color: var(--brass);
+  font-family: var(--sans);
+  font-size: var(--type-mini);
+  letter-spacing: var(--tracking-nav);
+  text-transform: uppercase;
+  padding: var(--space-3) var(--space-4);
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.action:hover {
+  background: var(--brass-wash);
+}
+
+.action:disabled {
+  border-color: var(--rule-bright);
+  color: var(--ink-3);
+  cursor: not-allowed;
+}
+
+.price {
+  font-family: var(--mono);
+  font-size: var(--type-label);
+  color: var(--ink-2);
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+/* The file itself, set as the file is: monospaced, wrapped nowhere, and scrolled
+ * rather than truncated, since a configuration that has been cut off is a
+ * configuration nobody can check.
+ */
+.file {
+  max-height: 220px;
+  overflow: auto;
+  padding: var(--space-4);
+  background: var(--chrome-recessed);
+  border: var(--hairline) solid var(--rule);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: var(--type-mini);
+  line-height: 1.5;
+}
+
+.file pre {
+  margin: 0;
+  white-space: pre;
+}
+
+/* What the C++ reader would refuse. Listed rather than summarised, because each
+ * line is a setting and a sentence saying what is wrong with it.
+ */
+.problems {
+  margin: 0 0 var(--space-4);
+  padding-left: var(--space-6);
+  color: var(--brass);
+  font-size: var(--type-small);
+  line-height: var(--leading-base);
+}

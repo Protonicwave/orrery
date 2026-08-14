@@ -12,6 +12,7 @@ import { type Diagnostics, fetchDiagnostics } from './diagnostics/series';
 import { readAddress, writeAddress } from './gallery/address';
 import { diagnosticsUrl, type GalleryRun, trajectoryUrl } from './gallery/runs';
 import type { Instrument } from './render/instrument';
+import { browserRun } from './solver/configure';
 import { LiveRun } from './solver/run';
 import { InstantSource } from './state/instant';
 import { useViewerShortcuts } from './state/shortcuts';
@@ -135,7 +136,7 @@ export function App() {
     setLive((current) => {
       current?.stop();
       const next = new LiveRun();
-      next.start(run);
+      next.start((limit) => browserRun(run, limit));
       return next;
     });
     setTime(0);
@@ -219,7 +220,15 @@ export function App() {
         Skip to the instrument
       </a>
       <div className={styles.instrument}>
-        <Masthead run={run} />
+        <Masthead
+          page="instrument"
+          state="Loaded"
+          build={
+            <>
+              {run.solver} · <em>cpu</em> · {run.precision} · v{__ORRERY_VERSION__}
+            </>
+          }
+        />
         <Gallery runs={RUNS} current={published} onChoose={choose} />
         <div className={styles.stage}>
           <Plate

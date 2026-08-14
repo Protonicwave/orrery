@@ -1,0 +1,69 @@
+# Two disc galaxies on an encounter, placed on the two-body orbit their total
+# masses would follow if each were a point.
+#
+# The relative speed is 0.8 of the escape speed at the initial separation,
+# which makes the encounter bound, so the pair falls together, passes and returns.
+#
+#     particles          2000, mass ratio 0.5
+#     particle mass      7.50e-4
+#     distance apart     20.1
+#     impact parameter   2
+#     relative speed     0.309
+#     orbit energy       -8.96e-3
+#     eccentricity       0.995
+#     periapsis          0.128
+#     time to encounter  39.8
+#
+# Those elements are the placement, not a prediction of the run. Each galaxy is
+# treated as a point mass, which is exact only while the two are far apart, so
+# what happens after the first passage is what the integration says happens.
+#
+# The two discs are inclined differently on purpose. An encounter between two
+# discs in the same plane is symmetric and the least interesting to look at; the
+# tidal tails are drawn out of whichever disc is closest to coplanar with the
+# orbit, so a pair inclined by different amounts produces one long tail and one
+# stubby one, which is what real interacting pairs look like.
+#
+# The run below is 200 steps of 5.00e-3, which is 1 of model time.
+# The softening is 0.12, and it reaches the sampler as well as the solver,
+# because a disc has to be built at the speeds the forces it will feel can
+# support (ADR-0038).
+#
+# Run it with
+#
+#     orrery run collision-20260814.orrery
+
+[run]
+timestep = 0.005
+steps = 200
+seed = 20260814
+
+[initial_conditions]
+kind = galaxy-collision
+count = 2000
+total_mass = 1.5
+mass_fraction_cutoff = 0.99
+bulge_fraction = 0.2
+scale_length = 1
+scale_height = 0.1
+bulge_radius = 0.2
+inclination = 0.35
+mass_ratio = 0.5
+secondary_inclination = 1.2
+separation = 20
+impact_parameter = 2
+approach_speed = 0.8
+
+[solver]
+kind = barnes-hut
+softening = 0.12
+opening_angle = 0.6
+
+[integrator]
+kind = velocity-verlet
+
+[output]
+trajectory_path = collision.otj
+trajectory_stride = 1
+diagnostics_path = collision.csv
+diagnostics_stride = 2

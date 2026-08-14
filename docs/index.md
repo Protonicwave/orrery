@@ -60,6 +60,10 @@ the test or the command that produces it.
   [the reading half](https://protonicwave.github.io/orrery/instrument/method/):
   the same argument as the two reports above, at the length a page should be,
   with every figure traced back to the report it came from.
+- [The initial-conditions editor](editor.md). A page of the same client that
+  designs a run rather than playing one: the scenario drawn as a technical
+  drawing, its orbital elements worked out from the settings, a preview stepped
+  by the same solver, and an `.orrery` file to take away and run (ADR-0053).
 - [The solver in a browser](webassembly.md). The same C++ compiled to
   WebAssembly and stepped in a Worker, so the instrument can compute a run as
   well as play one. What is in that build, what it refuses, what a step costs

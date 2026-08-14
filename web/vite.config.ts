@@ -28,12 +28,14 @@ export default defineConfig({
     target: 'es2022',
     assetsInlineLimit: 0,
 
-    // Six pages, one of which is the instrument. The five under method/ carry
-    // no script tag, so nothing links them to the client's bundle and the
-    // build emits them as markup and a stylesheet. ADR-0050.
+    // Seven pages, two of which run a script: the instrument and the editor.
+    // The five under method/ carry no script tag, so nothing links them to the
+    // client's bundle and the build emits them as markup and a stylesheet.
+    // ADR-0050.
     rollupOptions: {
       input: {
         instrument: page('index.html'),
+        editor: page('editor/index.html'),
         method: page('method/index.html'),
         demonstration: page('method/demonstration/index.html'),
         validation: page('method/validation/index.html'),

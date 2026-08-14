@@ -1,0 +1,69 @@
+/* The editor's shell. Three rows, as the instrument has four: the masthead, the
+ * sheet with its rail, and the console. The sheet is the only one that grows.
+ *
+ * Every dimension and every colour here is one of the instrument's, because the
+ * two are one instrument used two ways. Nothing about the editor is a second
+ * design system.
+ */
+.editor {
+  height: 100vh;
+  min-height: 660px;
+  display: flex;
+  flex-direction: column;
+}
+
+.stage {
+  display: grid;
+  grid-template-columns: 1fr var(--rail-width);
+  flex: 1;
+  min-height: 0;
+}
+
+/* The sheet the drawing is on: a caption at the head, in the way a plate is
+ * captioned, and the drawing filling what is left.
+ */
+.sheet {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-6);
+  gap: var(--space-5);
+}
+
+.caption {
+  max-width: var(--measure);
+}
+
+.caption h1 {
+  margin: 0 0 var(--space-2);
+  font-family: var(--sans);
+  font-size: var(--type-base);
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.caption p {
+  margin: 0;
+  font-size: var(--type-small);
+  line-height: var(--leading-base);
+  color: var(--ink-2);
+}
+
+/* Below a thousand pixels the rail moves under the sheet rather than being cut
+ * in half, which is what the instrument does at the same width and for the same
+ * reason.
+ */
+@media (max-width: 1000px) {
+  .editor {
+    height: auto;
+  }
+
+  .stage {
+    grid-template-columns: 1fr;
+  }
+
+  .sheet {
+    height: 62vh;
+  }
+}

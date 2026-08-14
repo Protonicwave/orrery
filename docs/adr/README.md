@@ -66,3 +66,4 @@ introduces it.
 | [0050](0050-serve-the-reading-half-as-static-pages.md) | Serve the reading half as static pages | Accepted |
 | [0051](0051-compile-the-solver-to-webassembly.md) | Compile the solver to WebAssembly rather than write a second one | Accepted |
 | [0052](0052-build-webassembly-single-threaded.md) | Build the WebAssembly module single threaded, in a Worker | Accepted |
+| [0053](0053-draw-the-initial-conditions-as-a-technical-drawing.md) | Draw the initial conditions as a technical drawing | Accepted |

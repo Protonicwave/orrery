@@ -1,0 +1,79 @@
+/* The editor's console.
+ *
+ * The instrument's console is ordered by what a control costs to operate. This
+ * one has no such order to make, because nothing here costs anything until the
+ * file is run, so it is ordered by what a control decides: what the thing is,
+ * what shape it is in, and how it will be integrated. The three tiers are drawn
+ * exactly as the instrument's are so that the two consoles are recognisably the
+ * same object.
+ */
+.console {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  border-top: var(--hairline) solid var(--rule);
+  height: var(--console-height);
+  flex: none;
+  overflow-y: auto;
+}
+
+.tier {
+  padding: 11px var(--space-6) var(--space-5);
+  border-right: var(--hairline) solid var(--rule);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  /* Each tier scrolls on its own rather than the console scrolling as one, so
+   * that a scenario with more settings than another does not push the tier
+   * beside it out of view. */
+  overflow-y: auto;
+}
+
+.tier:last-child {
+  border-right: 0;
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--space-5);
+}
+
+.head h2 {
+  font-weight: 500;
+}
+
+.cost {
+  font-family: var(--mono);
+  font-size: var(--type-label);
+  color: var(--ink-3);
+  letter-spacing: 0.04em;
+}
+
+.note {
+  margin-top: auto;
+  padding-top: var(--space-4);
+  font-size: var(--type-label);
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+/* A setting left at the value the sampler would choose is named rather than
+ * given a number, because that is what the file says about it: nothing.
+ */
+.default {
+  font-family: var(--mono);
+  color: var(--ink-3);
+}
+
+@media (max-width: 1000px) {
+  .console {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .tier {
+    border-right: 0;
+    border-bottom: var(--hairline) solid var(--rule);
+  }
+}

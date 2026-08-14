@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { METHOD } from '../../src/method/links';
+import { METHOD, methodFrom, pageFrom } from '../../src/method/links';
 
 /**
  * The instrument's links into the reading half, and the reading half's back.
@@ -36,5 +36,26 @@ describe('the reading half', () => {
       const page = `${address.replace(/^\.\//, '')}index.html`;
       expect(entries.some((entry) => entry.endsWith(page))).toBe(true);
     }
+
+    // The editor is a page of the same site and is built as its own entry, so
+    // the same check applies to it.
+    expect(entries.some((entry) => entry.endsWith('editor/index.html'))).toBe(true);
+  });
+});
+
+describe('the two pages that run a script', () => {
+  it('address the reading half from where each of them is', () => {
+    // The editor sits one directory below the instrument, so the addresses that
+    // are correct from one are wrong from the other by exactly one level.
+    expect(methodFrom('instrument')).toEqual(METHOD);
+    expect(methodFrom('editor').validation).toBe('../method/validation/');
+    expect(Object.keys(methodFrom('editor'))).toEqual(Object.keys(METHOD));
+  });
+
+  it('address each other', () => {
+    expect(pageFrom('instrument', 'editor')).toBe('./editor/');
+    expect(pageFrom('editor', 'instrument')).toBe('../');
+    expect(pageFrom('editor', 'editor')).toBe('./');
+    expect(pageFrom('instrument', 'instrument')).toBe('./');
   });
 });

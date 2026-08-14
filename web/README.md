@@ -1,7 +1,8 @@
 # The browser client
 
-The instrument that reads a run, and the reading half beside it. ADR-0045
-records why it is in this repository rather than in one of its own.
+The instrument that reads a run, the editor that designs one, and the reading
+half beside them. ADR-0045 records why it is in this repository rather than in
+one of its own.
 
 ```
 npm ci
@@ -36,14 +37,21 @@ itself and says so. `docs/webassembly.md` describes what is in it.
 A run and a moment in it are both in the address: `?run=cluster&t=12.5`. So is
 the backend, as `?renderer=webgl2`, which is what makes the two comparable.
 
+The editor is at `/editor/`, a page of the same site with an entry of its own.
+It draws a design as a technical drawing, previews it with the same module, and
+writes an `.orrery` file the native binary runs unmodified. `docs/editor.md`
+describes it and ADR-0053 records how it is drawn.
+
 ## Layout
 
 ```
+editor/           The editor's page
 method/           The reading half: four arguments and a contents, as HTML
 src/components/   One component and one stylesheet each
 src/config/       A reader for the repository's configuration format
 src/data/         Measurements transcribed from the reports, with their sources
 src/diagnostics/  The diagnostics reader, its plots, and what is derived here
+src/editor/       A design, the drawing of it, and the file it writes
 src/format/       How a number is set
 src/gallery/      Which runs are published, and what each one changes
 src/method/       Where the reading half is, for the links the instrument makes
@@ -112,6 +120,13 @@ entries of the same site. They share `tokens.css`, the three faces and the
 masthead with the instrument, at the opposite value. Every figure on one names
 the file it came from, and `tests/method/figures.test.ts` opens that file and
 requires the figure to be in it. ADR-0050.
+
+**A design leaves as a file the C++ runs.** The editor writes the configuration
+format rather than a format of its own, checks what the C++ reader checks in the
+reader's own words, and computes what a design comes to with a transcription of
+the samplers, function by function. `tests/editor/agreement.test.ts` runs one
+design both ways and compares the file, the placement and the integration.
+ADR-0053.
 
 **The budgets and the greys are asserted rather than believed.**
 `tools/budget.ts` fails the build when the download grows past its limit, and

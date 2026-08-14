@@ -1,0 +1,162 @@
+/* The drawing surface.
+ *
+ * Line weight carries meaning here, so it is set in one place: a body line is
+ * the thing itself, a construction line is how it was arrived at, furniture is
+ * the paper, and the accent is what is being pointed at. Nothing below chooses a
+ * colour of its own; every one of them is a token.
+ */
+
+.surface {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  background: var(--plate);
+  border: var(--hairline) solid var(--rule);
+  overflow: hidden;
+}
+
+/* The preview and the plan are the same picture at the same scale, one painted
+ * and one drawn, so they are laid over each other rather than beside. */
+.preview,
+.plan,
+.controls {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.body,
+.construction,
+.furniture,
+.accent {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.body {
+  stroke: var(--ink);
+  stroke-width: 1;
+}
+
+.construction {
+  stroke: var(--ink-3);
+  stroke-width: 1;
+}
+
+.furniture {
+  stroke: var(--ink-4);
+  stroke-width: 1;
+}
+
+.accent {
+  stroke: var(--brass);
+  stroke-width: 1;
+}
+
+.dashed {
+  stroke-dasharray: 3 4;
+}
+
+.witness {
+  stroke-dasharray: 2 3;
+}
+
+.head {
+  fill: var(--brass);
+  stroke: none;
+}
+
+/* Text is set, never stroked: a stroked glyph at this size is a smudge. */
+.note,
+.measure,
+.axis {
+  stroke: none;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.note {
+  fill: var(--ink-2);
+  font-size: var(--type-mini);
+}
+
+.measure {
+  fill: var(--ink-2);
+  font-size: var(--type-mini);
+}
+
+.axis {
+  fill: var(--ink-3);
+  font-size: var(--type-mini);
+  font-style: italic;
+}
+
+/* The surface the handle is on passes everything through to the drawing under
+ * it, except where the handle itself is. */
+.controls {
+  pointer-events: none;
+}
+
+.controls > * {
+  pointer-events: auto;
+}
+
+/* The one thing on the drawing that can be operated. It is drawn as a ring
+ * around the galaxy it moves, so what it does is where it is. */
+.handle circle:last-child {
+  fill: none;
+  stroke: var(--brass);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+
+.handle {
+  cursor: grab;
+}
+
+.handle:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+.handle:active {
+  cursor: grabbing;
+}
+
+/* The sections sit in the corner of the sheet, as a detail view does. */
+.sections {
+  position: absolute;
+  top: var(--space-5);
+  right: var(--space-5);
+  display: flex;
+  gap: var(--space-5);
+}
+
+.section {
+  margin: 0;
+  text-align: center;
+}
+
+.section figcaption {
+  margin-top: var(--space-1);
+  color: var(--ink-2);
+  font-family: var(--sans);
+  font-size: var(--type-label);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.legend {
+  position: absolute;
+  left: var(--space-5);
+  bottom: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: var(--type-mini);
+  font-variant-numeric: tabular-nums;
+}
