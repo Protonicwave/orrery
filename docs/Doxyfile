@@ -42,6 +42,8 @@ INPUT                  = include \
                          docs/python.md \
                          docs/visualisation.md \
                          docs/instrument.md \
+                         docs/editor.md \
+                         docs/webassembly.md \
                          docs/adr \
                          docs/formats \
                          docs/performance
