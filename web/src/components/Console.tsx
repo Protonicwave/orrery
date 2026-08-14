@@ -527,7 +527,7 @@ export function Console({ run, chrome, velocities, solver, service }: ConsolePro
             </button>
 
             {view.problems.length > 0 && (
-              <ul className={styles.note}>
+              <ul className={styles.problems}>
                 {view.problems.map((problem) => (
                   <li key={`${problem.setting}:${problem.complaint}`}>
                     <strong>{problem.setting}</strong> {problem.complaint}
