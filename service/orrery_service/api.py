@@ -267,7 +267,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return JSONResponse(status_code=404, content={"detail": "no such job"})
         return JSONResponse(content=job.model_dump())
 
-    def _serve(
+    async def _serve(
         service: Service, key: str, request: Request, media_type: str, name: str
     ) -> Response:
         """A stored object, answering a range request over it.
@@ -278,11 +278,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         range would be correct and would cost the reader the download it exists
         to avoid.
 
-        Synchronous, and handed to Starlette as a synchronous iterator, which
-        runs it in a thread. boto3 has no async client and does not need one
-        here: this is one download at a time on a service sized for one worker.
+        boto3 is synchronous and has no async client, which is fine and has to
+        be handled rather than ignored. The length is asked for in a thread,
+        because a blocking network call on the event loop would stall every
+        other request for as long as the store took to answer. The body is a
+        synchronous iterator, which Starlette runs in a thread for the same
+        reason without being asked.
         """
-        length = service.storage.size(key)
+        length = await asyncio.to_thread(service.storage.size, key)
         if length is None:
             return JSONResponse(
                 status_code=404, content={"detail": f"the {name} is not in storage"}
@@ -344,7 +347,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 status_code=404,
                 content={"detail": "this job has not produced a trajectory"},
             )
-        return _serve(service, key, request, "application/octet-stream", "trajectory")
+        return await _serve(
+            service, key, request, "application/octet-stream", "trajectory"
+        )
 
     @app.get("/jobs/{identifier}/diagnostics")
     async def diagnostics(request: Request, identifier: str) -> Response:
@@ -355,7 +360,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 status_code=404,
                 content={"detail": "this job has not produced any diagnostics"},
             )
-        return _serve(service, key, request, "text/csv", "diagnostics")
+        return await _serve(service, key, request, "text/csv", "diagnostics")
 
     @app.websocket("/jobs/{identifier}/progress")
     async def watch(socket: WebSocket, identifier: str) -> None:
