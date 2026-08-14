@@ -1,0 +1,85 @@
+# The compute service.
+#
+# A project of its own rather than an extra on the root pyproject.toml, which
+# packages the Python bindings. The two share nothing: the bindings are a C++
+# extension built by CMake and installed by people who want a solver, and this
+# is a pure-Python application deployed into a container. Putting the service's
+# dependencies on the bindings would make `pip install orrery-nbody` fetch a web
+# framework, and putting the bindings' build backend here would make the service
+# need a C++ compiler.
+#
+# Nothing here is published to an index. The service is deployed from its image.
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "orrery-service"
+version = "1.0.0"
+description = "The compute service for Orrery: submit a run, queue it, take it, stream it back."
+requires-python = ">=3.12"
+
+# No licence field. This project is never built into a distribution, so the
+# metadata has no reader, and the only way to state one here would be to point
+# at a file above this directory, which setuptools refuses for the good reason
+# that an sdist could not carry it. The repository's LICENCE covers this
+# directory as it covers every other.
+
+# Five, each with a reason it beats writing the code.
+#
+# fastapi and uvicorn are the async HTTP and WebSocket server; writing either
+# again is not a serious proposal. pydantic comes with fastapi and is the one
+# statement of the contract, so it is named rather than left implicit.
+#
+# psycopg is the PostgreSQL driver. The queue is `SELECT ... FOR UPDATE SKIP
+# LOCKED` and the progress channel is LISTEN and NOTIFY, and both are things
+# the driver has to support rather than things a layer above it can add.
+#
+# boto3 signs S3 requests. Signature Version 4 is a specification long enough
+# that a hand-written implementation would be the largest untested thing in this
+# directory, and the whole of what it buys is that trajectories live outside the
+# database (ADR-0057).
+#
+# There is deliberately no ORM and no migration tool. The schema is one table
+# and is in orrery_service/schema.sql, which is shorter than the configuration
+# an ORM would need to describe it.
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "pydantic>=2.9",
+  "psycopg[binary,pool]>=3.2",
+  "boto3>=1.35",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0", "pytest-asyncio>=0.24", "httpx>=0.27"]
+dev = ["ruff>=0.6"]
+
+[project.scripts]
+orrery-worker = "orrery_service.worker:main"
+
+[tool.setuptools.packages.find]
+include = ["orrery_service*"]
+
+[tool.setuptools.package-data]
+orrery_service = ["schema.sql"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+# The integration tests need a PostgreSQL and an object store, and skip
+# themselves with a reason when the environment does not name one. This marker
+# is what `-m "not integration"` selects against for a run that wants only the
+# tests a laptop can take without starting anything.
+markers = ["integration: needs a live database and object store"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+# The default set, plus the ones that catch the mistakes this code can actually
+# make: unused imports and variables, import order, comprehension shape, and the
+# bugbear checks for mutable defaults and except clauses that swallow.
+select = ["E", "F", "W", "I", "B", "UP", "C4", "SIM", "RUF"]
