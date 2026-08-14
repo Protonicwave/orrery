@@ -3,7 +3,7 @@ import styles from './App.module.css';
 import { Console } from './components/Console';
 import { Gallery } from './components/Gallery';
 import { Masthead } from './components/Masthead';
-import { Plate } from './components/Plate';
+import { type Conditions, Plate } from './components/Plate';
 import { Rail } from './components/Rail';
 import { Transport } from './components/Transport';
 import { numeric } from './config/parse';
@@ -12,6 +12,8 @@ import { type Diagnostics, fetchDiagnostics } from './diagnostics/series';
 import { readAddress, writeAddress } from './gallery/address';
 import { diagnosticsUrl, type GalleryRun, trajectoryUrl } from './gallery/runs';
 import type { Instrument } from './render/instrument';
+import { resultUrl } from './service/client';
+import { useService } from './service/useService';
 import { browserRun } from './solver/configure';
 import { LiveRun } from './solver/run';
 import { InstantSource } from './state/instant';
@@ -122,7 +124,54 @@ export function App() {
   // of the two it is. What they must not do is hide the difference from a
   // reader, which is what the catalogue on the plate is for.
   const [live, setLive] = useState<LiveRun | null>(null);
-  const source: FrameSource = live ?? trajectory;
+
+  // The run this tab has asked the compute service for, if any.
+  const service = useService();
+  const finished = service.job?.state === 'done' ? service.job : null;
+
+  // A finished job is a trajectory at a URL, so it is read by the same reader
+  // that reads a published one. That is the whole of what playing a submitted
+  // run costs: the service's result is a file in the format this repository
+  // already specifies, and nothing downstream of here learns where it came from.
+  // The dependency is the point rather than an oversight, exactly as it is for
+  // the published run's reader above: one reader per finished job, and the
+  // identifier is what says the job has changed.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: one reader per job
+  const computed = useMemo(
+    () => (finished === null ? null : new Trajectory()),
+    [finished?.id],
+  );
+  useEffect(() => {
+    if (computed === null || finished === null) return;
+    const url = resultUrl(finished);
+    if (url === null) return;
+    computed.open(url);
+    return () => {
+      computed.close();
+    };
+  }, [computed, finished]);
+
+  const source: FrameSource = computed ?? live ?? trajectory;
+
+  // What produced the picture, in the words of whatever produced it. Null for a
+  // published run, whose conditions are the machine the reports name and are in
+  // the data rail rather than on the plate.
+  const conditions: Conditions | null =
+    finished !== null
+      ? {
+          count: finished.particles,
+          solver: `${run.solver}, on the compute service`,
+          stepMilliseconds: finished.progress.step_ms ?? 0,
+          energyDrift: finished.progress.energy_drift,
+        }
+      : live !== null
+        ? {
+            count: live.achieved.count,
+            solver: `${live.achieved.solver}, ${live.achieved.kernel}, 1 thread`,
+            stepMilliseconds: live.achieved.stepMilliseconds,
+            energyDrift: live.achieved.energyDrift,
+          }
+        : null;
 
   const stopHere = useCallback(() => {
     setLive((current) => {
@@ -131,6 +180,24 @@ export function App() {
     });
     setTime(0);
   }, []);
+
+  // Submitting ends any browser run first. Two pictures of two different runs
+  // cannot be on one plate, and the submitted one is the one that was asked for.
+  const submitRun = useCallback(
+    (configuration: string) => {
+      stopHere();
+      setTime(0);
+      service.submit(configuration);
+    },
+    [service.submit, stopHere],
+  );
+
+  // Going back to the published run puts the transport at its start, because
+  // the moment it was showing belonged to a different run.
+  const dismissRun = useCallback(() => {
+    service.dismiss();
+    setTime(0);
+  }, [service.dismiss]);
 
   const startHere = useCallback(() => {
     setLive((current) => {
@@ -234,8 +301,14 @@ export function App() {
           <Plate
             run={run}
             source={source}
-            origin={live === null ? 'published run' : 'this browser'}
-            achieved={live?.achieved ?? null}
+            origin={
+              computed !== null
+                ? 'the compute service'
+                : live === null
+                  ? 'published run'
+                  : 'this browser'
+            }
+            conditions={conditions}
             reading={reading}
             chrome={chrome}
             instrumentRef={instrument}
@@ -281,6 +354,11 @@ export function App() {
             message: live?.status === 'failed' ? live.message : '',
             onStart: startHere,
             onStop: stopHere,
+          }}
+          service={{
+            view: service,
+            onSubmit: submitRun,
+            onDismiss: dismissRun,
           }}
         />
       </div>

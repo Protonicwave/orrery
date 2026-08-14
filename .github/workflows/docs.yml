@@ -92,8 +92,15 @@ jobs:
       - name: Build the WebAssembly module
         uses: ./.github/actions/solver
 
+      # The compute service is deployed separately from this site, and often is
+      # not deployed at all. Its address is a repository variable rather than a
+      # constant, and an unset variable builds a client that plays the published
+      # gallery and says the solver tier needs a service it has not been given.
+      # That state is a supported one rather than a broken one (ADR-0054).
       - name: Build the client
         working-directory: web
+        env:
+          VITE_ORRERY_SERVICE: ${{ vars.ORRERY_SERVICE }}
         run: npm run build
 
       # The budget is asserted here rather than reported, so a change that

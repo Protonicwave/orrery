@@ -67,3 +67,7 @@ introduces it.
 | [0051](0051-compile-the-solver-to-webassembly.md) | Compile the solver to WebAssembly rather than write a second one | Accepted |
 | [0052](0052-build-webassembly-single-threaded.md) | Build the WebAssembly module single threaded, in a Worker | Accepted |
 | [0053](0053-draw-the-initial-conditions-as-a-technical-drawing.md) | Draw the initial conditions as a technical drawing | Accepted |
+| [0054](0054-degrade-to-the-gallery-when-compute-is-unavailable.md) | Degrade to the gallery when compute is unavailable | Accepted |
+| [0055](0055-run-the-full-solver-server-side.md) | Run the full solver server side, over a document rather than a form | Accepted |
+| [0056](0056-keep-the-job-queue-in-the-database.md) | Keep the job queue in the database that already holds the jobs | Accepted |
+| [0057](0057-store-trajectories-outside-the-database.md) | Store trajectories outside the database, and serve them through the API | Accepted |

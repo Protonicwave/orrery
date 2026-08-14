@@ -162,3 +162,26 @@
     border-bottom: var(--hairline) solid var(--rule);
   }
 }
+
+/* Why a submission was refused, in the service's own words.
+ *
+ * A list, because a refusal names every objection at once and each is about a
+ * different setting. Without markers, because nothing else in this interface
+ * has them: what separates one entry from the next is the setting's name, set
+ * in brass, which is a label rather than colour on its own.
+ */
+.problems {
+  margin-top: var(--space-4);
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-2);
+  font-size: var(--type-label);
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+.problems strong {
+  color: var(--brass);
+  font-weight: inherit;
+}

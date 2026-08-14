@@ -2,6 +2,9 @@ import { useId } from 'react';
 import type { Run } from '../config/run';
 import { MEASURED } from '../data/machine';
 import { decimal, withSign } from '../format/number';
+import type { Job, Reference } from '../service/contract';
+import { type ServiceRun, serviceRun } from '../service/request';
+import type { ServiceView } from '../service/useService';
 import type { BrowserRun } from '../solver/configure';
 import type {
   ChromeState,
@@ -31,39 +34,72 @@ export interface BrowserSolver {
   readonly onStop: () => void;
 }
 
+/**
+ * The compute service, as the console operates it.
+ *
+ * What would be submitted is worked out here rather than passed in, because it
+ * is a function of the controls in this component and of the ceilings the
+ * service published, and both are already here.
+ */
+export interface ServiceControl {
+  readonly view: ServiceView;
+  readonly onSubmit: (configuration: string) => void;
+  readonly onDismiss: () => void;
+}
+
 export interface ConsoleProps {
   run: Run;
   chrome: Store<ChromeState>;
   /** Whether the trajectory being played carries velocities as well. */
   velocities: boolean;
   solver: BrowserSolver;
+  service: ServiceControl;
 }
 
 /**
  * What a run of this size would cost, in seconds.
  *
- * The tree solver's cost goes as N log N, and the one measured point the
- * repository has for this configuration is 20.4 ms a step at twenty thousand
- * particles. Scaling that point by N log N and multiplying by the run's steps
- * is an estimate rather than a measurement, which is why the control says
- * "est." and why the measured figure it rests on is shown in the data rail
- * beside the conditions it was taken under.
+ * The tree solver's cost goes as N log N, so the estimate is one measured step
+ * time scaled along that curve and multiplied by the steps. Which measured step
+ * time is the whole question.
+ *
+ * The service's own is used when it has one, because it is the machine that
+ * would take the run. It is the median over the runs that service has actually
+ * completed, so it starts existing after the first one and gets better.
+ *
+ * Before then the only measurement this repository has is the laptop's: 20.4 ms
+ * a step at twenty thousand particles, from the demonstration in README.md.
+ * That is a different machine and the estimate says so rather than passing it
+ * off, which is why `priced` returns where the figure came from as well as what
+ * it is.
  */
-export function estimateSeconds(count: number, steps: number): number {
-  const reference = MEASURED.count * Math.log2(MEASURED.count);
+export function estimateSeconds(
+  count: number,
+  steps: number,
+  reference: Reference | null,
+): number {
   const work = count * Math.log2(count);
-  return (MEASURED.stepTime * (work / reference) * steps) / 1000;
+  const at = reference === null ? MEASURED.count : reference.particles;
+  const stepTime = reference === null ? MEASURED.stepTime : reference.step_ms;
+  const measured = at * Math.log2(at);
+  if (measured <= 0) return 0;
+  return (stepTime * (work / measured) * steps) / 1000;
 }
 
-function price(count: number, steps: number): string {
-  const seconds = estimateSeconds(count, steps);
-  const time =
-    seconds < 90
-      ? `${decimal(seconds)} s`
-      : seconds < 5400
-        ? `${decimal(seconds / 60, 1)} min`
-        : `${decimal(seconds / 3600, 1)} h`;
-  return `est. ${time} · ${decimal((seconds * 1000) / steps, 1)} ms/step`;
+function duration(seconds: number): string {
+  if (seconds < 90) return `${decimal(seconds)} s`;
+  if (seconds < 5400) return `${decimal(seconds / 60, 1)} min`;
+  return `${decimal(seconds / 3600, 1)} h`;
+}
+
+/** The estimate, and one clause saying which measurement it rests on. */
+function priced(count: number, steps: number, reference: Reference | null): string {
+  const seconds = estimateSeconds(count, steps, reference);
+  const from =
+    reference === null
+      ? 'from this project’s laptop'
+      : `from ${decimal(reference.jobs)} run${reference.jobs === 1 ? '' : 's'} here`;
+  return `est. ${duration(seconds)} · ${from}`;
 }
 
 /**
@@ -121,6 +157,73 @@ function BrowserRunControl({
 }
 
 /**
+ * How a submitted run is going, in one line under the button that sent it.
+ *
+ * Everything shown is something the service measured: the position in the
+ * queue, the step the run has reached, the step time the worker timed and the
+ * energy drift out of the diagnostics file the run itself is writing. Nothing
+ * is interpolated between reports, because a bar that moves smoothly through a
+ * run that has stalled is a bar that lies.
+ */
+function Submitted({ job, onDismiss }: { job: Job; onDismiss: () => void }) {
+  const fraction = job.steps === 0 ? 0 : job.progress.step / job.steps;
+
+  const state =
+    job.state === 'queued'
+      ? job.position === null || job.position === 0
+        ? 'queued, next to run'
+        : `queued, ${decimal(job.position)} ahead`
+      : job.state === 'running'
+        ? `running · ${decimal(fraction * 100)}%`
+        : job.state === 'done'
+          ? 'complete'
+          : 'failed';
+
+  return (
+    <div className={styles.here}>
+      <p className={styles.note}>
+        <strong>{state}</strong>
+        {job.state === 'running' && job.progress.step_ms !== null && (
+          <>
+            {' · '}
+            <Numeric value={job.progress.step_ms} digits={1} unit="ms" /> a step
+          </>
+        )}
+        {job.progress.energy_drift !== null && (
+          <>
+            {' · dE/E '}
+            <Numeric
+              value={job.progress.energy_drift}
+              notation="scientific"
+              digits={2}
+            />
+          </>
+        )}
+        {job.attempts > 1 && job.state !== 'failed' && (
+          <>
+            {' · '}the worker that first took this run stopped answering, so it was
+            given to another
+          </>
+        )}
+      </p>
+
+      {job.state === 'failed' && <p className={styles.note}>{job.error}</p>}
+
+      <button type="button" className={styles.recompute} onClick={onDismiss}>
+        <span>
+          {job.state === 'done' || job.state === 'failed'
+            ? 'Back to the published run'
+            : 'Stop watching this run'}
+        </span>
+        <span className={styles.price}>
+          {decimal(job.particles)} bodies · {decimal(job.steps)} steps
+        </span>
+      </button>
+    </div>
+  );
+}
+
+/**
  * The three tiers, laid out left to right by what operating them costs.
  *
  * Every control that cannot act is drawn back rather than removed, and the
@@ -133,7 +236,7 @@ function BrowserRunControl({
  * unbound; and it does not hold the tree the solver built, so there is no
  * octree to draw over it.
  */
-export function Console({ run, chrome, velocities, solver }: ConsoleProps) {
+export function Console({ run, chrome, velocities, solver, service }: ConsoleProps) {
   const state = useStoreState(chrome);
   const id = useId();
 
@@ -141,6 +244,50 @@ export function Console({ run, chrome, velocities, solver }: ConsoleProps) {
   const derivedNote = `${id}-derived-note`;
   const solverNote = `${id}-solver-note`;
   const hereNote = `${id}-here-note`;
+
+  const { view } = service;
+  const limits = view.capabilities?.limits ?? null;
+
+  // What the button would send. Null until the service has said what it will
+  // take, because a submission built against guessed ceilings is one the
+  // service would refuse for a reason the page could have known.
+  const plan: ServiceRun | null =
+    limits === null
+      ? null
+      : serviceRun(
+          run,
+          {
+            count: state.requestedCount,
+            softening: state.requestedSoftening,
+            integrator: state.requestedIntegrator,
+          },
+          limits,
+        );
+
+  // The most this service will take, or what the run already is when that is
+  // not known. A slider that offered more than the service accepts would be a
+  // control whose only outcome was a refusal.
+  const ceiling = limits?.max_particles ?? state.requestedCount;
+
+  // Why the tier cannot be operated, in one sentence, or empty when it can.
+  // Three different failures with the same answer for the reader, which is that
+  // the published runs are unaffected and are worth looking at.
+  const refusal =
+    view.unreachable !== ''
+      ? `${view.unreachable}. The published runs below are unaffected, and every figure in this instrument comes from one of them.`
+      : view.capabilities === null
+        ? ''
+        : view.capabilities.workers === 0
+          ? 'No worker is available to take a run at the moment. The published runs below are unaffected.'
+          : view.capabilities.queued >= view.capabilities.limits.max_queue
+            ? `The queue is full at ${decimal(view.capabilities.queued)} runs. The published runs below are unaffected.`
+            : '';
+
+  // Adjustable and submittable are not the same question. The controls stay
+  // live while a submission is in flight, so that somebody can see what they
+  // asked for; what is refused is sending a second one.
+  const adjustable = refusal === '' && limits !== null;
+  const submittable = adjustable && !view.busy && plan !== null;
 
   return (
     <div className={styles.console}>
@@ -298,14 +445,19 @@ export function Console({ run, chrome, velocities, solver }: ConsoleProps) {
           dear
           value={Math.log10(state.requestedCount)}
           min={3.7}
-          max={6.3}
+          max={Math.max(3.7, Math.log10(ceiling))}
           step={0.01}
           display={<Numeric value={state.requestedCount} />}
           valueText={`${decimal(state.requestedCount)} bodies`}
-          disabled
+          disabled={!adjustable || run.count === undefined}
           describedBy={solverNote}
           onChange={(logarithm) =>
-            chrome.set({ requestedCount: Math.round(10 ** logarithm / 100) * 100 })
+            chrome.set({
+              requestedCount: Math.min(
+                ceiling,
+                Math.round(10 ** logarithm / 100) * 100,
+              ),
+            })
           }
         />
         <Slider
@@ -317,7 +469,7 @@ export function Console({ run, chrome, velocities, solver }: ConsoleProps) {
           step={0.005}
           display={<Numeric value={state.requestedSoftening} digits={3} />}
           valueText={decimal(state.requestedSoftening, 3)}
-          disabled
+          disabled={!adjustable}
           describedBy={solverNote}
           onChange={(requestedSoftening) => chrome.set({ requestedSoftening })}
         />
@@ -326,27 +478,65 @@ export function Console({ run, chrome, velocities, solver }: ConsoleProps) {
           dear
           options={INTEGRATORS}
           value={state.requestedIntegrator}
-          disabled
+          disabled={!adjustable}
           describedBy={solverNote}
           onChange={(requestedIntegrator) => chrome.set({ requestedIntegrator })}
         />
 
         <p className={styles.note} id={solverNote}>
-          A run is integrated by the compute service, which this instrument does not
-          reach yet. The estimate below is this machine’s measured step time scaled as
-          the tree solver scales, not a promise.
+          {refusal !== ''
+            ? refusal
+            : plan === null
+              ? 'A run is integrated by the compute service, which this instrument is asking about.'
+              : `The service runs the same binary this repository builds, on its own hardware. ${
+                  plan.reduced
+                    ? `This scenario is cut to ${decimal(plan.count)} bodies and ${decimal(plan.steps)} steps to fit what it will take. `
+                    : ''
+                }${
+                  run.count === undefined
+                    ? 'This scenario is two bodies, so there is no count to choose. '
+                    : ''
+                }The estimate is a measured step time scaled as the tree solver scales, not a promise.`}
         </p>
 
-        <button
-          type="button"
-          className={styles.recompute}
-          aria-disabled="true"
-          aria-describedby={solverNote}
-          onClick={(event) => event.preventDefault()}
-        >
-          <span>Recompute</span>
-          <span className={styles.price}>{price(state.requestedCount, run.steps)}</span>
-        </button>
+        {view.job !== null ? (
+          <Submitted job={view.job} onDismiss={service.onDismiss} />
+        ) : (
+          <>
+            <button
+              type="button"
+              className={styles.recompute}
+              aria-disabled={submittable ? undefined : 'true'}
+              aria-describedby={solverNote}
+              onClick={(event) => {
+                if (!submittable || plan === null) {
+                  event.preventDefault();
+                  return;
+                }
+                service.onSubmit(plan.text);
+              }}
+            >
+              <span>{view.busy ? 'Submitting' : 'Recompute'}</span>
+              <span className={styles.price}>
+                {priced(
+                  plan?.count ?? state.requestedCount,
+                  plan?.steps ?? run.steps,
+                  view.capabilities?.reference ?? null,
+                )}
+              </span>
+            </button>
+
+            {view.problems.length > 0 && (
+              <ul className={styles.problems}>
+                {view.problems.map((problem) => (
+                  <li key={`${problem.setting}:${problem.complaint}`}>
+                    <strong>{problem.setting}</strong> {problem.complaint}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
 
         <BrowserRunControl run={run} solver={solver} noteId={hereNote} />
       </section>

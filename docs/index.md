@@ -69,6 +69,11 @@ the test or the command that produces it.
   well as play one. What is in that build, what it refuses, what a step costs
   there against what it costs natively, and the test that says the two builds
   agree (ADR-0051, ADR-0052).
+- [The compute service](service.md). Where a run larger than a tab can hold is
+  taken: a configuration file goes in, a worker runs the same binary this
+  repository builds over it, and the trajectory comes back into the instrument.
+  What it accepts, what it refuses and why, what an estimate rests on, and what
+  the client does on the days it cannot be reached (ADR-0054 to ADR-0057).
 
 ## What the design rests on
 
@@ -106,7 +111,7 @@ precision, is measured against direct summation in double precision.
 ## How it is built
 
 - [The API reference](annotated.html), generated from the public headers.
-- [Architecture decision records](adr/README.md). Fifty-two short documents
+- [Architecture decision records](adr/README.md). Fifty-seven short documents
   recording the decisions that had a credible alternative, each with its context
   and its consequences, none of them edited after it was merged.
 - [The measured results, subsystem by subsystem](performance/roofline.md), with
