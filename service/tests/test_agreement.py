@@ -18,9 +18,7 @@ running this, which is where the comparison actually gets made.
 
 from __future__ import annotations
 
-import os
 import re
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -29,43 +27,12 @@ import pytest
 from orrery_service.configuration import ConfigurationError, read_configuration
 from orrery_service.validation import problems_with
 
-REPOSITORY = Path(__file__).resolve().parents[2]
+from .conftest import BINARY, needs_simulator
 
 #: How the C++ reports one objection: `orrery: setting: complaint`.
 _PROBLEM = re.compile(r"^orrery: ([a-z_]+\.[a-z_]+): ", re.MULTILINE)
 
-
-def _binary() -> str | None:
-    """The simulator to compare against, or None if this machine has none.
-
-    ORRERY_BINARY first, so that continuous integration and a container can say
-    exactly which build is being compared. Otherwise the build trees the presets
-    write to, newest first, because somebody working on this locally has usually
-    just built one.
-    """
-    named = os.environ.get("ORRERY_BINARY", "").strip()
-    if named:
-        return named if Path(named).exists() or shutil.which(named) else None
-
-    found = [
-        path
-        for pattern in ("build/*/apps/orrery", "build/*/apps/orrery.exe")
-        for path in REPOSITORY.glob(pattern)
-    ]
-    if not found:
-        return None
-    return str(max(found, key=lambda path: path.stat().st_mtime))
-
-
-BINARY = _binary()
-
-pytestmark = pytest.mark.skipif(
-    BINARY is None,
-    reason=(
-        "no orrery binary to compare against. Build one with "
-        "`cmake --build --preset release`, or name it in ORRERY_BINARY."
-    ),
-)
+pytestmark = needs_simulator
 
 
 def _show(text: str, tmp_path: Path) -> tuple[bool, set[str]]:
