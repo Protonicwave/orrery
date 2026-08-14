@@ -3,23 +3,24 @@
  *
  * Starts the Worker, keeps the frames it sends back, and says what the run has
  * achieved. Nothing here integrates anything, and nothing here decides what the
- * configuration should be: `configure.ts` does that, before this is started, so
- * that the note beside the control and the document handed across cannot
- * disagree.
+ * configuration should be: the caller passes a plan, made once the module has
+ * said what size of run it will accept, so that the note beside the control and
+ * the document handed across cannot disagree. A published run plans itself with
+ * `configure.ts` and a design in the editor plans itself from the drawing, and
+ * this treats the two the same way because from here they are the same thing.
  *
  * It is a `FrameSource`, which is the interface the published trajectory also
  * satisfies, so the render loop draws a browser run and a published run through
  * the same path.
  */
 
-import type { Run } from '../config/run';
 import type {
   FramePositions,
   FrameSource,
   SourceFacts,
   TrajectoryStatus,
 } from '../trajectory/client';
-import { type BrowserRun, browserRun } from './configure';
+import type { BrowserRun } from './configure';
 import { MEASUREMENT } from './module';
 import type { FromWorker, ToWorker } from './protocol';
 
@@ -78,7 +79,7 @@ export class LiveRun implements FrameSource {
   private readonly listeners = new Set<() => void>();
   private worker: Worker | null = null;
   private ready = 0;
-  private asked: Run | null = null;
+  private planner: ((particleLimit: number) => BrowserRun) | null = null;
 
   get available(): number {
     return this.ready;
@@ -119,15 +120,16 @@ export class LiveRun implements FrameSource {
   private stride = 1;
 
   /**
-   * Start integrating a browser-sized version of `run`.
+   * Start integrating whatever `plan` asks for.
    *
-   * Safe to call once; a second call is ignored. What "browser-sized" means is
-   * decided in `configure.ts` once the module has said what it will accept,
-   * which is why nothing is sent to it here beyond the request to load.
+   * Safe to call once; a second call is ignored. The plan is a function rather
+   * than a configuration because what a browser run should be depends on the
+   * module's own particle limit, and that is not known until the module has
+   * loaded, which is why nothing is sent to it here beyond the request to load.
    */
-  start(run: Run): void {
+  start(plan: (particleLimit: number) => BrowserRun): void {
     if (this.worker !== null) return;
-    this.asked = run;
+    this.planner = plan;
 
     // Integrating happens off the main thread or it does not happen, for the
     // same reason decoding does. A browser with no Worker says so rather than
@@ -175,9 +177,9 @@ export class LiveRun implements FrameSource {
     switch (message.kind) {
       case 'ready': {
         this.particleLimit = message.particleLimit;
-        const asked = this.asked;
-        if (asked === null || this.worker === null) return;
-        this.plan = browserRun(asked, message.particleLimit);
+        const planner = this.planner;
+        if (planner === null || this.worker === null) return;
+        this.plan = planner(message.particleLimit);
         const start: ToWorker = {
           kind: 'start',
           configuration: this.plan.text,

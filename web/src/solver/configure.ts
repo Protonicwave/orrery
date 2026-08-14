@@ -52,18 +52,29 @@ export interface BrowserRun {
 }
 
 /**
- * The configuration for a browser run of `run`, capped at `particleLimit`.
+ * The configuration for a browser run of `configuration`, capped at
+ * `particleLimit`.
+ *
+ * Takes the parsed configuration rather than a published run, because a design
+ * being edited is not one and is cut down to a tab in exactly the same way. What
+ * "browser-sized" means is decided here and nowhere else, so a preview in the
+ * editor and a run in the instrument are the same size of thing for the same
+ * stated reasons.
  *
  * The output section is emptied here as well as ignored by the module, so that
  * the document handed across is one that could be run anywhere and mean the
  * same thing. A configuration that names a trajectory path and is given to
  * something with no filesystem is a document that lies about what it does.
  */
-export function browserRun(run: Run, particleLimit: number): BrowserRun {
-  const requested = run.count;
+export function browserPlan(
+  configuration: Configuration,
+  requested: number | undefined,
+  wanted: number,
+  particleLimit: number,
+): BrowserRun {
   const count =
     requested === undefined ? undefined : Math.min(requested, particleLimit);
-  const steps = Math.min(run.steps, BROWSER_STEPS);
+  const steps = Math.min(wanted, BROWSER_STEPS);
   const stride = Math.max(1, Math.ceil(steps / BROWSER_FRAMES));
 
   const settings = [
@@ -73,7 +84,7 @@ export function browserRun(run: Run, particleLimit: number): BrowserRun {
       : [{ setting: 'initial_conditions.count', value: String(count) }]),
   ];
 
-  const configured: Configuration = override(run.configuration, settings);
+  const configured: Configuration = override(configuration, settings);
   const stripped: Configuration = Object.fromEntries(
     Object.entries(configured).filter(([section]) => section !== 'output'),
   );
@@ -89,6 +100,11 @@ export function browserRun(run: Run, particleLimit: number): BrowserRun {
     steps,
     stride,
     frames: Math.floor(steps / stride) + 1,
-    reduced: steps < run.steps || (requested !== undefined && count !== requested),
+    reduced: steps < wanted || (requested !== undefined && count !== requested),
   };
+}
+
+/** The browser-sized version of a published run. */
+export function browserRun(run: Run, particleLimit: number): BrowserRun {
+  return browserPlan(run.configuration, run.count, run.steps, particleLimit);
 }
