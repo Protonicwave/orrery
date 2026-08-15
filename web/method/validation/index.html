@@ -58,9 +58,10 @@ ctest --preset release</div>
 
         <p>
           That is
-          <span class="num" data-source="docs/validation.md">311</span> cases and
-          about eleven seconds. One case skips without an Intel GPU present, and
-          reports that it skipped rather than passing quietly. Four of the
+          <span class="num" data-source="docs/validation.md">315</span> cases and
+          about nine seconds. Two cases skip where the device they discover is
+          not present, one for each GPU backend, and both report that they
+          skipped rather than passing quietly. Four of the
           presets are checks in their own right rather than conveniences:
           <span class="num">single-precision</span> runs the same assertions
           against <span class="num">float</span> with the tolerances that build’s
@@ -389,11 +390,11 @@ orrery run examples/kepler.orrery --set integrator.kind=rk4 \
         </p>
 
         <p class="foot">
-          <span class="num" data-source="docs/validation.md">311</span> cases ·
+          <span class="num" data-source="docs/validation.md">315</span> cases ·
           <span class="num" data-source="docs/validation.md">39</span> validation
-          · <span class="num" data-source="docs/validation.md">36</span> property
+          · <span class="num" data-source="docs/validation.md">37</span> property
           · <span class="num" data-source="docs/validation.md">3</span> regression
-          · <span class="num" data-source="docs/validation.md">164</span> unit<br />
+          · <span class="num" data-source="docs/validation.md">165</span> unit<br />
           Next: <a href="../performance/">every speed, and what it is a fraction
           of</a> · <a href="../../?run=kepler">play the Kepler run</a>
         </p>

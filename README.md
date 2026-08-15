@@ -109,7 +109,7 @@ cmake --build --preset release
 ctest --preset release
 ```
 
-That is 311 cases in about eleven seconds.
+That is 315 cases in about nine seconds.
 
 **The integrators converge at the orders they claim**, measured against a
 circular orbit whose exact state after one period is the state it started in:

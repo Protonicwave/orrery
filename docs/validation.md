@@ -19,9 +19,10 @@ cmake --build --preset release
 ctest --preset release
 ```
 
-That is 311 cases and about eleven seconds on the machine described in
-[the performance report](performance.md). One case skips without an Intel GPU
-present, and reports that it skipped rather than passing quietly.
+That is 315 cases and about nine seconds on the machine described in
+[the performance report](performance.md). Two cases skip where the device they
+discover is not present, one for each GPU backend, and both report that they
+skipped rather than passing quietly.
 
 Each executable is a Catch2 binary, so a category or a subject can be run on its
 own:
@@ -389,22 +390,26 @@ killed is not chosen to avoid the moment its checkpoint is half written.
 
 ## The suite as a whole
 
-The release preset registers 311 cases. By the four categories the contributing
+The release preset registers 315 cases. By the four categories the contributing
 guide defines:
 
 | Category | Cases | What it means here |
 | --- | --- | --- |
 | Validation | 39 | Comparison against a known analytic result or the compensated reference |
-| Property | 36 | An invariant over randomised inputs with a fixed seed |
+| Property | 37 | An invariant over randomised inputs with a fixed seed |
 | Regression | 3 | A golden output, asserted for equality |
-| Unit | 164 | A component in isolation |
+| Unit | 165 | A component in isolation |
 
-The remaining 69 are the driver and file-format cases, tagged by subject rather
+The remaining 71 are the driver and file-format cases, tagged by subject rather
 than by category, and they are where the configuration language, the trajectory
 format, the checkpoint and the run loop are held to their specifications.
 
 A `sycl` build adds 19 more, the device cases, which are compiled out rather
-than skipped where the backend is off. The renderer adds none, and that is
+than skipped where the backend is off. A `cuda` build adds its own the same way,
+and no count is given for them because no machine this project is developed on
+can produce one. What is in the count above is the part of both backends that
+needs no device: the version formatting, the allocation bookkeeping, and the two
+discovery cases that ask for a device and report skipping when there is none. The renderer adds none, and that is
 deliberate: the 17 `viz` cases are in the count above and every one of them runs
 in a build with no renderer on a machine with no display, because the camera and
 the tone mapping curve are arithmetic and a mistake in them appears on screen as
