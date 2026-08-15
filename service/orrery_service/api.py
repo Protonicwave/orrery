@@ -32,6 +32,7 @@ import time
 import uuid
 from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass, field
+from datetime import timedelta
 
 from fastapi import FastAPI, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -217,8 +218,12 @@ async def _reap(service: Service) -> None:
 SWEEP_SECONDS = 3600
 
 
-async def _sweep_once(service: Service) -> int:
+async def _sweep_once(service: Service, after: timedelta = limits.RETENTION) -> int:
     """Remove one batch of expired results. Returns how many jobs it cleared.
+
+    The retention is an argument with the deployment's own value as its default,
+    so that a test can ask for the same work over a shorter period rather than
+    waiting a week or reaching into the module to change a constant.
 
     The objects go first and the rows are marked after. That order is the one
     that survives being interrupted: a sweep that died in the middle has deleted
@@ -228,7 +233,7 @@ async def _sweep_once(service: Service) -> int:
     the objects sat in the bucket for ever, which is the thing this exists to
     prevent.
     """
-    identifiers = await service.jobs.stale(after=limits.RETENTION)
+    identifiers = await service.jobs.stale(after=after)
     if not identifiers:
         return 0
 
