@@ -37,6 +37,14 @@ option(ORRERY_CLANG_TIDY "Run clang-tidy on this project's targets" OFF)
 # everything above it selects between them at run time. ADR-0025.
 option(ORRERY_ENABLE_SYCL "Build the SYCL backend for the integrated GPU" OFF)
 
+# Off by default for a related but not identical reason. It needs the CUDA
+# toolkit, which no machine this project is developed or tested on carries, and
+# it produces a second implementation of two solvers that already exist. ADR-0060
+# records why a second vendor's backend is worth writing anyway: it is the only
+# way to find out whether the solver interface of ADR-0026 describes gravity on a
+# device or describes one device.
+option(ORRERY_ENABLE_CUDA "Build the CUDA backend for an NVIDIA GPU" OFF)
+
 # Off by default for the same reason, and a different one. It fetches GLFW, and
 # it needs a machine with a display and an OpenGL 3.3 driver, which a build
 # server generally is not. A build without it still produces the whole
@@ -79,6 +87,7 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 include(BuildSettings)
 include(Linting)
 include(Sycl)
+include(Cuda)
 include(Dependencies)
 
 # Before any directory that registers a test. add_test only records a test in a

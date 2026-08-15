@@ -84,6 +84,25 @@
       }
     },
     {
+      "name": "cuda",
+      "inherits": "base",
+      "displayName": "Release with the CUDA backend",
+      "description": "Release with the second GPU backend built. Requires the CUDA toolkit, so that nvcc is on PATH or CUDACXX names it, and nothing else: the host compiler stays whichever one the build would otherwise use, because only the two kernel translation units go through the device compiler. The kernels are compiled for the architectures in ORRERY_CUDA_ARCHITECTURES, which defaults to Turing, so a build for a different card passes its own. No device is needed to build or to run the suite: the CUDA cases skip themselves where there is nothing to run them on.",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "ORRERY_ENABLE_CUDA": "ON"
+      }
+    },
+    {
+      "name": "cuda-single-precision",
+      "inherits": "cuda",
+      "displayName": "Release with the CUDA backend, single precision",
+      "description": "The configuration the figures in docs/performance/cuda.md are taken in. It exists as a preset of its own for the reason the SYCL one does: the throughput-oriented configuration is the one a large GPU run uses, and on a consumer NVIDIA card the gap between the two precisions is a hardware ratio rather than a rounding question, so the two have to be measured separately rather than assumed to differ by a constant.",
+      "cacheVariables": {
+        "ORRERY_SINGLE_PRECISION": "ON"
+      }
+    },
+    {
       "name": "renderer",
       "inherits": "base",
       "displayName": "Release with the real-time renderer",
@@ -157,6 +176,14 @@
       "configurePreset": "sycl-single-precision"
     },
     {
+      "name": "cuda",
+      "configurePreset": "cuda"
+    },
+    {
+      "name": "cuda-single-precision",
+      "configurePreset": "cuda-single-precision"
+    },
+    {
       "name": "renderer",
       "configurePreset": "renderer"
     },
@@ -219,6 +246,16 @@
       "name": "sycl-single-precision",
       "inherits": "base",
       "configurePreset": "sycl-single-precision"
+    },
+    {
+      "name": "cuda",
+      "inherits": "base",
+      "configurePreset": "cuda"
+    },
+    {
+      "name": "cuda-single-precision",
+      "inherits": "base",
+      "configurePreset": "cuda-single-precision"
     },
     {
       "name": "renderer",
