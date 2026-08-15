@@ -122,16 +122,18 @@ def test_metrics_report_the_queue_and_what_this_process_has_answered(
     client: TestClient,
 ) -> None:
     pretend_a_worker_is_alive()
-    client.post("/jobs", json={"configuration": CLUSTER})
+    job = client.post("/jobs", json={"configuration": CLUSTER}).json()["job"]
+    client.get(f"/jobs/{job['id']}")
 
     written = client.get("/metrics").text
     assert 'orrery_submissions_total{outcome="queued"} 1' in written
     assert 'orrery_jobs{state="queued"} 1' in written
     assert "orrery_workers 1" in written
-    # The route rather than the path, so that a metric does not grow a series
-    # for every job ever submitted.
-    assert 'route="/jobs/{identifier}"' not in written
     assert 'orrery_requests_total{route="/jobs",status="202"} 1' in written
+    # The route rather than the path, so that a metric does not grow a series
+    # for every job that has ever been submitted.
+    assert 'route="/jobs/{identifier}",status="200"' in written
+    assert job["id"] not in written
 
 
 def test_capabilities_states_the_ceilings(client: TestClient) -> None:
