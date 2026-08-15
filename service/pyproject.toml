@@ -16,7 +16,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "orrery-service"
-version = "1.0.0"
+version = "1.1.0"
 description = "The compute service for Orrery: submit a run, queue it, take it, stream it back."
 requires-python = ">=3.12"
 

@@ -25,4 +25,4 @@ __all__ = ["__version__"]
 #: CMakeLists.txt; the worker reports what its binary answers to `--version`,
 #: which is the figure that actually ran, and this is only the fallback for a
 #: service that has not yet started one.
-__version__ = "1.0.0"
+__version__ = "1.1.0"
