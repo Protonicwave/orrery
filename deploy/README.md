@@ -93,6 +93,12 @@ and deletes ones older than a fortnight. Run it from cron, daily:
 0 3 * * * cd /srv/orrery && deploy/backup.sh /srv/orrery/backups >> /var/log/orrery-backup.log 2>&1
 ```
 
+`ORRERY_COMPOSE_FILES` overrides which compose files the two scripts address, so
+that the same scripts can be run against a stack without the overlay.
+Continuous integration does exactly that after the service suite, against the
+database those tests have just filled, which is what stops either script rotting
+between the days somebody needs one.
+
 Restoring goes into a scratch database unless the live one is named:
 
 ```

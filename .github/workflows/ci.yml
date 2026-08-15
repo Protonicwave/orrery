@@ -411,6 +411,18 @@ jobs:
           ORRERY_BINARY: ${{ github.workspace }}/build/release/apps/orrery
         run: python -m pytest -q
 
+      # The database the suite has just filled, out and back in. A restore
+      # procedure nobody has taken is a hope, and this is the one place with a
+      # PostgreSQL, a schema and some rows in it, so it is where the two scripts
+      # an operator would run are actually run.
+      - name: Back up the database and restore it into a scratch one
+        env:
+          ORRERY_COMPOSE_FILES: -f deploy/compose.yaml
+        run: |
+          set -o errexit
+          deploy/backup.sh "$RUNNER_TEMP/backups"
+          deploy/restore.sh "$RUNNER_TEMP"/backups/orrery-*.dump
+
       - name: Stop the containers
         if: always()
         run: docker compose -f deploy/compose.yaml down --volumes

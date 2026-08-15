@@ -27,7 +27,13 @@ USER_NAME="${ORRERY_POSTGRES_USER:-orrery}"
 DATABASE="${ORRERY_POSTGRES_DB:-orrery}"
 
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-COMPOSE="docker compose -f $HERE/compose.yaml -f $HERE/production.yaml"
+
+# The deployment's two files, unless something says otherwise. Continuous
+# integration says otherwise: it runs this against the plain stack, so that the
+# script somebody's cron calls is one that has been taken rather than one that
+# has been read. Deliberately unquoted below, since it is several arguments.
+FILES="${ORRERY_COMPOSE_FILES:--f $HERE/compose.yaml -f $HERE/production.yaml}"
+COMPOSE="docker compose $FILES"
 
 mkdir -p "$DIRECTORY"
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)

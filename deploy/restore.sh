@@ -22,7 +22,10 @@ USER_NAME="${ORRERY_POSTGRES_USER:-orrery}"
 LIVE="${ORRERY_POSTGRES_DB:-orrery}"
 
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-COMPOSE="docker compose -f $HERE/compose.yaml -f $HERE/production.yaml"
+
+# As in backup.sh: the deployment's two files unless something says otherwise.
+FILES="${ORRERY_COMPOSE_FILES:--f $HERE/compose.yaml -f $HERE/production.yaml}"
+COMPOSE="docker compose $FILES"
 
 if [ ! -s "$FILE" ]; then
     echo "no such dump, or it is empty: $FILE" >&2
