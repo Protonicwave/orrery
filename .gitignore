@@ -73,6 +73,12 @@ __pycache__/
 venv/
 .ipynb_checkpoints/
 
+# A deployment's own environment. The credentials it runs with are its own and
+# never this repository's: the compose stack's are in the file, because that
+# stack is for a laptop, and a real deployment keeps its own in a file beside
+# the compose files that is never committed.
+*.env
+
 # Editors and operating systems.
 .vscode/
 .vs/

@@ -1,0 +1,93 @@
+# What is different about a deployment, and nothing else.
+#
+#     docker compose --env-file deploy/production.env \
+#       -f deploy/compose.yaml -f deploy/production.yaml up -d
+#
+# An overlay rather than a second stack, so that what runs in front of the
+# public is the file the tests run against with four differences, each of which
+# is here to be read:
+#
+# 1. The data outlives the containers. `compose.yaml` keeps none, because a test
+#    database that survived a run would be a test that depended on the last one.
+# 2. Nothing is published but the API, and that only to the host's own
+#    interface. TLS is the reverse proxy's job, and the database and the object
+#    store have no business being reachable from anywhere but this machine.
+# 3. Every credential is interpolated from the environment file, which is not in
+#    this repository. `deploy/README.md` says what has to be in it. It is read
+#    with `--env-file` rather than with a service's `env_file:` because the base
+#    file states these variables itself, and a value stated in `environment:`
+#    wins over one from `env_file:`: a deployment would have quietly run with
+#    the laptop's password.
+# 4. Everything comes back up after a reboot or a crash.
+#
+# The host is a single machine with Docker on it. There is no orchestrator and
+# no cluster, because one container per role is the right size for a service
+# that runs one simulation at a time.
+#
+# `!override` and `!reset` need Compose 2.24 or newer. Without them the lists
+# below would merge with the base file's rather than replace them, and the
+# database would still be published.
+
+name: orrery
+
+services:
+  postgres:
+    environment:
+      POSTGRES_USER: ${ORRERY_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${ORRERY_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${ORRERY_POSTGRES_DB}
+    volumes:
+      - metadata:/var/lib/postgresql/data
+    # Nowhere but the internal network, which nothing outside this machine can
+    # route to. The backup script reaches it with `compose exec`.
+    networks: !override [internal]
+    ports: !reset []
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${ORRERY_POSTGRES_USER} -d ${ORRERY_POSTGRES_DB}
+
+  storage:
+    environment:
+      MINIO_ROOT_USER: ${ORRERY_STORAGE_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${ORRERY_STORAGE_SECRET_KEY}
+    volumes:
+      - trajectories:/data
+    # The console is not run: it is a second web interface, on this machine, for
+    # a bucket this service is the only writer of.
+    command: server /data --address :9000
+    networks: !override [internal]
+    ports: !reset []
+    restart: unless-stopped
+
+  api:
+    environment:
+      ORRERY_DATABASE_URL: ${ORRERY_DATABASE_URL}
+      ORRERY_STORAGE_ACCESS_KEY: ${ORRERY_STORAGE_ACCESS_KEY}
+      ORRERY_STORAGE_SECRET_KEY: ${ORRERY_STORAGE_SECRET_KEY}
+      # The published site's origin, which is the only page that should be able
+      # to queue runs on this.
+      ORRERY_ALLOWED_ORIGINS: ${ORRERY_ALLOWED_ORIGINS}
+      ORRERY_ADDRESS_SALT: ${ORRERY_ADDRESS_SALT}
+      # There is a reverse proxy in front, so the address the socket reports is
+      # its address and the header is the only way to see the submitter. Nothing
+      # else may reach the API, which is what makes the header safe to believe.
+      ORRERY_TRUST_FORWARDED_FOR: "true"
+    # The loopback interface only. Whatever terminates TLS on this host is what
+    # the public reaches, and it forwards to this. Binding to every interface
+    # would publish an unencrypted API on the machine's public address.
+    ports: !override
+      - "127.0.0.1:8000:8000"
+    restart: unless-stopped
+
+  worker:
+    environment:
+      ORRERY_DATABASE_URL: ${ORRERY_DATABASE_URL}
+      ORRERY_STORAGE_ACCESS_KEY: ${ORRERY_STORAGE_ACCESS_KEY}
+      ORRERY_STORAGE_SECRET_KEY: ${ORRERY_STORAGE_SECRET_KEY}
+    restart: unless-stopped
+
+volumes:
+  metadata:
+  trajectories:

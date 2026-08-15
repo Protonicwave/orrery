@@ -51,6 +51,14 @@ RUN pip install --no-cache-dir .
 # Not root. A process that runs a program over a document a stranger sent should
 # not be able to write to its own image, and this costs one line.
 RUN useradd --create-home --uid 10001 worker
+
+# Where a run works, and the only place this image expects to be able to write.
+# Created here, owned by the worker, so that the volume mounted over it in
+# deploy/compose.yaml is initialised with that ownership: a fresh named volume
+# takes the permissions of the directory it covers, and one created empty by the
+# daemon would belong to root and be unwritable by the process that needs it.
+RUN mkdir /work && chown worker:worker /work
+
 USER worker
 
 ENV ORRERY_BINARY=/usr/local/bin/orrery

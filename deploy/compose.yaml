@@ -19,6 +19,21 @@
 
 name: orrery
 
+# Two networks, and the difference between them is the point.
+#
+# `internal` has no route off the machine. The worker is on it and on nothing
+# else, so a process that runs a program over a document a stranger sent cannot
+# reach anything but the database and the object store: not the internet, not a
+# metadata service, not another container's port. That is the cheapest security
+# property in this file and the one worth having most.
+#
+# PostgreSQL and the store are on both, only so that their ports can be
+# published to the laptop the tests run on. `production.yaml` takes that away.
+networks:
+  edge:
+  internal:
+    internal: true
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -26,6 +41,7 @@ services:
       POSTGRES_USER: orrery
       POSTGRES_PASSWORD: orrery
       POSTGRES_DB: orrery
+    networks: [edge, internal]
     ports:
       - "5432:5432"
     healthcheck:
@@ -43,6 +59,7 @@ services:
     environment:
       MINIO_ROOT_USER: orrery
       MINIO_ROOT_PASSWORD: orrery123
+    networks: [edge, internal]
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -70,8 +87,28 @@ services:
       # Where the client is served from while it is being worked on. The
       # deployed site's origin is added wherever this is actually deployed.
       ORRERY_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      # A salt nobody has to look up, for the same reason the passwords above
+      # are here. A deployment sets its own and keeps it.
+      ORRERY_ADDRESS_SALT: local
+    networks: [edge, internal]
     ports:
       - "8000:8000"
+    # What a process that answers HTTP over a document a stranger sent should be
+    # allowed to do, which is very little. No new privileges, no capabilities at
+    # all, and a root filesystem it cannot write to: nothing here writes a file,
+    # so the one writable place is the temporary directory Python expects.
+    read_only: true
+    tmpfs:
+      # The mode is stated rather than left to the default, because a read-only
+      # container whose one writable directory is not writable by the user it
+      # runs as is a container that starts and then fails on its first request.
+      - /tmp:size=16m,mode=1777
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 512m
+    cpus: 1.0
     healthcheck:
       test:
         - CMD-SHELL
@@ -97,7 +134,30 @@ services:
       ORRERY_STORAGE_BUCKET: orrery
       ORRERY_STORAGE_ACCESS_KEY: orrery
       ORRERY_STORAGE_SECRET_KEY: orrery123
+      # Where the run's working directory goes. Python's tempfile reads this,
+      # so a volume mounted here is what lets the root filesystem stay read
+      # only. A volume rather than a tmpfs because a trajectory is tens of
+      # megabytes and putting it in memory would count against the limit below.
+      TMPDIR: /work
+    # No `edge`. The worker talks to the database and the store and to nothing
+    # else, and the way to be sure of that is not to give it a route.
+    networks: [internal]
+    volumes:
+      - work:/work
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    # What the simulator gets, and the ceiling that makes the published figures
+    # honest: the GPU numbers in docs/performance.md were measured on a laptop,
+    # and a run submitted here is two cores and two gigabytes.
+    mem_limit: 2g
+    cpus: 2.0
     # One. The queue is written so that several would be correct, and running
     # several here would hide the case this deployment actually has.
     deploy:
       replicas: 1
+
+volumes:
+  work:
