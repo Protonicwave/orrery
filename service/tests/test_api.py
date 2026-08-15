@@ -23,6 +23,7 @@ from orrery_service.limits import (
     MAX_SUBMISSIONS_PER_ADDRESS,
     WINDOW,
 )
+from orrery_service.observability import reset
 
 from .conftest import (
     DATABASE_URL,
@@ -66,6 +67,9 @@ def pretend_a_worker_is_alive(name: str = "worker-1") -> None:
 @pytest.fixture
 def client() -> Iterator[TestClient]:
     reset_database()
+    # The counters live in the process rather than in the database, so a case
+    # that asserts one would otherwise be reading what the case before it did.
+    reset()
     with TestClient(create_app(settings_for_tests())) as client:
         yield client
 
@@ -74,6 +78,60 @@ def test_health_reports_alive_and_ready(client: TestClient) -> None:
     answer = client.get("/health")
     assert answer.status_code == 200
     assert answer.json() == {"alive": True, "ready": True, "detail": ""}
+
+
+def test_readiness_is_a_different_question_from_liveness(client: TestClient) -> None:
+    """One says restart me, the other says do not send me traffic.
+
+    Liveness touches neither dependency on purpose: a probe that failed when the
+    database blinked would restart every API container at the moment the
+    database could least afford the reconnections. What it does check is the
+    background work nothing else would notice the loss of.
+    """
+    assert client.get("/health").json() == {"alive": True, "ready": True, "detail": ""}
+
+    ready = client.get("/ready")
+    assert ready.status_code == 200
+    assert ready.json()["ready"] is True
+
+
+def test_liveness_fails_when_the_background_has_stopped(client: TestClient) -> None:
+    service = client.app.state.service
+    service.background[0].cancel()
+
+    answer = client.get("/health")
+    assert answer.status_code == 503
+    assert "reaper" in answer.json()["detail"]
+
+
+def test_every_answer_carries_the_request_it_belongs_to(client: TestClient) -> None:
+    given = client.get("/capabilities", headers={"X-Request-Id": "abc-123"})
+    assert given.headers["x-request-id"] == "abc-123"
+
+    # And one is made up when the client did not send one, so that every line
+    # in the log has something to be searched by.
+    made = client.get("/capabilities")
+    assert made.headers["x-request-id"] != ""
+
+    # A header a stranger controls cannot put a newline into a log line.
+    filtered = client.get("/capabilities", headers={"X-Request-Id": "a\tb c"})
+    assert filtered.headers["x-request-id"] == "abc"
+
+
+def test_metrics_report_the_queue_and_what_this_process_has_answered(
+    client: TestClient,
+) -> None:
+    pretend_a_worker_is_alive()
+    client.post("/jobs", json={"configuration": CLUSTER})
+
+    written = client.get("/metrics").text
+    assert 'orrery_submissions_total{outcome="queued"} 1' in written
+    assert 'orrery_jobs{state="queued"} 1' in written
+    assert "orrery_workers 1" in written
+    # The route rather than the path, so that a metric does not grow a series
+    # for every job ever submitted.
+    assert 'route="/jobs/{identifier}"' not in written
+    assert 'orrery_requests_total{route="/jobs",status="202"} 1' in written
 
 
 def test_capabilities_states_the_ceilings(client: TestClient) -> None:

@@ -51,6 +51,7 @@ from pathlib import Path
 
 from . import limits
 from .database import pool, use_compatible_event_loop
+from .observability import configure_logging, context
 from .plan import DIAGNOSTICS_FILE, TRAJECTORY_FILE
 from .queue import Claim, Jobs
 from .settings import Settings
@@ -208,14 +209,18 @@ class Worker:
                     await asyncio.wait_for(self._stopping.wait(), IDLE_SECONDS)
                 continue
 
-            logger.info("claimed %s, attempt %d", claim.id, claim.attempts)
-            try:
-                await self._take(claim)
-            except Exception as error:
-                logger.exception("job %s failed in the worker", claim.id)
-                await self._jobs.fail(
-                    claim.id, self._name, f"the worker failed: {error}"
-                )
+            # Everything logged from here to the end of the run carries the job
+            # and the request that submitted it, so that the API's line about
+            # the submission and these can be read as one story.
+            with context(request=claim.request_id, job=claim.id):
+                logger.info("claimed %s", claim.id, extra={"attempt": claim.attempts})
+                try:
+                    await self._take(claim)
+                except Exception as error:
+                    logger.exception("the job failed in the worker")
+                    await self._jobs.fail(
+                        claim.id, self._name, f"the worker failed: {error}"
+                    )
 
     async def _take(self, claim: Claim) -> None:
         with tempfile.TemporaryDirectory(prefix="orrery-") as directory:
@@ -243,9 +248,7 @@ class Worker:
             elapsed = time.monotonic() - started
 
             if lost.is_set() or not await self._jobs.beat(claim.id, self._name):
-                logger.warning(
-                    "job %s was taken from this worker; dropping it", claim.id
-                )
+                logger.warning("this job was taken from this worker; dropping it")
                 return
 
             if code != 0:
@@ -326,7 +329,7 @@ class Worker:
             # The job is somebody else's now. Kill the run rather than letting
             # it finish: what it would produce is a second trajectory for one
             # row, and the later upload would replace the winner's.
-            logger.warning("lost the claim on %s; stopping the run", claim.id)
+            logger.warning("lost the claim on this job; stopping the run")
             lost.set()
             if run.process is not None:
                 with contextlib.suppress(ProcessLookupError, OSError):
@@ -377,7 +380,10 @@ class Worker:
             step_ms=elapsed * 1000 / claim.steps if claim.steps else 0.0,
             energy_drift=drift,
         )
-        logger.info("finished %s: %d bytes in %.1f s", claim.id, stored.size, elapsed)
+        logger.info(
+            "finished the run",
+            extra={"bytes": stored.size, "seconds": round(elapsed, 1)},
+        )
 
 
 async def serve() -> None:
@@ -403,7 +409,7 @@ async def serve() -> None:
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
+    configure_logging()
     use_compatible_event_loop()
     asyncio.run(serve())
 

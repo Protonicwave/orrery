@@ -12,11 +12,14 @@ anything: what a submission may ask for is `limits`, whether it is a run is
     GET    /jobs/{id}/diagnostics   the conserved quantities it wrote
     WS     /jobs/{id}/progress      the same job, pushed as it changes
     GET    /capabilities            what the service will take, right now
-    GET    /health                  alive, and ready
+    GET    /health                  is this process working
+    GET    /ready                   can it reach what it needs
+    GET    /metrics                 what it has done, and what is queued
 
 The reaper runs in this process rather than in the worker. A worker that has
 died cannot return its own job, so the thing that notices has to be something
-else, and the API is the process that is always up.
+else, and the API is the process that is always up. The sweep that expires
+stored results runs here for the same reason.
 """
 
 from __future__ import annotations
@@ -25,8 +28,10 @@ import asyncio
 import contextlib
 import logging
 import re
+import time
+import uuid
 from collections.abc import AsyncIterator, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from fastapi import FastAPI, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -46,6 +51,14 @@ from .contract import (
     Submission,
 )
 from .database import pool, use_compatible_event_loop
+from .observability import (
+    REQUEST_ID,
+    clean_request_id,
+    configure_logging,
+    context,
+    count,
+    render,
+)
 from .plan import plan
 from .progress import Progress
 from .queue import Jobs
@@ -76,6 +89,11 @@ class Service:
     jobs: Jobs
     storage: Storage
     progress: Progress
+    #: The tasks that keep the queue honest while nobody is asking anything: the
+    #: reaper and the expiry sweep. Held so that liveness can say whether they
+    #: are still running, which is the one thing about this process that can
+    #: fail without any request failing.
+    background: list[asyncio.Task[None]] = field(default_factory=list)
 
 
 def _refuse(
@@ -267,6 +285,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 asyncio.create_task(_reap(service), name="reaper"),
                 asyncio.create_task(_sweep(service), name="sweeper"),
             ]
+            service.background = background
 
             app.state.service = service
             try:
@@ -326,6 +345,51 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 )
         return await call_next(request)
 
+    @app.middleware("http")
+    async def record_the_request(request: Request, call_next):  # type: ignore[no-untyped-def]
+        """Give the request an identifier, then say what happened to it.
+
+        The identifier is the client's if it sent one and a fresh one otherwise,
+        and it goes back in the response header either way, so that somebody
+        looking at a slow request in a browser has the value to search the logs
+        for. Everything logged while this request is handled carries it without
+        being passed it.
+
+        The route is counted by its template rather than by its path. There is
+        one `/jobs/{identifier}` and there are as many paths as there have ever
+        been jobs, and a counter labelled with the second is a metrics endpoint
+        that grows for ever.
+        """
+        supplied = clean_request_id(request.headers.get("x-request-id", ""))
+        identifier = supplied or uuid.uuid4().hex
+        started = time.monotonic()
+
+        with context(request=identifier):
+            response = await call_next(request)
+            route = request.scope.get("route")
+            template = getattr(route, "path", request.url.path)
+            elapsed = (time.monotonic() - started) * 1000
+
+            count(
+                "orrery_requests_total",
+                route=template,
+                status=str(response.status_code),
+            )
+            logger.info(
+                "%s %s %d",
+                request.method,
+                template,
+                response.status_code,
+                extra={
+                    "method": request.method,
+                    "route": template,
+                    "status": response.status_code,
+                    "ms": round(elapsed, 1),
+                },
+            )
+            response.headers["x-request-id"] = identifier
+            return response
+
     def service_of(request: Request) -> Service:
         return request.app.state.service
 
@@ -335,10 +399,42 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/health", response_model=Health)
     async def health(request: Request) -> Response:
-        """Alive is this process answering. Ready is it being able to work.
+        """Whether this process is working, and nothing about anything else.
 
-        Kept apart so that an orchestrator can restart a process that is up and
-        cannot reach its database, rather than sending it traffic.
+        Deliberately touches neither the database nor the store. This is the
+        answer an orchestrator restarts a container over, and a probe that
+        failed when the database was briefly unreachable would restart every API
+        container in the deployment at the moment the database could least
+        afford the reconnections. What cannot fail any other way is the
+        background: a reaper that has died leaves jobs claimed by machines that
+        no longer exist, and no request would ever notice.
+        """
+        service = service_of(request)
+        stopped = [task.get_name() for task in service.background if task.done()] + (
+            [] if service.progress.running else ["progress"]
+        )
+        if stopped:
+            return JSONResponse(
+                status_code=503,
+                content=Health(
+                    alive=True,
+                    ready=False,
+                    detail=f"stopped running: {', '.join(stopped)}",
+                ).model_dump(),
+            )
+        return JSONResponse(
+            content=Health(alive=True, ready=True, detail="").model_dump()
+        )
+
+    @app.get("/ready", response_model=Health)
+    async def ready(request: Request) -> Response:
+        """Whether this process can do the work, which needs both dependencies.
+
+        The database and the object store, because a submission writes to one
+        and every result is read from the other, and a process that can reach
+        neither should be taken out of the rotation rather than restarted. Both
+        are checked rather than the first: an API that could queue runs and not
+        serve their results would pass a database-only probe.
         """
         service = service_of(request)
         try:
@@ -350,8 +446,45 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     alive=True, ready=False, detail=f"the database: {error}"
                 ).model_dump(),
             )
+        try:
+            await asyncio.to_thread(service.storage.ensure_bucket)
+        except StorageError as error:
+            return JSONResponse(
+                status_code=503,
+                content=Health(
+                    alive=True, ready=False, detail=f"the object store: {error}"
+                ).model_dump(),
+            )
         return JSONResponse(
             content=Health(alive=True, ready=True, detail="").model_dump()
+        )
+
+    @app.get("/metrics")
+    async def metrics(request: Request) -> Response:
+        """What this process has done, and what the queue looks like now.
+
+        The gauges are read here rather than kept, because they are properties
+        of the database: two API containers each reporting their own count of a
+        shared queue would be two answers to a question with one.
+        """
+        service = service_of(request)
+        counts = await service.jobs.counts()
+        alive, _ = await service.jobs.workers(
+            visibility=service.settings.visibility_timeout
+        )
+        spent = await service.jobs.spent(window=limits.BUDGET_WINDOW)
+
+        # The empty label means a series with no labels at all, which is what
+        # the three single-valued gauges want.
+        gauges = {
+            "orrery_jobs": {"queued": counts.queued, "running": counts.running},
+            "orrery_workers": {"": alive},
+            "orrery_budget_used": {"": spent},
+            "orrery_budget_total": {"": limits.BUDGET},
+        }
+        return Response(
+            content=render(gauges),
+            media_type="text/plain; version=0.0.4; charset=utf-8",
         )
 
     @app.post("/jobs", response_model=Accepted)
@@ -363,6 +496,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             # 422 rather than 400: the request is well formed and its content is
             # a document this service will not run, which is what that code is
             # for. The body is every objection at once.
+            count("orrery_submissions_total", outcome="rejected")
             return JSONResponse(
                 status_code=422, content=Rejection(problems=problems).model_dump()
             )
@@ -373,6 +507,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             # nothing is draining is worse than a refusal, because the person
             # who submitted it waits instead of being told to look at the
             # gallery. ADR-0054.
+            count("orrery_submissions_total", outcome="refused")
             return _refuse(
                 503,
                 f"is not taking runs at the moment: {capability.refusal}. The "
@@ -391,6 +526,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         taken = await service.jobs.submissions(submitter, window=limits.WINDOW)
         if taken >= limits.MAX_SUBMISSIONS_PER_ADDRESS:
             minutes = round(limits.WINDOW.total_seconds() / 60)
+            count("orrery_submissions_total", outcome="limited")
             return _refuse(
                 429,
                 f"takes at most {limits.MAX_SUBMISSIONS_PER_ADDRESS} runs from "
@@ -404,10 +540,26 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         job, duplicate = await service.jobs.submit(
             settled,
             submitter=submitter,
-            request_id=request.headers.get("x-request-id", ""),
+            # Carried on to the worker, so that this line and the run's are one
+            # story rather than two.
+            request_id=REQUEST_ID.get(),
             work=limits.work_units(
                 settled.particles, settled.steps, configuration.solver.kind
             ),
+        )
+        count(
+            "orrery_submissions_total",
+            outcome="duplicate" if duplicate else "queued",
+        )
+        logger.info(
+            "queued %s",
+            job.id,
+            extra={
+                "job": job.id,
+                "particles": job.particles,
+                "steps": job.steps,
+                "duplicate": duplicate,
+            },
         )
         return JSONResponse(
             status_code=200 if duplicate else 202,
@@ -590,7 +742,7 @@ def main() -> None:
     """
     import uvicorn
 
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
+    configure_logging()
     use_compatible_event_loop()
 
     server = uvicorn.Server(
@@ -601,6 +753,13 @@ def main() -> None:
             host="0.0.0.0",
             port=8000,
             loop="asyncio",
+            # uvicorn's own logging configuration is declined, so that its
+            # records go through the handler configured above and come out as
+            # JSON like everything else. Its access log is off because the
+            # middleware already writes one line a request, with the route
+            # template rather than the path and with the identifier attached.
+            log_config=None,
+            access_log=False,
         )
     )
     asyncio.run(server.serve())
