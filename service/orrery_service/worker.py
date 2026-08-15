@@ -49,6 +49,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from . import limits
 from .database import pool, use_compatible_event_loop
 from .plan import DIAGNOSTICS_FILE, TRAJECTORY_FILE
 from .queue import Claim, Jobs
@@ -196,7 +197,9 @@ class Worker:
         while not self._stopping.is_set():
             await self._jobs.announce(self._name, self._version)
             claim = await self._jobs.claim(
-                self._name, max_attempts=self._settings.max_attempts
+                self._name,
+                max_attempts=self._settings.max_attempts,
+                max_running=limits.MAX_RUNNING,
             )
             if claim is None:
                 # Waiting on the stop event rather than sleeping, so a signal

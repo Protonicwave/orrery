@@ -16,7 +16,13 @@ from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from orrery_service.api import create_app
-from orrery_service.limits import MAX_PARTICLES
+from orrery_service.limits import (
+    BUDGET,
+    MAX_BODY_BYTES,
+    MAX_PARTICLES,
+    MAX_SUBMISSIONS_PER_ADDRESS,
+    WINDOW,
+)
 
 from .conftest import (
     DATABASE_URL,
@@ -143,6 +149,68 @@ def test_a_ceiling_is_reported_as_a_refusal(client: TestClient) -> None:
     problems = answer.json()["problems"]
     assert problems[0]["setting"] == "initial_conditions.count"
     assert str(MAX_PARTICLES) in problems[0]["complaint"]
+
+
+def test_one_address_is_held_to_a_rate(client: TestClient) -> None:
+    """The ceiling that stops one visitor occupying the worker all afternoon.
+
+    Each submission is a different run, because the same one twice is one job
+    and would not be charged twice. What is asserted beyond the status is that
+    the refusal says how long to wait, so a client has something to act on
+    rather than a number.
+    """
+    pretend_a_worker_is_alive()
+    for seed in range(MAX_SUBMISSIONS_PER_ADDRESS):
+        answer = client.post(
+            "/jobs",
+            json={"configuration": CLUSTER.replace("seed = 7", f"seed = {seed}")},
+        )
+        assert answer.status_code == 202, answer.text
+
+    answer = client.post(
+        "/jobs", json={"configuration": CLUSTER.replace("seed = 7", "seed = 99")}
+    )
+    assert answer.status_code == 429
+    assert answer.headers["retry-after"] == str(round(WINDOW.total_seconds()))
+    complaint = answer.json()["problems"][0]["complaint"]
+    assert str(MAX_SUBMISSIONS_PER_ADDRESS) in complaint
+    # And it says what is unaffected, which is the whole gallery.
+    assert "gallery" in complaint
+
+
+def test_the_budget_stops_the_service_taking_more_work(client: TestClient) -> None:
+    """A day's worth of computing, whoever asked for it.
+
+    Written by putting the work in the table rather than by submitting until the
+    budget is gone, which at one full-size run apiece would be twenty-four runs
+    and rather more of the suite's time than the property needs.
+    """
+    pretend_a_worker_is_alive()
+    with psycopg.connect(DATABASE_URL) as connection:
+        connection.execute(
+            "INSERT INTO job (id, content_hash, configuration, state, particles, "
+            "steps, timestep, stride, frames, work) VALUES "
+            "(gen_random_uuid(), 'spent', '', 'done', 2, 1, 0.1, 1, 2, %s)",
+            (BUDGET,),
+        )
+        connection.commit()
+
+    capabilities = client.get("/capabilities").json()
+    assert capabilities["accepting"] is False
+    assert "computing" in capabilities["refusal"]
+
+    answer = client.post("/jobs", json={"configuration": CLUSTER})
+    assert answer.status_code == 503
+    assert "gallery" in answer.json()["problems"][0]["complaint"]
+
+
+def test_a_body_larger_than_a_configuration_is_refused_unread(
+    client: TestClient,
+) -> None:
+    pretend_a_worker_is_alive()
+    answer = client.post("/jobs", json={"configuration": "#" * (MAX_BODY_BYTES + 1)})
+    assert answer.status_code == 413
+    assert answer.json()["problems"][0]["setting"] == "service"
 
 
 def test_an_unknown_job_is_a_not_found(client: TestClient) -> None:

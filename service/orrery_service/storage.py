@@ -22,8 +22,10 @@ thing.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterator
 from dataclasses import dataclass
+from datetime import timedelta
 from pathlib import Path
 
 import boto3
@@ -31,6 +33,8 @@ from botocore.client import Config
 from botocore.exceptions import ClientError
 
 from .settings import Settings
+
+logger = logging.getLogger(__name__)
 
 #: How much of a trajectory is read from the store at a time on the way out.
 #:
@@ -53,12 +57,21 @@ class Stored:
     size: int
 
 
+#: The prefix everything a submitted run produces is written under.
+#:
+#: One prefix, so that the lifecycle rule which expires results can name it and
+#: nothing else in the bucket is inside the rule. A deployment that also serves
+#: the published gallery from this store puts it under another prefix and it is
+#: kept: those runs are the repository's own output rather than a stranger's.
+PREFIX = "jobs/"
+
+
 def trajectory_key(identifier: str) -> str:
-    return f"jobs/{identifier}/trajectory.otj"
+    return f"{PREFIX}{identifier}/trajectory.otj"
 
 
 def diagnostics_key(identifier: str) -> str:
-    return f"jobs/{identifier}/diagnostics.csv"
+    return f"{PREFIX}{identifier}/diagnostics.csv"
 
 
 class Storage:
@@ -105,6 +118,74 @@ class Storage:
             # is not a failure: what was wanted was a bucket, and there is one.
             if code not in ("BucketAlreadyOwnedByYou", "BucketAlreadyExists"):
                 raise StorageError(f"{self._bucket}: {error}") from error
+
+    def ensure_lifecycle(self, retention: timedelta) -> bool:
+        """Ask the store to expire anything under `PREFIX` after `retention`.
+
+        A backstop rather than the mechanism. The service expires results
+        itself, in a sweep that deletes the objects and then marks the rows, so
+        that the database and the bucket agree about what exists. What this
+        catches is what that cannot: an upload whose job never recorded it,
+        because the worker died between the two, which leaves an object no row
+        names and which nothing would otherwise ever delete.
+
+        Returns whether the rule was accepted. A store that does not implement
+        lifecycle configuration is logged and carried on from: the results are
+        still expired, by the sweep, and refusing to start over a backstop would
+        make an optional feature of the store a requirement of the service.
+
+        Days rather than hours, because that is the only granularity S3
+        lifecycle rules have. The rule is therefore looser than the sweep by up
+        to a day, which is the right way round for a backstop.
+        """
+        days = max(1, round(retention.total_seconds() / 86_400))
+        try:
+            self._client.put_bucket_lifecycle_configuration(
+                Bucket=self._bucket,
+                LifecycleConfiguration={
+                    "Rules": [
+                        {
+                            "ID": "expire-submitted-runs",
+                            "Status": "Enabled",
+                            "Filter": {"Prefix": PREFIX},
+                            "Expiration": {"Days": days},
+                        }
+                    ]
+                },
+            )
+        except ClientError as error:
+            logger.warning(
+                "%s does not take a lifecycle rule (%s); the sweep expires "
+                "results on its own",
+                self._bucket,
+                error,
+            )
+            return False
+        return True
+
+    def delete(self, keys: list[str]) -> None:
+        """Remove objects, and do not mind the ones that are not there.
+
+        Deleting something that has already gone is a success in S3's model and
+        is treated as one here, which is what makes the sweep safe to run again
+        after it died half way through.
+        """
+        if not keys:
+            return
+        try:
+            answer = self._client.delete_objects(
+                Bucket=self._bucket,
+                Delete={"Objects": [{"Key": key} for key in keys], "Quiet": True},
+            )
+        except ClientError as error:
+            raise StorageError(f"deleting {len(keys)} object(s): {error}") from error
+
+        failures = answer.get("Errors", [])
+        if failures:
+            raise StorageError(
+                f"{len(failures)} object(s) would not delete, the first being "
+                f"{failures[0].get('Key', '')}: {failures[0].get('Message', '')}"
+            )
 
     def put_file(self, key: str, path: Path, content_type: str) -> Stored:
         """Upload a file the worker has just written."""
