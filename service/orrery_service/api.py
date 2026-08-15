@@ -78,7 +78,12 @@ _RESULT_KEYS = (trajectory_key, diagnostics_key)
 #: all the trajectory reader in `web/src/trajectory/source.ts` sends and all
 #: this needs to answer: multipart ranges would be a second response format to
 #: get right for a case nothing produces.
-_RANGE = re.compile(r"^bytes=(\d*)-(\d*)$")
+#:
+#: The digits are bounded as well as matched. A trajectory is tens of megabytes,
+#: so nine digits is far more than any honest offset into one, and an unbounded
+#: `\d*` would accept a header of a million digits whose conversion to an
+#: integer is real work done on behalf of somebody who sent one header.
+_RANGE = re.compile(r"^bytes=(\d{0,9})-(\d{0,9})$")
 
 
 @dataclass

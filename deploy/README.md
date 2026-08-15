@@ -115,6 +115,11 @@ Prometheus text format: requests by route and status, submissions by outcome,
 the queue's length, how many workers have beaten recently, and how much of the
 day's compute budget has been spent.
 
+None of those three needs to be reachable from the public. The proxy in front
+should forward the routes the client uses and keep `/metrics` to the host: it
+carries nothing secret, only aggregate counts, and it is also not something a
+visitor has any use for.
+
 Logs are one JSON object a line on standard output, each carrying the request it
 belongs to. The identifier reaches the worker as well, so the line about a
 submission and the lines about the run it became can be found together.

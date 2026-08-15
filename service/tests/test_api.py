@@ -271,6 +271,23 @@ def test_a_body_larger_than_a_configuration_is_refused_unread(
     assert answer.json()["problems"][0]["setting"] == "service"
 
 
+def test_a_range_header_cannot_ask_for_arbitrary_arithmetic(
+    client: TestClient,
+) -> None:
+    """A header is a stranger's input, and this one is turned into integers.
+
+    Answered as a request with no valid range rather than as an error: the
+    pattern does not match, so the whole object is what was asked for, and the
+    job has no result to serve anyway.
+    """
+    pretend_a_worker_is_alive()
+    job = client.post("/jobs", json={"configuration": CLUSTER}).json()["job"]
+    answer = client.get(
+        f"/jobs/{job['id']}/trajectory", headers={"Range": f"bytes={'9' * 100000}-"}
+    )
+    assert answer.status_code == 404
+
+
 def test_an_unknown_job_is_a_not_found(client: TestClient) -> None:
     assert client.get("/jobs/d3adbeef-0000-0000-0000-000000000000").status_code == 404
     assert client.get("/jobs/not-a-uuid").status_code == 404

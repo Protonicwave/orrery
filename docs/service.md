@@ -57,6 +57,23 @@ logarithm for the tree, and the square of the count for the direct solver, which
 computes every pair. One score for both would have to be wrong about one of
 them.
 
+Those four bound one run. Four more bound the sequence of them, because a
+thousand submissions each inside every ceiling is a thousand legal runs and the
+bill is the same whether they came from a thousand readers or from one script.
+ADR-0058 is the argument for measuring all of them over the jobs the service
+already stores rather than in a second system.
+
+| Ceiling | Value | Why it is there |
+| --- | --- | --- |
+| Runs from one address | 6 an hour | A run the size of the demonstration took 122 seconds on the machine the performance report names, so six is more than an hour of a worker and more than one person watches. It is loose enough for the loop the editor is for |
+| Work in a day | 24 full-size runs | The only ceiling on what a day of strangers costs. On the one wall clock this repository has measured, about fifty minutes of computing |
+| Runs at once | 2 | The deployment runs one worker and one run at a time. The second is so that a rollout with an old worker and a new one does not stop taking runs |
+| Request body | 64 kB | Four times the configuration ceiling, so that the escaping around a legal configuration cannot fail here, checked before any of the body is read |
+
+The address a submission came from is not kept. What the rate limit needs is to
+tell two submitters apart, so the job carries a salted hash and the service
+holds nothing a person could later be identified from.
+
 The two SYCL solvers are refused. The parser accepts them in every build, because
 a configuration file is a document and should mean the same thing whatever reads
 it; whether a particular machine can provide what it asks for is a different
@@ -84,6 +101,41 @@ along the tree solver's curve, and which measured step time matters:
 There is deliberately no ceiling expressed in seconds. A second is a property of
 the machine a container lands on, and this repository has not measured that
 machine, so a figure in seconds would be one it could not reproduce.
+
+## How long a result lasts
+
+Seven days from the run finishing, and then the trajectory and the diagnostics
+are removed from storage. A sweep in the API deletes the objects and marks the
+job, and a lifecycle rule on the bucket catches anything the sweep cannot see,
+such as an upload from a worker that died before it recorded one. ADR-0059 sets
+out why it is done in that order rather than by the rule alone.
+
+The job itself stays. Asking about an expired run says what it was, that it
+finished, and that its result was removed, which is a different thing to be told
+than that the run produced nothing. Submitting the same configuration again runs
+it again: jobs are otherwise identified by the hash of what they run, and that
+answer is only useful while the first result is still there.
+
+The published gallery is not affected by any of this. Those runs are static
+assets built into the site, not jobs in the service's store.
+
+## What it costs to run
+
+The worker gets two cores and two gigabytes, and it is on a network with no
+route off the machine: it reaches the database and the object store and nothing
+else, since it is the process that runs a program over a document a stranger
+sent. The API gets one core and half a gigabyte. Both containers run as an
+unprivileged user, with a read-only root filesystem and no capabilities.
+
+That is also the honest figure behind everything above. The GPU numbers in
+[the performance report](performance.md) were measured on a laptop with a
+discrete card; a run submitted here is two shared cores, and the service
+publishes its own median step time so that nothing has to be inferred from
+figures that belong to different hardware.
+
+`deploy/README.md` is the operator's document: what a host needs, what each
+container is allowed to do, how the metadata database is backed up and how a
+restore is taken.
 
 ## When it is not there
 
@@ -129,3 +181,7 @@ fails the build rather than reaching a client that does not know about it.
   in the database that already holds the jobs.
 - [ADR-0057](adr/0057-store-trajectories-outside-the-database.md), store
   trajectories outside the database, and serve them through the API.
+- [ADR-0058](adr/0058-bound-the-service-with-the-jobs-it-already-stores.md),
+  bound the service with the jobs it already stores.
+- [ADR-0059](adr/0059-expire-submitted-results-after-a-week.md), expire
+  submitted results after a week.
