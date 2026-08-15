@@ -8,9 +8,9 @@
 # it.
 add_library(
   orrery_solvers STATIC
-  barnes_hut_solver.cpp cuda_direct_solver.cpp direct_kernel.cpp
-  direct_kernel_scalar.cpp direct_solver.cpp morton.cpp octree.cpp
-  reference_kernel.cpp sycl_direct_solver.cpp sycl_tree_solver.cpp
+  barnes_hut_solver.cpp cuda_direct_solver.cpp cuda_tree_solver.cpp
+  direct_kernel.cpp direct_kernel_scalar.cpp direct_solver.cpp morton.cpp
+  octree.cpp reference_kernel.cpp sycl_direct_solver.cpp sycl_tree_solver.cpp
   tree_walk.cpp)
 add_library(orrery::solvers ALIAS orrery_solvers)
 
@@ -122,7 +122,8 @@ endif()
 # cuda_direct_solver.cpp and backend/cuda_*.cpp are compiled in every build and
 # guarded internally, which is what keeps the interface answerable.
 if(ORRERY_ENABLE_CUDA)
-  add_library(orrery_cuda_kernels STATIC cuda_direct_kernel.cu)
+  add_library(orrery_cuda_kernels STATIC cuda_direct_kernel.cu
+                                         cuda_tree_kernel.cu)
   add_library(orrery::cuda_kernels ALIAS orrery_cuda_kernels)
 
   target_include_directories(

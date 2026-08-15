@@ -50,6 +50,8 @@
 
 #    include "orrery/core/softening.hpp"
 #    include "orrery/core/types.hpp"
+#    include "orrery/core/vec3.hpp"
+#    include "orrery/solvers/octree.hpp"
 
 namespace orrery::solvers {
 
@@ -99,7 +101,7 @@ struct CudaDirectArguments {
 ///
 /// Returns the runtime's status rather than throwing, because an exception
 /// thrown inside a translation unit compiled by one compiler and caught in one
-/// compiled by another is a arrangement that happens to work rather than one the
+/// compiled by another is an arrangement that happens to work rather than one the
 /// standard describes. The caller converts, once, at a boundary where this
 /// project already permits exceptions.
 ///
@@ -107,6 +109,124 @@ struct CudaDirectArguments {
 /// advance until the accelerations exist, which is the same argument the SYCL
 /// solvers give for an in-order queue.
 [[nodiscard]] cudaError_t launch_cuda_direct(const CudaDirectArguments& arguments, unsigned block);
+
+/// One cell of the tree, in the shape the device wants it.
+///
+/// The same narrowing `sycl_tree_solver.cpp` performs, for the same two reasons
+/// and with the same measurements behind them, which is a result rather than a
+/// coincidence: ADR-0030 argued the layout from cache line sizes and index
+/// ranges, and neither of those is a property of a vendor.
+///
+/// The indices become 32-bit. `core::Index` is `std::size_t` for the reason
+/// `core/types.hpp` gives, which is a statement about the host's containers and
+/// buys nothing here: this configuration would need four billion particles
+/// before a 32-bit node index could overflow. Halving the three index fields
+/// takes a node in a single-precision build from 48 bytes to 32, which is
+/// exactly a quarter of this device's 128-byte cache line, so four nodes share
+/// one line and a warp reading one node reads one aligned block.
+///
+/// The quadrupoles stay in an array of their own, for the reason `octree.hpp`
+/// gives: they are read only when they are switched on, and carrying them inside
+/// the node would double what every walk pulls through the cache in the
+/// configuration that does not use them.
+///
+/// Declared here rather than in the solver because both sides of the device
+/// boundary construct it: the host fills the array and the kernel reads it, and
+/// a layout described twice is a layout that will eventually be described
+/// differently twice.
+struct CudaTreeNode {
+    core::Vec3 centre_of_mass;
+    core::Real mass{};
+    core::Real acceptance_radius_squared{};
+
+    std::uint32_t next{};
+    std::uint32_t first_particle{};
+    std::uint32_t particle_count{};
+};
+
+/// Which of the two traversals the device runs.
+///
+/// Both are kept and both are correct, for the reason `TreeTraversal` in
+/// `solvers/sycl_tree_solver.hpp` gives: the independent walk is the baseline
+/// the coherent walk is measured against, and a mitigation whose baseline has
+/// been deleted is a mitigation nobody can check.
+///
+/// A separate enumeration from that one rather than a shared type. They name the
+/// same two ideas, and a caller holding a solver of one kind cannot hand its
+/// setting to the other, so sharing the type would only offer a conversion
+/// nobody should perform.
+enum class CudaTraversal : std::uint8_t {
+    /// One thread per target, each following its own node index.
+    kIndependent,
+
+    /// One node index per group of lanes, advanced by agreement.
+    kCoherent,
+};
+
+/// What the tree traversal reads and writes.
+///
+/// Bundled for the reason `CudaDirectArguments` is, and more so: there are
+/// fourteen pointers here and two kernels take the same fourteen.
+struct CudaTreeArguments {
+    const CudaTreeNode* nodes{};
+
+    /// Null when the moments are switched off, which is the whole of the test
+    /// the kernel makes. The branch is uniform across every thread in the
+    /// launch, so it predicts perfectly and costs one register.
+    const Quadrupole* quadrupoles{};
+
+    const core::Real* position_x{};
+    const core::Real* position_y{};
+    const core::Real* position_z{};
+    const core::Real* mass{};
+
+    core::Real* acceleration_x{};
+    core::Real* acceleration_y{};
+    core::Real* acceleration_z{};
+
+    /// Per target, reduced on the host. A counter shared between threads would
+    /// be an atomic written billions of times per evaluation and the most
+    /// contended address on the device, which is the same argument `WalkCounts`
+    /// makes for the CPU walk and `WalkArguments` for the SYCL one.
+    std::uint32_t* pair_counts{};
+    std::uint32_t* cell_counts{};
+    std::uint32_t* visit_counts{};
+
+    std::uint32_t node_count{};
+    std::uint32_t count{};
+
+    core::Softening softening;
+};
+
+/// Launch the tree traversal and wait for it.
+///
+/// `width` is how many lanes agree to walk together, and it is where this
+/// backend's traversal differs from the SYCL one in more than spelling.
+///
+/// There, the width is the sub-group size and is requested through a kernel
+/// attribute, so the device chooses whether it can offer 8, 16 or 32 and a
+/// request it cannot meet falls back to the compiler's own choice. Here the warp
+/// is 32 lanes and nothing can change that. So a narrower width is implemented
+/// rather than requested: the reduction that advances the node index is taken
+/// over segments of the warp instead of over the whole of it, which makes 8 and
+/// 16 mean what they meant on the other device even though the hardware is
+/// executing 32 lanes either way.
+///
+/// The two are therefore not the same measurement, and
+/// `docs/performance/cuda.md` says so where it reports the sweep. On Intel a
+/// narrow sub-group is narrower hardware; here it is the same hardware told to
+/// agree in smaller groups. What survives the difference is the quantity the
+/// sweep exists to expose, which is how much redundant walking coherence costs
+/// as the group grows.
+///
+/// Only 8, 16 and 32 are implemented, because each is a separate instantiation
+/// and the set is the same one the SYCL solver offers. Anything else is served
+/// at the warp width.
+///
+/// Returns the runtime's status rather than throwing, for the reason
+/// `launch_cuda_direct` gives. Synchronous, for the same reason again.
+[[nodiscard]] cudaError_t launch_cuda_tree(const CudaTreeArguments& arguments,
+                                           CudaTraversal traversal, unsigned block, unsigned width);
 
 } // namespace orrery::solvers
 
