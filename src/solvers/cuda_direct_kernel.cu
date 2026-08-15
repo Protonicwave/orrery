@@ -155,17 +155,15 @@ __global__ void direct_kernel(const CudaDirectArguments arguments) {
             const unsigned source_index = base + j;
             const bool masked = source_index == target || source_index >= arguments.count;
 
-            const Real separation_squared =
-                masked ? Real{1} : ((dx * dx) + (dy * dy) + (dz * dz));
+            const Real separation_squared = masked ? Real{1} : ((dx * dx) + (dy * dy) + (dz * dz));
             const Real source_mass = masked ? Real{0} : tile_mass[j];
 
             // The same function the CPU kernel, the SYCL kernel and the
             // potential energy diagnostic call, compiled for a third target.
             // There is one definition of the softened force in this project, and
             // `core/device.hpp` is what lets this compiler see it.
-            const Real factor =
-                source_mass * core::softened_inverse_distance_cubed(separation_squared,
-                                                                    arguments.softening);
+            const Real factor = source_mass * core::softened_inverse_distance_cubed(
+                                                  separation_squared, arguments.softening);
 
             sum_x += dx * factor;
             sum_y += dy * factor;
