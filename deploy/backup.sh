@@ -52,16 +52,18 @@ if [ ! -s "$FILE" ]; then
 fi
 
 # Read back what was just written, so that a broken dump is found now rather
-# than on the day somebody needs it. On the host if it has the tools, and
-# otherwise back through the container that has them: a custom-format dump has
-# to be seekable to be listed, so it is copied in rather than piped.
-if command -v pg_restore > /dev/null 2>&1; then
-    pg_restore --list "$FILE" > /dev/null
-else
-    $COMPOSE exec -T postgres sh -c \
-        'cat > /tmp/verify.dump && pg_restore --list /tmp/verify.dump > /dev/null;
-         status=$?; rm -f /tmp/verify.dump; exit $status' < "$FILE"
-fi
+# than on the day somebody needs it.
+#
+# Through the container rather than on the host, even where the host has the
+# tools. A dump carries the version of the pg_dump that wrote it and an older
+# pg_restore refuses it, so a host whose client is a release behind the server
+# would report every backup as broken. The one client that is always the right
+# one is the one in the image that made the dump, which is also the one the
+# restore uses. Copied in rather than piped, since a custom-format dump has to
+# be seekable to be listed.
+$COMPOSE exec -T postgres sh -c \
+    'cat > /tmp/verify.dump && pg_restore --list /tmp/verify.dump > /dev/null;
+     status=$?; rm -f /tmp/verify.dump; exit $status' < "$FILE"
 
 echo "wrote $FILE ($(wc -c < "$FILE") bytes)"
 
