@@ -34,7 +34,8 @@ first frame is the initial state and the second is the one above.
 Orrery simulates the gravitational interaction of large numbers of point masses:
 a direct O(N^2) solver and a Barnes-Hut O(N log N) solver, symplectic and
 reference integrators, a threaded and vectorised CPU backend, a SYCL backend for
-the integrated GPU, a real-time renderer and Python bindings. Two million
+the integrated GPU, a CUDA backend for a discrete one, a real-time renderer and
+Python bindings. Two million
 particles at 0.6 seconds per force evaluation, with no host-to-device copy
 anywhere.
 
@@ -438,6 +439,8 @@ The presets are:
 | `single-precision` | Release with `float` rather than `double` as the scalar type |
 | `sycl` | Release with the GPU backend. Needs the oneAPI DPC++ compiler |
 | `sycl-single-precision` | The same with `float`. The configuration the GPU figures come from |
+| `cuda` | Release with the second GPU backend, for an NVIDIA device. Needs the CUDA toolkit |
+| `cuda-single-precision` | The same with `float` |
 | `renderer` | Release with the viewer. Fetches GLFW and needs an OpenGL 3.3 driver |
 | `python` | Release with the extension module, importable from the build tree |
 | `wasm` | The browser module, through the Emscripten toolchain. Needs emsdk on the environment |
@@ -447,15 +450,27 @@ Every one of them is exercised by continuous integration, along with a
 clang-format check, on Linux with GCC and Clang, on macOS with Clang, and on
 Windows with MSVC.
 
-The GPU backend is off by default and a build without it is complete rather than
-degraded: the solvers are selected at run time and the GPU is one more of them.
-Building it needs the oneAPI DPC++ compiler, which is none of the three the
+Both GPU backends are off by default and a build without them is complete rather
+than degraded: the solvers are selected at run time and a GPU is one more of
+them. On a machine with no device the suite still passes in either
+configuration: the device cases skip and the discovery layer is required to
+report no device rather than fail.
+
+The SYCL backend needs the oneAPI DPC++ compiler, which is none of the three the
 project is otherwise tested with, so the compiler has to be named. On Windows
 that is `icx-cl`, the MSVC-style driver, because CMake drives a Windows IntelLLVM
 compiler with MSVC-style flags that `icpx` rejects; elsewhere it is `icpx`. Run
-the oneAPI environment script first. On a machine with no device the suite still
-passes: the GPU cases skip and the discovery layer is required to report no
-device rather than fail.
+the oneAPI environment script first.
+
+The CUDA backend needs only the toolkit's `nvcc` on the path, because the host
+compiler stays whichever one the build was already using: the device compiler
+sees the two kernel translation units and nothing else. It exists to test the
+solver interface against a second vendor rather than because the project needs
+two GPUs, which ADR-0060 records and
+[`docs/performance/cuda.md`](docs/performance/cuda.md) reports on. That document
+carries no timings yet, because no machine this project is developed on has an
+NVIDIA device and a figure that was not measured is not written down. The results
+table above is unchanged for the same reason.
 
 The documentation site is one command and needs Doxygen 1.10 or later:
 
@@ -492,11 +507,12 @@ The layers are `apps/`, `sim/`, `solvers/`, `integrators/`, `backend/`,
 does not know what a solver is and cannot read a file, and putting a simulation
 and a picture of one together is the job of the layer above them both. `sim/`
 owns a run, holding the solver, the integrator and the output, and it is the only
-layer that knows files exist. `backend/` holds both execution backends: the CPU
-thread pool and its schedulers, and the SYCL device discovery and unified memory
-the GPU solver is built on. The GPU kernels themselves sit in `solvers/` beside
-the CPU kernels they mirror, because a summation over pairs of particles is not a
-scheduling policy (ADR-0026). `python/` is not a layer at all: it depends on
+layer that knows files exist. `backend/` holds the execution backends: the CPU
+thread pool and its schedulers, the SYCL device discovery and unified memory one
+GPU solver is built on, and the CUDA device discovery and allocation the other is.
+The GPU kernels themselves sit in `solvers/` beside the CPU kernels they mirror,
+because a summation over pairs of particles is not a scheduling policy
+(ADR-0026). `python/` is not a layer at all: it depends on
 everything and nothing depends on it.
 
 ## Engineering practice

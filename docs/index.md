@@ -111,7 +111,7 @@ precision, is measured against direct summation in double precision.
 ## How it is built
 
 - [The API reference](annotated.html), generated from the public headers.
-- [Architecture decision records](adr/README.md). Fifty-seven short documents
+- [Architecture decision records](adr/README.md). Sixty short documents
   recording the decisions that had a credible alternative, each with its context
   and its consequences, none of them edited after it was merged.
 - [The measured results, subsystem by subsystem](performance/roofline.md), with

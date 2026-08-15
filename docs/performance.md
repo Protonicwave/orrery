@@ -20,6 +20,13 @@ tables, the per-worker breakdowns and an account of which of its figures
 reproduce and which do not. This report gathers the conclusions and the numbers
 that survive them.
 
+[`performance/cuda.md`](performance/cuda.md) is a sixth and is not yet one of
+them. It describes the second GPU backend, which exists to find out how much of
+the first one was about gravity and how much was about one vendor, and it carries
+no figures: no machine this project is developed on has an NVIDIA device, and a
+number that was not measured is not written down. What it does carry is what the
+port established without one, and the protocol for taking the rest.
+
 ## The machine
 
 | Property | Value |
