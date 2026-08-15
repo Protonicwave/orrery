@@ -151,7 +151,7 @@ if(ORRERY_ENABLE_CUDA)
   # the policy that matters: a warning nobody has to act on is a warning nobody
   # acts on.
   if(ORRERY_WARNINGS_AS_ERRORS)
-    target_compile_options(orrery_cuda_kernels PRIVATE -Werror=all-warnings)
+    target_compile_options(orrery_cuda_kernels PRIVATE --Werror=all-warnings)
   endif()
 
   target_link_libraries(orrery_solvers PRIVATE orrery::cuda_kernels)

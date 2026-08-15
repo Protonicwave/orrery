@@ -117,7 +117,7 @@ if(ORRERY_ENABLE_CUDA)
                CUDA_STANDARD_REQUIRED ON)
 
   if(ORRERY_WARNINGS_AS_ERRORS)
-    target_compile_options(orrery_cuda_probes PRIVATE -Werror=all-warnings)
+    target_compile_options(orrery_cuda_probes PRIVATE --Werror=all-warnings)
   endif()
 
   target_link_libraries(orrery_cuda_scaling PRIVATE orrery_cuda_probes)

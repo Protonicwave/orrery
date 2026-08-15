@@ -162,6 +162,55 @@ jobs:
           cmake --build --preset sycl
           ctest --preset sycl
 
+  cuda:
+    name: CUDA compile and no-device fallback
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      # The device compiler and the runtime's headers and library, and nothing
+      # else. The full toolkit is several gigabytes of profilers, libraries and
+      # samples this project does not use, and installing it would add minutes
+      # to a job that needs two packages.
+      #
+      # Pinned to a release rather than taken from whatever the repository has
+      # latest, for the reason ADR-0002 pins everything else: a toolkit that
+      # moved under this project would change which warnings the kernels produce
+      # and which architectures they compile for, without anything in this
+      # repository changing.
+      - name: Install the CUDA compiler and Ninja
+        run: |
+          set -o errexit
+          wget --quiet \
+            https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
+          sudo dpkg -i cuda-keyring_1.1-1_all.deb
+          sudo apt-get update
+          sudo apt-get install --yes ninja-build cuda-nvcc-12-6 cuda-cudart-dev-12-6
+
+      # This job cannot measure a GPU and does not try. No hosted runner has an
+      # NVIDIA card, so what is checked is the half of this phase a machine
+      # without one can still check, and that half is not small: that the two
+      # kernels pass the device compiler, that the host halves compile under
+      # this project's warning set, and that discovery reports no device rather
+      # than throwing.
+      #
+      # The last of those is the one worth having here. Every CUDA case in the
+      # suite skips itself without a device and requires the discovery layer to
+      # answer, so a change that made a missing device an error would fail here
+      # rather than on somebody's notebook.
+      #
+      # CUDACXX names the compiler because the toolkit installs outside PATH,
+      # and the architecture is the one docs/performance/cuda.md is measured on.
+      - name: Configure, build and test
+        env:
+          CUDACXX: /usr/local/cuda-12.6/bin/nvcc
+        run: |
+          set -o errexit
+          cmake --preset cuda
+          cmake --build --preset cuda
+          ctest --preset cuda
+
   renderer:
     name: Renderer compile
     runs-on: ubuntu-24.04
@@ -468,7 +517,7 @@ jobs:
         # tracked is not quietly exempt from the project's formatting.
         run: |
           set -o errexit
-          files=$(git ls-files '*.cpp' '*.hpp' '*.ipp')
+          files=$(git ls-files '*.cpp' '*.hpp' '*.ipp' '*.cu')
           if [ -z "${files}" ]; then
             echo "No C++ sources were found. The pattern above is wrong."
             exit 1
