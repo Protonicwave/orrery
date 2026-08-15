@@ -1,7 +1,8 @@
 # The CUDA backend, and what it says about the SYCL one
 
-Measured on a machine nobody working on this project owns, which is a first for
-this directory and shapes everything below.
+The second GPU backend, and the only document in this directory whose figures
+would have to come from a machine nobody working on this project owns. That fact
+shapes everything below, starting with the next section.
 
 ## What this document does not yet contain
 
@@ -20,18 +21,20 @@ The claims it would make about *speed* are not checked at all yet.
 | Claim | Established by | Status |
 | --- | --- | --- |
 | The backend needs no change to the solver interface | The code compiles against `ForceSolver` unchanged | Established |
-| The two CUDA traversals compute the same sum as each other | `tests/solvers/cuda_tree_solver_test.cpp`, exact counter equality | Established on a device |
-| The CUDA tree walks the same cells as the CPU tree | The same file, exact counter equality | Established on a device |
-| The kernels agree with the compensated reference | `tests/solvers/cuda_direct_solver_test.cpp`, the SYCL bounds unchanged | Established on a device |
 | The kernels pass the device compiler | The `cuda` job in continuous integration | Established |
 | Discovery degrades rather than failing without a device | The same job, which has no device | Established |
+| The two CUDA traversals compute the same sum as each other | `tests/solvers/cuda_tree_solver_test.cpp`, exact counter equality | Asserted, never run |
+| The CUDA tree walks the same cells as the CPU tree | The same file, exact counter equality | Asserted, never run |
+| The kernels agree with the compensated reference | `tests/solvers/cuda_direct_solver_test.cpp`, the SYCL bounds unchanged | Asserted, never run |
 | How fast any of it is | `benchmarks/cuda_scaling.cpp` | **Not taken** |
 | Whether the coherent traversal wins on a second vendor | The same benchmark | **Not taken** |
 
-"Established on a device" means the case exists, is exact rather than tolerant,
-and skips itself where there is nothing to run it on. Those cases have not run
-anywhere yet, and the section at the end says what has to happen before this
-document can say they have.
+"Asserted, never run" is the row to read carefully. The case exists, it demands
+exact equality rather than a tolerance, and it skips itself where there is
+nothing to run it on. Every machine it has met so far is such a machine, so it
+has skipped every time, and a test that has only ever skipped has established
+nothing. The section on taking the figures says what has to happen first, and the
+answer is that the suite has to be run on a device before any of it is quoted.
 
 ## What the backend is
 
