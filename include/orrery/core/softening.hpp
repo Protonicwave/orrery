@@ -35,6 +35,7 @@
 
 #include <cmath>
 
+#include "orrery/core/device.hpp"
 #include "orrery/core/types.hpp"
 
 namespace orrery::core {
@@ -53,7 +54,7 @@ public:
     /// The right choice for the analytic comparisons, where softening would be
     /// an error term rather than a model. A Kepler orbit is between two point
     /// masses and is checked against the point-mass result.
-    constexpr Softening() noexcept = default;
+    ORRERY_DEVICE constexpr Softening() noexcept = default;
 
     /// Softening with the given length.
     ///
@@ -63,10 +64,10 @@ public:
     /// The sign of the argument does not matter, since only the square is
     /// kept. That is not an invitation to pass a negative length; it is the
     /// reason no check rejects one.
-    constexpr explicit Softening(Real length) noexcept : squared_(length * length) {}
+    ORRERY_DEVICE constexpr explicit Softening(Real length) noexcept : squared_(length * length) {}
 
     /// The softening length squared, which is the form every kernel uses.
-    [[nodiscard]] constexpr Real squared() const noexcept { return squared_; }
+    [[nodiscard]] ORRERY_DEVICE constexpr Real squared() const noexcept { return squared_; }
 
     [[nodiscard]] Real length() const noexcept { return std::sqrt(squared_); }
 
@@ -79,8 +80,8 @@ private:
 /// Takes the squared separation because that is what a caller has: computing
 /// the separation itself would mean a square root that this function would
 /// immediately undo.
-[[nodiscard]] inline Real softened_inverse_distance(Real separation_squared,
-                                                    Softening softening) noexcept {
+[[nodiscard]] ORRERY_DEVICE inline Real softened_inverse_distance(Real separation_squared,
+                                                                  Softening softening) noexcept {
     return Real{1} / std::sqrt(separation_squared + softening.squared());
 }
 
@@ -92,8 +93,8 @@ private:
 /// rather than as a second square root because the two forms must agree in the
 /// last bits: an acceleration derived from a slightly different value than the
 /// potential energy uses would show up as a drift that no integrator caused.
-[[nodiscard]] inline Real softened_inverse_distance_cubed(Real separation_squared,
-                                                          Softening softening) noexcept {
+[[nodiscard]] ORRERY_DEVICE inline Real
+softened_inverse_distance_cubed(Real separation_squared, Softening softening) noexcept {
     const Real inverse = softened_inverse_distance(separation_squared, softening);
     return inverse * inverse * inverse;
 }
