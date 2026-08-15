@@ -50,7 +50,7 @@ _COLUMNS = """
     job.id, job.state, job.created_at, job.attempts, job.particles, job.steps,
     job.timestep, job.stride, job.frames, job.progress_step, job.progress_time,
     job.step_ms, job.energy_drift, job.trajectory_key, job.diagnostics_key,
-    job.error,
+    job.expired_at, job.error,
     CASE WHEN job.state = 'queued' THEN (
         SELECT count(*) FROM job AS ahead
         WHERE ahead.state = 'queued' AND ahead.created_at < job.created_at
@@ -64,9 +64,14 @@ def _job(row: dict[str, Any]) -> Job:
     The two result fields are paths rather than keys. A client is told where to
     fetch a trajectory from this service, and where this service keeps it is
     nothing the client can use or should learn.
+
+    A job whose result has expired offers neither path. The keys stay in the row,
+    because they are the record of where the result went, and a job that offered
+    a path to an object the store no longer holds would be a link that answers
+    404 rather than a run that is plainly over.
     """
     identifier = str(row["id"])
-    finished = row["trajectory_key"] is not None
+    finished = row["trajectory_key"] is not None and row["expired_at"] is None
     return Job(
         id=identifier,
         state=row["state"],
@@ -88,7 +93,7 @@ def _job(row: dict[str, Any]) -> Job:
         trajectory=f"/jobs/{identifier}/trajectory" if finished else None,
         diagnostics=(
             f"/jobs/{identifier}/diagnostics"
-            if row["diagnostics_key"] is not None
+            if row["diagnostics_key"] is not None and row["expired_at"] is None
             else None
         ),
     )
@@ -102,6 +107,21 @@ class Claim:
     configuration: str
     steps: int
     attempts: int
+    #: The request that submitted it, so the worker's log lines can be read
+    #: beside the API's for the same run. Empty for a job submitted before
+    #: requests carried one.
+    request_id: str = ""
+
+
+@dataclass(frozen=True)
+class Result:
+    """Where a job's output is, or why it is not there."""
+
+    trajectory: str | None
+    diagnostics: str | None
+    #: True when there was a result and it has since been removed from the
+    #: store, which is a different thing from a run that produced nothing.
+    expired: bool
 
 
 @dataclass(frozen=True)
@@ -122,7 +142,14 @@ class Jobs:
     def __init__(self, connections: AsyncConnectionPool) -> None:
         self._pool = connections
 
-    async def submit(self, plan: Plan) -> tuple[Job, bool]:
+    async def submit(
+        self,
+        plan: Plan,
+        *,
+        submitter: str = "",
+        request_id: str = "",
+        work: float = 0.0,
+    ) -> tuple[Job, bool]:
         """Queue `plan`, or return the job that already runs it.
 
         Returns the job and whether it was already there.
@@ -139,15 +166,50 @@ class Jobs:
         statement, so it would see nothing and every submission would look like
         a duplicate. Both statements are in one transaction, and the second is
         after the first, so it sees the insert.
+
+        A run whose result has expired is queued again rather than returned as a
+        finished job with nothing to fetch. That is the one case where
+        idempotency has to give way: the answer to "you have already run this" is
+        only useful while the answer is still there.
         """
         async with self._pool.connection() as connection:
+            revived = await connection.execute(
+                """
+                UPDATE job SET
+                    state = 'queued',
+                    attempts = 0,
+                    worker = '',
+                    claimed_at = NULL,
+                    heartbeat_at = NULL,
+                    finished_at = NULL,
+                    created_at = now(),
+                    progress_step = 0,
+                    progress_time = 0,
+                    step_ms = NULL,
+                    energy_drift = NULL,
+                    trajectory_key = NULL,
+                    diagnostics_key = NULL,
+                    trajectory_bytes = NULL,
+                    expired_at = NULL,
+                    error = '',
+                    submitter = %s,
+                    request_id = %s,
+                    work = %s
+                WHERE content_hash = %s AND expired_at IS NOT NULL
+                RETURNING id
+                """,
+                (submitter, request_id, work, plan.content_hash),
+            )
+            again = await revived.fetchone() is not None
+
             inserted = await connection.execute(
                 """
                 INSERT INTO job (
                     id, content_hash, configuration, state,
-                    particles, steps, timestep, stride, frames
+                    particles, steps, timestep, stride, frames,
+                    submitter, request_id, work
                 )
-                VALUES (%s, %s, %s, 'queued', %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, 'queued', %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (content_hash) DO NOTHING
                 RETURNING id
                 """,
@@ -160,9 +222,12 @@ class Jobs:
                     plan.configuration.run.timestep,
                     plan.stride,
                     plan.frames,
+                    submitter,
+                    request_id,
+                    work,
                 ),
             )
-            duplicate = await inserted.fetchone() is None
+            duplicate = not again and await inserted.fetchone() is None
 
             result = await connection.execute(
                 f"SELECT {_COLUMNS} FROM job WHERE content_hash = %s",
@@ -176,7 +241,9 @@ class Jobs:
             assert row is not None, "the job that was just submitted is not there"
             return _job(row), duplicate
 
-    async def claim(self, worker: str, *, max_attempts: int) -> Claim | None:
+    async def claim(
+        self, worker: str, *, max_attempts: int, max_running: int
+    ) -> Claim | None:
         """Take the oldest queued job, or return None if there is none to take.
 
         The whole of the concurrency argument is in this statement. The inner
@@ -192,6 +259,14 @@ class Jobs:
         statement that would have queued it again. The guard is here so that a
         row which somehow got back to queued with its attempts spent cannot be
         picked up for ever by a worker that keeps dying on it.
+
+        `max_running` caps how many runs may be in progress across the whole
+        service, and it is enforced here because the claim is the only place a
+        run begins. It is a cap to within the number of workers claiming in the
+        same instant: two that both read a count below the cap will both take a
+        job. That is a deployment briefly running one more simulation than it
+        meant to, which is a load the machine can hold, and the sharp ceiling on
+        what a day costs is the budget rather than this.
         """
         async with self._pool.connection() as connection:
             result = await connection.execute(
@@ -199,6 +274,10 @@ class Jobs:
                 WITH taken AS (
                     SELECT id FROM job
                     WHERE state = 'queued' AND attempts < %s
+                      AND (
+                          SELECT count(*) FROM job AS busy
+                          WHERE busy.state = 'running'
+                      ) < %s
                     ORDER BY created_at
                     FOR UPDATE SKIP LOCKED
                     LIMIT 1
@@ -211,9 +290,10 @@ class Jobs:
                     worker = %s
                 FROM taken
                 WHERE job.id = taken.id
-                RETURNING job.id, job.configuration, job.steps, job.attempts
+                RETURNING job.id, job.configuration, job.steps, job.attempts,
+                          job.request_id
                 """,
-                (max_attempts, worker),
+                (max_attempts, max_running, worker),
             )
             row = await result.fetchone()
             if row is None:
@@ -223,6 +303,7 @@ class Jobs:
                 configuration=row["configuration"],
                 steps=row["steps"],
                 attempts=row["attempts"],
+                request_id=row["request_id"],
             )
 
     async def beat(
@@ -383,20 +464,35 @@ class Jobs:
             row = await result.fetchone()
             return None if row is None else _job(row)
 
-    async def keys(self, identifier: str) -> tuple[str | None, str | None]:
-        """Where a finished job's two files live in object storage."""
+    async def keys(self, identifier: str) -> Result:
+        """Where a finished job's two files live in object storage.
+
+        Carries whether the result has expired as well as where it was, so that
+        the API can tell somebody their run's result was removed rather than
+        that the run never produced one. Those are different sentences and only
+        one of them is worth reading twice.
+        """
         async with self._pool.connection() as connection:
             try:
                 key = uuid.UUID(identifier)
             except ValueError:
-                return None, None
+                return Result(None, None, False)
             result = await connection.execute(
-                "SELECT trajectory_key, diagnostics_key FROM job WHERE id = %s", (key,)
+                """
+                SELECT trajectory_key, diagnostics_key, expired_at
+                FROM job WHERE id = %s
+                """,
+                (key,),
             )
             row = await result.fetchone()
             if row is None:
-                return None, None
-            return row["trajectory_key"], row["diagnostics_key"]
+                return Result(None, None, False)
+            expired = row["expired_at"] is not None
+            return Result(
+                trajectory=None if expired else row["trajectory_key"],
+                diagnostics=None if expired else row["diagnostics_key"],
+                expired=expired,
+            )
 
     async def counts(self) -> Counts:
         """How many jobs are waiting and how many are being run."""
@@ -412,6 +508,83 @@ class Jobs:
             row = await result.fetchone()
             assert row is not None
             return Counts(queued=row["queued"], running=row["running"])
+
+    async def submissions(self, submitter: str, *, window: timedelta) -> int:
+        """How many runs this submitter has queued inside `window`.
+
+        Counted from the jobs themselves rather than from a table of requests.
+        The job is the thing that costs something, it is already stored, and a
+        separate record of who asked for what would be a second place the same
+        fact lived and a second thing to expire.
+        """
+        async with self._pool.connection() as connection:
+            result = await connection.execute(
+                """
+                SELECT count(*) AS taken FROM job
+                WHERE submitter = %(submitter)s
+                  AND created_at > now() - %(window)s::interval
+                """,
+                {"submitter": submitter, "window": window},
+            )
+            row = await result.fetchone()
+            assert row is not None
+            return row["taken"]
+
+    async def spent(self, *, window: timedelta) -> float:
+        """The work every job queued inside `window` asked for.
+
+        Over submissions rather than over completed runs, because the point of
+        the budget is to refuse the next one before it is taken, and a queue of
+        thirty accepted runs has already committed the machine to that work
+        whether or not any of them has finished.
+        """
+        async with self._pool.connection() as connection:
+            result = await connection.execute(
+                """
+                SELECT coalesce(sum(work), 0) AS work FROM job
+                WHERE created_at > now() - %(window)s::interval
+                """,
+                {"window": window},
+            )
+            row = await result.fetchone()
+            assert row is not None
+            return float(row["work"])
+
+    async def stale(self, *, after: timedelta, batch: int = 100) -> list[str]:
+        """The jobs whose results are old enough to be removed from the store.
+
+        Returns their identifiers. Removing the objects is the caller's, and it
+        happens before `forget` marks the rows, so a sweep that dies half way
+        leaves objects that are deleted again next time rather than rows that
+        claim a result nothing holds.
+
+        A batch at a time, so that a service coming up against a store nobody
+        has swept for a month does one bounded piece of work an hour rather than
+        one very long one.
+        """
+        async with self._pool.connection() as connection:
+            result = await connection.execute(
+                """
+                SELECT id FROM job
+                WHERE trajectory_key IS NOT NULL
+                  AND expired_at IS NULL
+                  AND finished_at < now() - %(after)s::interval
+                ORDER BY finished_at
+                LIMIT %(batch)s
+                """,
+                {"after": after, "batch": batch},
+            )
+            return [str(row["id"]) async for row in result]
+
+    async def forget(self, identifiers: list[str]) -> None:
+        """Record that these jobs' results are no longer in the store."""
+        if not identifiers:
+            return
+        async with self._pool.connection() as connection:
+            await connection.execute(
+                "UPDATE job SET expired_at = now() WHERE id = ANY(%s::uuid[])",
+                (identifiers,),
+            )
 
     async def reference(self) -> tuple[float, int, int] | None:
         """The median step time this service has achieved, and what it is over.

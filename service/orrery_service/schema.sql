@@ -64,6 +64,39 @@ CREATE TABLE IF NOT EXISTS job (
     error text NOT NULL DEFAULT ''
 );
 
+-- The columns added after the table was first written.
+--
+-- Separately, and each safe to run again, because `CREATE TABLE IF NOT EXISTS`
+-- does nothing at all to a table that is already there: a deployment that has
+-- been running since before these existed would otherwise come up against a
+-- schema without them and fail on the first submission. This is what a service
+-- with no migration tool has instead of one, and it is enough while every change
+-- is a column with a default.
+ALTER TABLE job ADD COLUMN IF NOT EXISTS
+    -- Who submitted it, as a salted hash of their address rather than the
+    -- address. What the rate limit needs is to tell two submitters apart, which
+    -- a hash does, and this service has no accounts and no reason to hold
+    -- anything a person could be identified from later.
+    submitter text NOT NULL DEFAULT '';
+
+ALTER TABLE job ADD COLUMN IF NOT EXISTS
+    -- What the run cost, in the units `limits.work_units` scores. Stored rather
+    -- than recomputed, so that the budget is a sum over a column and does not
+    -- have to re-read every configuration to add up a day.
+    work double precision NOT NULL DEFAULT 0;
+
+ALTER TABLE job ADD COLUMN IF NOT EXISTS
+    -- The request that submitted it. Carried so that the API's log line for a
+    -- submission and the worker's log lines for the run it became can be read as
+    -- one story, which is the whole of what a request identifier is for.
+    request_id text NOT NULL DEFAULT '';
+
+ALTER TABLE job ADD COLUMN IF NOT EXISTS
+    -- When the result was removed from object storage, if it has been.
+    -- Distinguishes a run whose trajectory has expired from one that never
+    -- wrote one, which are different things to be told.
+    expired_at timestamptz;
+
 -- The index the claim reads: the oldest queued job, without walking the
 -- finished ones. Partial, because the finished rows are the great majority
 -- after a day and none of them is ever a candidate.
@@ -71,6 +104,16 @@ CREATE INDEX IF NOT EXISTS job_queued ON job (created_at) WHERE state = 'queued'
 
 -- The one the reaper reads, for the same reason.
 CREATE INDEX IF NOT EXISTS job_running ON job (heartbeat_at) WHERE state = 'running';
+
+-- The two the ceilings read: how much one submitter has asked for lately, and
+-- how much everybody has. Both are counted over a window ending now, so both
+-- are ranges of created_at and neither walks the history to answer.
+CREATE INDEX IF NOT EXISTS job_submitted ON job (submitter, created_at);
+CREATE INDEX IF NOT EXISTS job_created ON job (created_at);
+
+-- The one the expiry sweep reads: finished runs whose result is still stored.
+CREATE INDEX IF NOT EXISTS job_stored ON job (finished_at)
+    WHERE trajectory_key IS NOT NULL;
 
 -- Which workers are alive.
 --

@@ -100,16 +100,32 @@ class Reference(BaseModel):
 class Capabilities(BaseModel):
     """What the service can do at the moment it was asked.
 
-    Fetched before the console offers to submit anything. Three of its fields
-    can each independently mean the button should say something other than
-    "submit": no worker has beaten recently, the queue is full, or the service
-    did not answer at all. ADR-0054 is what the client does in each case.
+    Fetched before the console offers to submit anything. Several conditions
+    each independently mean the button should say something other than "submit":
+    no worker has beaten recently, the queue is full, the service has spent the
+    computing it allows itself in a day, or it did not answer at all. ADR-0054 is
+    what the client does in each case.
+
+    Which of them it is arrives as a sentence rather than as flags the client
+    turns back into one. The service knows why it is refusing, and a client
+    reconstructing the reason from `workers` and `queued` would be a second
+    statement of the same rule that quietly stops matching the first the moment a
+    new condition is added, which is what happened when the budget was.
     """
 
     version: str = Field(description="The simulator version the worker runs.")
     limits: Limits
     accepting: bool = Field(
-        description="False when the queue is full or no worker is alive."
+        description=(
+            "False when no worker is alive, the queue is full, or the service "
+            "has spent its budget for the day."
+        )
+    )
+    refusal: str = Field(
+        description=(
+            "Empty while accepting. Otherwise one sentence saying which of "
+            "those it is, in the service's own words."
+        )
     )
     queued: int
     #: Workers whose heartbeat is inside the visibility timeout.

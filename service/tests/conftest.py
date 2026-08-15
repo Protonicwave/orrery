@@ -118,6 +118,11 @@ def settings_for_tests() -> Settings:
         visibility_timeout=timedelta(seconds=1),
         heartbeat_interval=timedelta(seconds=0.2),
         max_attempts=3,
+        # A salt so that the cases exercise the same path a deployment takes,
+        # and the forwarded header ignored, which is the default and the safe
+        # answer for a service with nothing in front of it.
+        address_salt="tests",
+        trust_forwarded_for=False,
         allowed_origins=("http://localhost:5173",),
     )
 

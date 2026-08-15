@@ -270,18 +270,19 @@ export function Console({ run, chrome, velocities, solver, service }: ConsolePro
   const ceiling = limits?.max_particles ?? state.requestedCount;
 
   // Why the tier cannot be operated, in one sentence, or empty when it can.
-  // Three different failures with the same answer for the reader, which is that
-  // the published runs are unaffected and are worth looking at.
+  // Several different failures with the same answer for the reader, which is
+  // that the published runs are unaffected and are worth looking at.
+  //
+  // Which failure it is comes from the service rather than being worked out
+  // here from its fields. It knows why it is refusing, and a second statement
+  // of that rule in the client would be one that stopped matching the service's
+  // the first time a condition was added to it.
   const refusal =
     view.unreachable !== ''
       ? `${view.unreachable}. The published runs below are unaffected, and every figure in this instrument comes from one of them.`
-      : view.capabilities === null
+      : view.capabilities === null || view.capabilities.accepting
         ? ''
-        : view.capabilities.workers === 0
-          ? 'No worker is available to take a run at the moment. The published runs below are unaffected.'
-          : view.capabilities.queued >= view.capabilities.limits.max_queue
-            ? `The queue is full at ${decimal(view.capabilities.queued)} runs. The published runs below are unaffected.`
-            : '';
+        : `This service is not taking runs at the moment: ${view.capabilities.refusal}. The published runs below are unaffected.`;
 
   // Adjustable and submittable are not the same question. The controls stay
   // live while a submission is in flight, so that somebody can see what they

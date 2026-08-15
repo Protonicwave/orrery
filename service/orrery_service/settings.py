@@ -43,6 +43,24 @@ def _integer(name: str, fallback: int) -> int:
         raise SettingsError(f"{name} is not a whole number: {text!r}") from error
 
 
+def _flag(name: str, fallback: bool) -> bool:
+    """A yes or no, spelled any of the ways somebody writing a compose file will.
+
+    Anything unrecognised is an error rather than a false. A deployment that
+    wrote `ORRERY_TRUST_FORWARDED_FOR=yes please` and got a service quietly
+    ignoring its proxy would have a rate limit that counted every submission
+    against one address.
+    """
+    text = os.environ.get(name, "").strip().lower()
+    if not text:
+        return fallback
+    if text in ("1", "true", "yes", "on"):
+        return True
+    if text in ("0", "false", "no", "off"):
+        return False
+    raise SettingsError(f"{name} is not a yes or a no: {text!r}")
+
+
 @dataclass(frozen=True)
 class Settings:
     """Everything the service reads out of its environment."""
@@ -82,6 +100,25 @@ class Settings:
     #: for ever would be a queue that never drains.
     max_attempts: int
 
+    #: What the per-address rate limit hashes addresses with.
+    #:
+    #: The database holds a hash rather than an address, and a hash of something
+    #: as guessable as an IPv4 address is only as private as the salt in front of
+    #: it. Empty is allowed and is logged as what it is on start-up, because a
+    #: laptop running the compose stack should not need a secret to start; a
+    #: deployment sets one.
+    address_salt: str
+
+    #: Whether to believe `X-Forwarded-For`.
+    #:
+    #: Off unless the deployment says otherwise. The header is written by
+    #: whatever spoke to the service last, so trusting it when nothing strips it
+    #: means the rate limit is per address the submitter chose, which is no rate
+    #: limit at all. On, behind a proxy that sets it, it is the only way to see
+    #: past the proxy's own address, which is the opposite failure: one address
+    #: for everybody.
+    trust_forwarded_for: bool
+
     #: Which origins the browser client may call this service from.
     #:
     #: A list rather than a wildcard. The site is published on one origin, the
@@ -106,6 +143,8 @@ class Settings:
                 seconds=_integer("ORRERY_HEARTBEAT_SECONDS", 15)
             ),
             max_attempts=_integer("ORRERY_MAX_ATTEMPTS", 3),
+            address_salt=os.environ.get("ORRERY_ADDRESS_SALT", ""),
+            trust_forwarded_for=_flag("ORRERY_TRUST_FORWARDED_FOR", False),
             allowed_origins=tuple(
                 origin.strip()
                 for origin in os.environ.get("ORRERY_ALLOWED_ORIGINS", "").split(",")

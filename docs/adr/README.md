@@ -71,3 +71,5 @@ introduces it.
 | [0055](0055-run-the-full-solver-server-side.md) | Run the full solver server side, over a document rather than a form | Accepted |
 | [0056](0056-keep-the-job-queue-in-the-database.md) | Keep the job queue in the database that already holds the jobs | Accepted |
 | [0057](0057-store-trajectories-outside-the-database.md) | Store trajectories outside the database, and serve them through the API | Accepted |
+| [0058](0058-bound-the-service-with-the-jobs-it-already-stores.md) | Bound the service with the jobs it already stores | Accepted |
+| [0059](0059-expire-submitted-results-after-a-week.md) | Expire submitted results after a week | Accepted |

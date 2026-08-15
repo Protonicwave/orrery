@@ -54,6 +54,17 @@ class Progress:
     async def start(self) -> None:
         self._task = asyncio.create_task(self._listen(), name="progress-listener")
 
+    @property
+    def running(self) -> bool:
+        """Whether the listener is still there.
+
+        Read by the liveness probe. The listener catches everything it can and
+        listens again, so the only way this is false is that it was never
+        started or its task ended, and either means progress has stopped
+        reaching anybody watching a run.
+        """
+        return self._task is not None and not self._task.done()
+
     async def stop(self) -> None:
         if self._task is None:
             return

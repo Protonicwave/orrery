@@ -36,8 +36,10 @@ curl -X POST http://localhost:8000/jobs \
 | `GET /jobs/{id}/trajectory` | The result, answering range requests |
 | `GET /jobs/{id}/diagnostics` | The conserved quantities the run wrote |
 | `WS /jobs/{id}/progress` | The same job, pushed whenever it changes |
-| `GET /capabilities` | What the service will accept, and whether it is accepting |
-| `GET /health` | Whether the process is alive, and whether it can work |
+| `GET /capabilities` | What the service will accept, whether it is accepting, and in its own words why not |
+| `GET /health` | Liveness. Whether this process is working, touching neither dependency |
+| `GET /ready` | Readiness. Whether it can reach the database and the object store |
+| `GET /metrics` | Requests, submissions, the queue and the budget, in the Prometheus text format |
 
 The contract is `orrery_service/contract.py` and nothing else. The client's half,
 `web/src/service/contract.ts`, is generated from it:
@@ -56,6 +58,18 @@ A submission is refused rather than clamped, and the refusal names the setting.
 it is; in summary, a run may ask for at most 20,000 particles and at most 20,000
 steps, and at most as much work as the demonstration in the README, which is
 20,000 particles over 6,000 steps. Fewer particles buys more steps.
+
+Four further ceilings bound the sequence of submissions rather than one of them:
+six runs an hour from one address, twenty-four full-size runs of work a day
+across the whole service, two runs in progress at once, and a request body of
+64 kB. The first three are counted over the jobs already in the database
+(ADR-0058); the last is checked before the body is read. A submission over the
+rate limit is answered 429 with `Retry-After`, and one over the budget is
+answered 503 with the same sentence `GET /capabilities` was giving.
+
+Results are removed from object storage seven days after a run finishes
+(ADR-0059). The job stays, and says its result was removed rather than that it
+produced none. The same configuration submitted after that runs again.
 
 The two SYCL solvers are refused. The worker has no GPU, and the published GPU
 figures were measured on the machine `docs/performance.md` names.
@@ -82,6 +96,13 @@ service that comes up healthy pointed at the wrong place.
 | `ORRERY_VISIBILITY_TIMEOUT_SECONDS` | How long a claimed job may go without a heartbeat. Defaults to 90 |
 | `ORRERY_HEARTBEAT_SECONDS` | How often a worker says it is alive. Defaults to 15 |
 | `ORRERY_MAX_ATTEMPTS` | How many times a job may be claimed. Defaults to 3 |
+| `ORRERY_ADDRESS_SALT` | What the rate limit hashes addresses with. Empty is allowed and is logged as what it is |
+| `ORRERY_TRUST_FORWARDED_FOR` | Whether to read the client's address from `X-Forwarded-For`. Off unless there is a proxy in front that sets it |
+
+The ceilings themselves are not settings. They are in
+`orrery_service/limits.py`, each with the measurement or the argument that puts
+it where it is, because a number an operator can change without reading why it
+was chosen is a number that ends up wrong.
 
 ## The tests
 
@@ -122,3 +143,10 @@ trajectory the client can play.
 - ADR-0055, run the full solver server side.
 - ADR-0056, keep the job queue in the database.
 - ADR-0057, store trajectories outside the database.
+- ADR-0058, bound the service with the jobs it already stores.
+- ADR-0059, expire submitted results after a week.
+
+## Deploying it
+
+`deploy/README.md`: what a host needs, what each container is allowed to do, and
+how the metadata database is backed up and restored.
