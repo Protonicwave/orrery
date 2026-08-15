@@ -415,6 +415,32 @@ jobs:
         if: always()
         run: docker compose -f deploy/compose.yaml down --volumes
 
+      # The deployment overlay is never brought up here, so what can be checked
+      # is that it is a stack at all: that it renders, and that the property it
+      # exists for survived the merge. The worker being on the internal network
+      # and on nothing else is the one that would fail silently, since a stack
+      # with a worker that can reach the internet comes up perfectly well.
+      - name: Check the deployment stack renders
+        env:
+          ORRERY_POSTGRES_USER: orrery
+          ORRERY_POSTGRES_PASSWORD: not-a-real-password
+          ORRERY_POSTGRES_DB: orrery
+          ORRERY_DATABASE_URL: postgresql://orrery:not-a-real-password@postgres:5432/orrery
+          ORRERY_STORAGE_ACCESS_KEY: orrery
+          ORRERY_STORAGE_SECRET_KEY: not-a-real-password
+          ORRERY_ALLOWED_ORIGINS: https://example.invalid
+          ORRERY_ADDRESS_SALT: not-a-real-salt
+        run: |
+          set -o errexit
+          docker compose -f deploy/compose.yaml config > /dev/null
+          docker compose -f deploy/compose.yaml -f deploy/production.yaml \
+            config --format json > "$RUNNER_TEMP/stack.json"
+
+          test "$(jq -r '.services.worker.networks | keys | join(",")' "$RUNNER_TEMP/stack.json")" = internal
+          test "$(jq -r '.services.postgres.ports // [] | length' "$RUNNER_TEMP/stack.json")" = 0
+          test "$(jq -r '.services.storage.ports // [] | length' "$RUNNER_TEMP/stack.json")" = 0
+          test "$(jq -r '.services.api.ports[0].host_ip' "$RUNNER_TEMP/stack.json")" = 127.0.0.1
+
   format:
     name: clang-format
     runs-on: ubuntu-24.04
