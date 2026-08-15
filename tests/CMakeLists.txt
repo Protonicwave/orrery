@@ -24,6 +24,8 @@ add_executable(
   orrery_backend_test
   backend/cpu_features_test.cpp
   backend/cpu_topology_test.cpp
+  backend/cuda_device_test.cpp
+  backend/cuda_memory_test.cpp
   backend/executor_test.cpp
   backend/partition_test.cpp
   backend/sycl_device_test.cpp
@@ -72,6 +74,8 @@ add_executable(
   orrery_solvers_test
   solvers/barnes_hut_test.cpp
   solvers/conservation_test.cpp
+  solvers/cuda_direct_solver_test.cpp
+  solvers/cuda_tree_solver_test.cpp
   solvers/direct_kernel_test.cpp
   solvers/direct_solver_test.cpp
   solvers/kepler_orbit_test.cpp

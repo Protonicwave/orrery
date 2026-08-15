@@ -73,3 +73,4 @@ introduces it.
 | [0057](0057-store-trajectories-outside-the-database.md) | Store trajectories outside the database, and serve them through the API | Accepted |
 | [0058](0058-bound-the-service-with-the-jobs-it-already-stores.md) | Bound the service with the jobs it already stores | Accepted |
 | [0059](0059-expire-submitted-results-after-a-week.md) | Expire submitted results after a week | Accepted |
+| [0060](0060-write-the-cuda-backend-against-the-same-solver-interface.md) | Write the CUDA backend to test the solver interface, not because the project needs two GPUs | Accepted |

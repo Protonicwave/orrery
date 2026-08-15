@@ -52,7 +52,7 @@ viz/                 Camera, tone mapping, point renderer, window
 sim/                 Simulation driver: owns solver, integrator, output, checkpoints
 solvers/             Direct O(N^2), Barnes-Hut O(N log N)
 integrators/         Velocity Verlet, Yoshida 4th order, RK4
-backend/             CPU (work-stealing, AVX2) and SYCL (Arc iGPU, unified memory)
+backend/             CPU (work-stealing, AVX2), SYCL (Arc iGPU, unified memory), CUDA
 initial_conditions/  Sampled models and analytic configurations
 core/                Particle storage, vector maths, diagnostics, memory
 ```

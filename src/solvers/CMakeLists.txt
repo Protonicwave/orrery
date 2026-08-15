@@ -8,9 +8,10 @@
 # it.
 add_library(
   orrery_solvers STATIC
-  barnes_hut_solver.cpp direct_kernel.cpp direct_kernel_scalar.cpp
-  direct_solver.cpp morton.cpp octree.cpp reference_kernel.cpp
-  sycl_direct_solver.cpp sycl_tree_solver.cpp tree_walk.cpp)
+  barnes_hut_solver.cpp cuda_direct_solver.cpp cuda_tree_solver.cpp
+  direct_kernel.cpp direct_kernel_scalar.cpp direct_solver.cpp morton.cpp
+  octree.cpp reference_kernel.cpp sycl_direct_solver.cpp sycl_tree_solver.cpp
+  tree_walk.cpp)
 add_library(orrery::solvers ALIAS orrery_solvers)
 
 # All three are public: the solver interface derives from the integrators'
@@ -96,6 +97,81 @@ if(NOT EMSCRIPTEN AND CMAKE_SYSTEM_PROCESSOR MATCHES
     set_source_files_properties(direct_kernel_avx2.cpp
                                 PROPERTIES COMPILE_OPTIONS "${orrery_avx2_options}")
   endif()
+endif()
+
+# The CUDA kernels, and only the kernels.
+#
+# A target of their own because these are the two translation units in this
+# repository that a different compiler reads, and everything that follows is
+# about keeping that set small and keeping the project's own settings away from
+# it.
+#
+# They link orrery::cuda and nothing else. In particular they do not link
+# orrery::core, which would be the obvious thing to write since they include its
+# headers: orrery::core carries orrery::options publicly, and those are C++
+# compiler flags. Under MSVC that is /permissive- and three others, which nvcc
+# would receive as its own options and reject. The include path and the precision
+# switch are therefore set here by hand, which is a duplication of two lines
+# rather than of a decision, and the alternative is a generator expression on
+# every option in cmake/BuildSettings.cmake to exclude a language most builds do
+# not have.
+#
+# Nothing here is compiled unless ORRERY_ENABLE_CUDA is on, because unlike the
+# SYCL sources these files are not valid C++ without their compiler: a kernel
+# launch has a syntax no other compiler parses. The host halves in
+# cuda_direct_solver.cpp and backend/cuda_*.cpp are compiled in every build and
+# guarded internally, which is what keeps the interface answerable.
+if(ORRERY_ENABLE_CUDA)
+  add_library(orrery_cuda_kernels STATIC cuda_direct_kernel.cu
+                                         cuda_tree_kernel.cu)
+  add_library(orrery::cuda_kernels ALIAS orrery_cuda_kernels)
+
+  target_include_directories(
+    orrery_cuda_kernels PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
+
+  target_link_libraries(orrery_cuda_kernels PRIVATE orrery::cuda)
+
+  # The same switch orrery::options carries, applied by hand for the reason
+  # above. A kernel compiled against a different scalar type from the solver that
+  # launches it would disagree about the size of every array it reads, and the
+  # link would succeed.
+  if(ORRERY_SINGLE_PRECISION)
+    target_compile_definitions(orrery_cuda_kernels PRIVATE ORRERY_SINGLE_PRECISION)
+  endif()
+
+  set_target_properties(
+    orrery_cuda_kernels
+    PROPERTIES CUDA_ARCHITECTURES "${ORRERY_CUDA_ARCHITECTURES}"
+               CUDA_STANDARD 20
+               CUDA_STANDARD_REQUIRED ON)
+
+  # The project's warning policy in this compiler's spelling. nvcc has no
+  # equivalent of the diagnostic set in cmake/BuildSettings.cmake, so what is
+  # asked for is that whatever it does diagnose is fatal, which is the part of
+  # the policy that matters: a warning nobody has to act on is a warning nobody
+  # acts on.
+  if(ORRERY_WARNINGS_AS_ERRORS)
+    target_compile_options(orrery_cuda_kernels PRIVATE --Werror=all-warnings)
+  endif()
+
+  # One diagnostic from the device compiler's front end, suppressed by number
+  # rather than by widening the policy above.
+  #
+  # 554 is "will not be called for implicit or explicit conversions", raised
+  # against the conversion operator in core/vec3_span.hpp that turns a mutable
+  # view into a read-only one. That operator carries a requires-clause excluding
+  # the const specialisation, so for a read-only view it does not exist and
+  # Clang, GCC and MSVC all say nothing. EDG, which is nvcc's front end,
+  # evaluates the declaration before the constraint and reports a conversion from
+  # a type to itself that it then never offers.
+  #
+  # The code is correct and the remark is a front-end limitation, so the remark
+  # is silenced and the header is left alone. Suppressed by number so that this
+  # is the only diagnostic it hides: --Werror=all-warnings above stays in force
+  # for everything else.
+  target_compile_options(orrery_cuda_kernels PRIVATE --diag-suppress=554)
+
+  target_link_libraries(orrery_solvers PRIVATE orrery::cuda_kernels)
 endif()
 
 orrery_enable_linting(orrery_solvers)

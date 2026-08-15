@@ -77,6 +77,7 @@
 #include <cstdint>
 #include <span>
 
+#include "orrery/core/device.hpp"
 #include "orrery/core/softening.hpp"
 #include "orrery/core/types.hpp"
 #include "orrery/core/vec3.hpp"
@@ -125,8 +126,8 @@ struct WalkCounts {
 /// the cell's centre of mass: a cell holding one particle must produce exactly
 /// what the direct kernel produces for that particle, or the tree and the
 /// reference are not computing the same physics.
-[[nodiscard]] inline core::Vec3 monopole_acceleration(core::Vec3 offset, core::Real mass,
-                                                      core::Softening softening) noexcept {
+[[nodiscard]] ORRERY_DEVICE inline core::Vec3
+monopole_acceleration(core::Vec3 offset, core::Real mass, core::Softening softening) noexcept {
     // The same expression as one iteration of the direct kernel, with the
     // cell's total mass in place of a particle's and its centre of mass in
     // place of a position. That is what a monopole is, and writing it as
@@ -152,8 +153,9 @@ struct WalkCounts {
 /// the monopole and an approximation here. The approximation costs nothing that
 /// can be measured: a cell is only accepted when the target is many cell widths
 /// away, and the softening length is a fraction of the smallest cell.
-[[nodiscard]] inline core::Vec3 quadrupole_acceleration(core::Vec3 offset, const Quadrupole& moment,
-                                                        core::Softening softening) noexcept {
+[[nodiscard]] ORRERY_DEVICE inline core::Vec3
+quadrupole_acceleration(core::Vec3 offset, const Quadrupole& moment,
+                        core::Softening softening) noexcept {
     const core::Real inverse =
         core::softened_inverse_distance(core::squared_norm(offset), softening);
 
