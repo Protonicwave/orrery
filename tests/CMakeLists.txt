@@ -74,6 +74,7 @@ add_executable(
   orrery_solvers_test
   solvers/barnes_hut_test.cpp
   solvers/conservation_test.cpp
+  solvers/cuda_direct_solver_test.cpp
   solvers/direct_kernel_test.cpp
   solvers/direct_solver_test.cpp
   solvers/kepler_orbit_test.cpp
