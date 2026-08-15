@@ -158,16 +158,20 @@ struct CudaDeviceDescription {
     /// True when this device can run the kernels in the precision this build was
     /// configured for.
     ///
-    /// Every CUDA device implements double precision, so this is true in both
-    /// configurations and the function exists to say so rather than to decide
-    /// anything. It is kept because the SYCL description has one, because a
-    /// caller written against both should ask the same question of each, and
-    /// because the answer being uninteresting is itself worth recording: on this
-    /// vendor the precision question is entirely about rate, and consumer parts
+    /// Every CUDA device the toolkit still supports implements double precision,
+    /// so this is true in both configurations, and it is static because the
+    /// answer genuinely does not depend on the device. That is the finding
+    /// rather than an oversight: on the other backend `fp64` is an optional
+    /// aspect and a double-precision build can be declined outright, while on
+    /// this vendor the precision question is entirely about rate. Consumer parts
     /// run double precision at a small fraction of their single-precision rate
-    /// while reporting full support for it. `docs/performance/cuda.md` measures
-    /// the ratio rather than quoting a specification.
-    [[nodiscard]] bool supports_build_precision() const noexcept;
+    /// while reporting full support for it, and
+    /// `docs/performance/cuda.md` measures the ratio rather than quoting a
+    /// specification.
+    ///
+    /// Static and still called through an object, so that a caller written
+    /// against both backends asks the same question of each in the same words.
+    [[nodiscard]] static bool supports_build_precision() noexcept;
 };
 
 /// The CUDA device this machine offers, or nothing.

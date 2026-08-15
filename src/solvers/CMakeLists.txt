@@ -154,6 +154,23 @@ if(ORRERY_ENABLE_CUDA)
     target_compile_options(orrery_cuda_kernels PRIVATE --Werror=all-warnings)
   endif()
 
+  # One diagnostic from the device compiler's front end, suppressed by number
+  # rather than by widening the policy above.
+  #
+  # 554 is "will not be called for implicit or explicit conversions", raised
+  # against the conversion operator in core/vec3_span.hpp that turns a mutable
+  # view into a read-only one. That operator carries a requires-clause excluding
+  # the const specialisation, so for a read-only view it does not exist and
+  # Clang, GCC and MSVC all say nothing. EDG, which is nvcc's front end,
+  # evaluates the declaration before the constraint and reports a conversion from
+  # a type to itself that it then never offers.
+  #
+  # The code is correct and the remark is a front-end limitation, so the remark
+  # is silenced and the header is left alone. Suppressed by number so that this
+  # is the only diagnostic it hides: --Werror=all-warnings above stays in force
+  # for everything else.
+  target_compile_options(orrery_cuda_kernels PRIVATE --diag-suppress=554)
+
   target_link_libraries(orrery_solvers PRIVATE orrery::cuda_kernels)
 endif()
 

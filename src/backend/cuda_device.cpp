@@ -11,14 +11,13 @@
 
 namespace orrery::backend {
 
-bool CudaDeviceDescription::supports_build_precision() const noexcept {
+bool CudaDeviceDescription::supports_build_precision() noexcept {
     // Every CUDA device implements both precisions, so both configurations run
-    // and the question the SYCL description has to ask does not arise here. The
-    // function exists so that a caller written against both backends asks the
-    // same thing of each, and returns a constant rather than a field because
-    // there is no field to read: the runtime reports no capability flag for
-    // double precision, only a compute capability, and every capability the
-    // toolkit still supports has it.
+    // and the question the SYCL description has to ask does not arise here. It
+    // returns a constant rather than reading a field because there is no field
+    // to read: the runtime reports no capability flag for double precision,
+    // only a compute capability, and every capability the toolkit still
+    // supports has it.
     return true;
 }
 
