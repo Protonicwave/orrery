@@ -1,6 +1,6 @@
 {
   "name": "orrery-web",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "description": "The browser client for Orrery: the instrument and the reading half.",

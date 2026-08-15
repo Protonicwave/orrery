@@ -39,6 +39,14 @@ Python bindings. Two million
 particles at 0.6 seconds per force evaluation, with no host-to-device copy
 anywhere.
 
+The same core is published as an instrument at
+[protonicwave.github.io/orrery/instrument](https://protonicwave.github.io/orrery/instrument/),
+which plays runs this repository produced, computes small ones itself through
+the library compiled to WebAssembly, designs new ones in an editor that writes a
+configuration file back out, and can hand a full-size one to a compute service
+that runs the same binary. Nothing along that path is a second implementation of
+anything.
+
 Nothing is claimed here that a command in this repository does not reproduce.
 
 ## The demonstration
@@ -101,7 +109,7 @@ cmake --build --preset release
 ctest --preset release
 ```
 
-That is 311 cases in about eleven seconds.
+That is 315 cases in about nine seconds.
 
 **The integrators converge at the orders they claim**, measured against a
 circular orbit whose exact state after one period is the state it started in:
@@ -490,7 +498,10 @@ include/          Public headers, under include/orrery/<layer>/
 src/              Implementation, one directory per layer
 apps/             The command-line simulator and the viewer
 python/           The extension module, the package, its tests and its notebooks
+wasm/             The C boundary the browser build crosses, and nothing else
 web/              The browser client, its design system and its tests
+service/          The compute service: the API, the queue and the worker
+deploy/           The two images, a compose file, and the database backup
 examples/         Configuration files that run as they are
 tests/            Catch2 test suite, one executable per layer
 benchmarks/       Measurement programs. They report numbers rather than assert them
@@ -520,7 +531,7 @@ everything and nothing depends on it.
 Four habits the repository keeps, each of them checkable rather than asserted.
 
 **A decision that had a credible alternative is written down.**
-[`docs/adr/`](docs/adr/) holds fifty-seven numbered records, each giving the
+[`docs/adr/`](docs/adr/) holds sixty numbered records, each giving the
 context, the decision and the consequences. None is edited after it is merged: a
 decision that changes gets a new record superseding the old one, because the
 value of the directory is what was believed at the time rather than a tidy
@@ -554,7 +565,7 @@ mutates a global compiler flag: every setting reaches a target through an
 interface library, so a dependency built inside this tree keeps its own flags
 (ADR-0003).
 
-## Reading one in a browser
+## In a browser
 
 The instrument is at
 [protonicwave.github.io/orrery/instrument](https://protonicwave.github.io/orrery/instrument/).
@@ -581,6 +592,28 @@ physics rather than the performance, and the plate states the solver, the kernel
 the thread count and the measured step time for as long as it is running.
 [`docs/webassembly.md`](docs/webassembly.md) has the figures; ADR-0051 records
 why the solver is compiled rather than written again.
+
+[The editor](https://protonicwave.github.io/orrery/instrument/editor/) designs a
+run rather than playing one, and draws it as a technical drawing: construction
+lines for the predicted orbit, dimension lines with measurements, and an
+orbital-element readout worked out from the settings while they move. Four
+scenarios form a path, the two-body problem into a Plummer sphere into a single
+disc into the collision, each editable into the next, and the preview is stepped
+by the same solver. What leaves it is an `.orrery` file carrying the comment
+header the files in `examples/` carry, which `orrery run` takes unmodified.
+[`docs/editor.md`](docs/editor.md).
+
+A run larger than a tab can hold goes to the compute service in
+[`service/`](service/): a configuration file is submitted, queued in PostgreSQL,
+run by a worker calling the same `orrery` binary this repository builds, and
+handed back as a trajectory the instrument plays through the reader it plays the
+gallery with. Progress arrives over a WebSocket. Submissions are bounded at both
+ends, one run and the sequence of runs, and refused with every objection at once
+rather than clamped. The published client has no service configured, so it says
+so and offers the gallery, which is the behaviour ADR-0054 asks for rather than a
+failure of one. [`docs/service.md`](docs/service.md) states what it accepts and
+what it refuses, and [`deploy/`](deploy/) holds the two images, a compose file
+for local use and a documented restore.
 
 The client is a separate toolchain and no part of the C++ build:
 
@@ -613,13 +646,24 @@ apart (ADR-0043).
   the demonstration scenario and the path from a run to a video.
 - [Python bindings](docs/python.md): installing, the zero-copy array interface,
   the lifetime rules, and the example notebooks.
+- [The instrument](docs/instrument.md): what the browser client draws, where the
+  runs it draws come from, and what the drawing costs.
+- [The initial-conditions editor](docs/editor.md): what it edits, what the
+  drawing says, and the file it hands back.
+- [The solver in a browser](docs/webassembly.md): what is in the WebAssembly
+  build, what a step costs there, and the test that says it agrees with the
+  native one.
+- [The compute service](docs/service.md): what a submission goes through, what
+  is refused and why, and what the client does when nothing answers.
 - [File formats](docs/formats/): the configuration language, the binary
   trajectory and the checkpoint, each specified well enough to be read by
   something other than this program.
 - [Architecture decision records](docs/adr/): why the design is the way it is,
-  in forty-five short documents.
+  in sixty short documents.
 - [Contributing guide](CONTRIBUTING.md): conventions, testing categories and the
   definition of done.
+- [Changelog](CHANGELOG.md): what each released version can do that the one
+  before it could not.
 
 ## Licence
 

@@ -96,7 +96,9 @@ appears in any loop over particles.
 **A GPU implementation is a backend behind the solver interface, not a second
 copy of the solver.** Two divergent implementations of the same physics is the
 usual way a project of this kind decays, and ADR-0026 puts the device behind the
-interface rather than in front of it.
+interface rather than in front of it. There are two such backends, one in SYCL
+and one in CUDA, and the second exists to find out whether that interface holds
+for a vendor it was not designed against (ADR-0060).
 
 **Precision is selected at build time.** `Real` is `double` by default and
 `float` under a build option. Templating every solver on the scalar type would
