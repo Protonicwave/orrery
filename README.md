@@ -531,7 +531,7 @@ everything and nothing depends on it.
 Four habits the repository keeps, each of them checkable rather than asserted.
 
 **A decision that had a credible alternative is written down.**
-[`docs/adr/`](docs/adr/) holds fifty-seven numbered records, each giving the
+[`docs/adr/`](docs/adr/) holds sixty numbered records, each giving the
 context, the decision and the consequences. None is edited after it is merged: a
 decision that changes gets a new record superseding the old one, because the
 value of the directory is what was believed at the time rather than a tidy
@@ -659,7 +659,7 @@ apart (ADR-0043).
   trajectory and the checkpoint, each specified well enough to be read by
   something other than this program.
 - [Architecture decision records](docs/adr/): why the design is the way it is,
-  in forty-five short documents.
+  in sixty short documents.
 - [Contributing guide](CONTRIBUTING.md): conventions, testing categories and the
   definition of done.
 - [Changelog](CHANGELOG.md): what each released version can do that the one
