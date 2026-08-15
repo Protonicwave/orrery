@@ -58,7 +58,15 @@ namespace {
         power *= 2;
     }
 
-    return power;
+    // Never narrower than a warp. The shuffle ladder names every lane of the
+    // warp in its mask, which is correct only if every lane is present, and a
+    // block smaller than a warp would leave some of them outside the launch.
+    //
+    // No device this project has met reports a maximum block size below 512, so
+    // this floor is unreachable on real hardware and is here because the
+    // alternative to an unreachable floor is an unchecked assumption. The suite
+    // asserts the same property from the outside.
+    return std::max<Index>(power, device.warp_size);
 }
 
 /// The coherence widths this solver has a traversal for.
