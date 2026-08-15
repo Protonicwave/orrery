@@ -24,6 +24,8 @@ add_executable(
   orrery_backend_test
   backend/cpu_features_test.cpp
   backend/cpu_topology_test.cpp
+  backend/cuda_device_test.cpp
+  backend/cuda_memory_test.cpp
   backend/executor_test.cpp
   backend/partition_test.cpp
   backend/sycl_device_test.cpp
