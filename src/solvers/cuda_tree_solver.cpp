@@ -96,16 +96,20 @@ namespace {
 
 /// Everything that requires the CUDA runtime's header, kept out of the public
 /// interface.
+///
+/// The constructor's parameters are named apart from the members they fill, for
+/// the reason `CudaDirectSolver::Impl` gives: this translation unit meets the
+/// project's full warning set, and one of those warnings is about exactly that.
 struct CudaTreeSolver::Impl {
-    Impl(backend::CudaDeviceDescription description, TreeParameters parameters,
-         core::Softening softening, backend::Executor* executor)
-        : description(std::move(description)),
-          parameters(corrected_parameters(parameters)),
-          softening(softening),
-          executor(executor),
-          widths(supported_widths(this->description.warp_size)),
-          block(choose_block_size(this->description)),
-          width(this->description.warp_size) {}
+    Impl(backend::CudaDeviceDescription discovered, TreeParameters requested,
+         core::Softening requested_softening, backend::Executor* host_executor)
+        : description(std::move(discovered)),
+          parameters(corrected_parameters(requested)),
+          softening(requested_softening),
+          executor(host_executor),
+          widths(supported_widths(description.warp_size)),
+          block(choose_block_size(description)),
+          width(description.warp_size) {}
 
     backend::CudaDeviceDescription description;
     TreeParameters parameters;

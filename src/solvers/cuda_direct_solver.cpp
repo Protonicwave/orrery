@@ -66,11 +66,20 @@ namespace {
 
 /// Everything that requires the CUDA runtime's header, kept out of the public
 /// interface.
+///
+/// The constructor's parameters are not named after the members they fill,
+/// which the SYCL solvers' equivalents are. That is not a style preference: this
+/// translation unit is compiled by whichever compiler the build was already
+/// using, so it meets the project's full warning set, and GCC's -Wshadow
+/// reports a constructor parameter that shadows a member. The SYCL sources are
+/// only ever compiled by icpx, which does not, so the question has never come up
+/// there. Holding this backend's host halves to the same diagnostics as the rest
+/// of the project is the point of keeping them out of .cu files.
 struct CudaDirectSolver::Impl {
-    Impl(backend::CudaDeviceDescription description, core::Softening softening)
-        : description(std::move(description)),
-          softening(softening),
-          block(choose_block_size(this->description)) {}
+    Impl(backend::CudaDeviceDescription discovered, core::Softening requested)
+        : description(std::move(discovered)),
+          softening(requested),
+          block(choose_block_size(description)) {}
 
     backend::CudaDeviceDescription description;
     core::Softening softening;

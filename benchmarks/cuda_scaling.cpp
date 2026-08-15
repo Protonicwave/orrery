@@ -78,7 +78,6 @@ namespace {
 using orrery::backend::check_cuda;
 using orrery::backend::CudaArray;
 using orrery::backend::CudaDeviceDescription;
-using orrery::backend::CudaHostArray;
 using orrery::backend::ThreadPool;
 using orrery::backend::to_version_string;
 using orrery::backend::WorkStealingExecutor;
@@ -229,14 +228,18 @@ struct DeviceCeilings {
     CudaArray<float> input{kElements};
     CudaArray<float> output{static_cast<std::size_t>(kBlocks) * kBlock};
 
-    // Filled through a staging buffer rather than left uninitialised, because a
-    // read of memory the driver has never had to back is a read the driver may
-    // satisfy without touching it.
-    CudaHostArray<float> staging{kElements};
-    for (std::size_t i = 0; i < kElements; ++i) {
-        staging.data()[i] = 1.0F;
-    }
-    input.copy_from_host(staging.data(), kElements);
+    // Filled rather than left uninitialised, because a read of memory the driver
+    // has never had to back is a read the driver may satisfy without touching
+    // it, and this probe exists to make the memory controller work.
+    //
+    // Filled from ordinary host memory rather than from a pinned buffer, which
+    // is the one place in this program that choice is right. Pinning is what
+    // makes a repeated transfer fast and it is what the solvers stage through;
+    // here there is one transfer, it happens before anything is timed, and
+    // pinning a quarter of a gigabyte on a shared hosted machine to save a few
+    // milliseconds nobody is measuring would be the wrong trade.
+    const std::vector<float> filled(kElements, 1.0F);
+    input.copy_from_host(filled.data(), kElements);
 
     const float* const data = input.data();
     float* const sums = output.data();
@@ -246,7 +249,7 @@ struct DeviceCeilings {
                    "the read bandwidth probe");
     });
 
-    const double bytes = static_cast<double>(kElements) * sizeof(float);
+    const double bytes = static_cast<double>(kElements) * static_cast<double>(sizeof(float));
     const double seconds = milliseconds(trials.median()) * 1.0e-3;
     return seconds > 0 ? bytes / seconds * 1.0e-9 : 0;
 }
@@ -512,7 +515,8 @@ void print_ceilings(const DeviceCeilings& ceilings, const std::vector<ScalingRow
     // So the global traffic is N^2/block source records of four scalars, and the
     // intensity carries a factor of the block size.
     const double tile = static_cast<double>(block);
-    const double intensity = kFlopsPerInteraction * tile / (4.0 * sizeof(Real));
+    const double intensity =
+        kFlopsPerInteraction * tile / (4.0 * static_cast<double>(sizeof(Real)));
 
     std::cout << "\nthe kernel's best row reached " << std::setprecision(1) << achieved
               << " Gflop/s, " << std::setprecision(1)
